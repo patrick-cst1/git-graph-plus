@@ -13,7 +13,7 @@ vi.mock('vscode', () => ({
   },
 }));
 
-import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readAutoLoadHistory, readLfsLocksEnabled, readDefaultCommitTab } from '../config';
+import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readAutoLoadHistory, readLfsLocksEnabled, readDefaultCommitTab, readShowStashes } from '../config';
 
 describe('readTimeoutMs', () => {
   // Back-compat alias so the existing timeout cases below read naturally.
@@ -167,5 +167,25 @@ describe('readDefaultCommitTab', () => {
   it('falls back to details for an unknown value', () => {
     h.values.defaultCommitTab = 'bogus';
     expect(readDefaultCommitTab()).toBe('details');
+  });
+});
+
+describe('readShowStashes', () => {
+  beforeEach(() => { h.values = {}; });
+
+  it('defaults to true when unset (stashes visible, current behaviour)', () => {
+    expect(readShowStashes()).toBe(true);
+  });
+
+  it('returns the boolean value as-is', () => {
+    h.values.showStashes = false;
+    expect(readShowStashes()).toBe(false);
+    h.values.showStashes = true;
+    expect(readShowStashes()).toBe(true);
+  });
+
+  it('falls back to true for a non-boolean value', () => {
+    h.values.showStashes = 'no';
+    expect(readShowStashes()).toBe(true);
   });
 });

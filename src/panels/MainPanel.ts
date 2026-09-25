@@ -5,7 +5,7 @@ import { GitService, GitError } from '../git/git-service';
 import { formatGitError, isAuthFailure, transportFromRemoteUrl } from '../git/git-error-formatter';
 import { splitUpstreamRef } from '../git/git-parser';
 import { samePath } from '../utils/path';
-import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readAutoLoadHistory, readInteractiveRebaseMode, readLfsLocksEnabled, readDefaultCommitTab } from '../utils/config';
+import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readAutoLoadHistory, readInteractiveRebaseMode, readLfsLocksEnabled, readDefaultCommitTab, readShowStashes } from '../utils/config';
 import { buildClassicRebaseCommand } from '../git/classic-rebase';
 import { buildFullGraph } from '../git/git-graph-builder';
 import { compileBranchColorRules, makeBranchColorResolver } from '../git/branch-color-resolver';
@@ -220,6 +220,10 @@ export class MainPanel {
           this.fileWatcher.enabled = vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('autoRefresh', true);
         }
         if (e.affectsConfiguration('gitGraphPlus.graphSortOrder')) {
+          this.refreshAll();
+        }
+        if (e.affectsConfiguration('gitGraphPlus.showStashes')) {
+          // Toggling stash visibility changes the graph, so reload the log.
           this.refreshAll();
         }
         if (e.affectsConfiguration('gitGraphPlus.locale')) {
@@ -448,7 +452,7 @@ export class MainPanel {
           this.isFirstGetLog = false;
           this.currentRemoteFilter = effectiveFilter;
           this.currentBranchFilter = effectiveBranchFilter;
-          const logPayload = { ...message.payload, remoteFilter: effectiveFilter, branches: effectiveBranchFilter, limit: requestedLimit + 1, sortOrder, includeSignature };
+          const logPayload = { ...message.payload, remoteFilter: effectiveFilter, branches: effectiveBranchFilter, limit: requestedLimit + 1, sortOrder, includeSignature, includeStashes: readShowStashes() };
           const seq = ++this.logSequence;
           const [allFetched, logBranches] = await Promise.all([
             this.gitService.log(logPayload),
@@ -1233,6 +1237,7 @@ export class MainPanel {
             author: message.payload.author,
             after: message.payload.after,
             before: message.payload.before,
+            includeStashes: readShowStashes(),
           });
           if (seq !== this.searchSequence) break;
           this.post({ type: 'searchResults', payload: { commits: results, graph: [] } });
@@ -1247,7 +1252,7 @@ export class MainPanel {
         }
         case 'searchByFile': {
           const seq = ++this.searchSequence;
-          const results = await this.gitService.searchByFile(message.payload.file);
+          const results = await this.gitService.searchByFile(message.payload.file, undefined, { includeStashes: readShowStashes() });
           if (seq !== this.searchSequence) break;
           this.post({ type: 'searchResults', payload: { commits: results, graph: [] } });
           break;
@@ -1848,7 +1853,7 @@ export class MainPanel {
       // repo-unrelated "demo"-looking graph.
       const remoteFilter = this.isFirstGetLog ? MainPanel.savedRemoteFilter : this.currentRemoteFilter;
       const branchFilter = this.isFirstGetLog ? MainPanel.savedBranchFilter : this.currentBranchFilter;
-      const logArgs = { limit: refreshLimit + 1, sortOrder, remoteFilter, branches: branchFilter, includeSignature };
+      const logArgs = { limit: refreshLimit + 1, sortOrder, remoteFilter, branches: branchFilter, includeSignature, includeStashes: readShowStashes() };
 
       const buildLogData = (allFetched: Awaited<ReturnType<typeof this.gitService.log>>, branches: Awaited<ReturnType<typeof this.gitService.branches>>) => {
         const hasMore = allFetched.length > refreshLimit;
