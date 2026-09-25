@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { readFile, access } from 'fs/promises';
+import { readFileSync } from 'fs';
 import { GitService, GitError } from '../git/git-service';
 import { formatGitError, isAuthFailure, transportFromRemoteUrl } from '../git/git-error-formatter';
 import { splitUpstreamRef } from '../git/git-parser';
@@ -2079,13 +2080,35 @@ export class MainPanel {
     }
   }
 
+  private static cachedWebviewVersion: string | null = null;
+
+  /**
+   * Cache-busting query for the webview bundle. `main.js` / `main.css` keep
+   * stable filenames across builds, and a VS Code webview can otherwise serve a
+   * previously cached bundle after the extension is updated.
+   */
+  private getWebviewAssetVersion(): string {
+    if (!MainPanel.cachedWebviewVersion) {
+      try {
+        const pkg = JSON.parse(
+          readFileSync(path.join(this.extensionUri.fsPath, 'package.json'), 'utf8'),
+        ) as { version?: string };
+        MainPanel.cachedWebviewVersion = pkg.version ?? String(Date.now());
+      } catch {
+        MainPanel.cachedWebviewVersion = String(Date.now());
+      }
+    }
+    return MainPanel.cachedWebviewVersion;
+  }
+
   private getHtmlForWebview(webview: vscode.Webview): string {
     const distUri = vscode.Uri.joinPath(this.extensionUri, 'webview-ui', 'dist');
-    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(distUri, 'main.js'));
-    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(distUri, 'main.css'));
-    const codiconUri = webview.asWebviewUri(
+    const assetVersion = this.getWebviewAssetVersion();
+    const scriptUri = `${webview.asWebviewUri(vscode.Uri.joinPath(distUri, 'main.js'))}?v=${assetVersion}`;
+    const styleUri = `${webview.asWebviewUri(vscode.Uri.joinPath(distUri, 'main.css'))}?v=${assetVersion}`;
+    const codiconUri = `${webview.asWebviewUri(
       vscode.Uri.joinPath(this.extensionUri, 'node_modules', '@vscode', 'codicons', 'dist', 'codicon.css')
-    );
+    )}?v=${assetVersion}`;
 
     const nonce = getNonce();
 
