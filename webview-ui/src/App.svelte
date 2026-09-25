@@ -56,6 +56,10 @@ import AmendModal from './components/modals/AmendModal.svelte';
   let bisectMessage = $state<string | null>(null);
   let searchMatchedHashes = $state<Set<string> | null>(null);
   let searchNavigateHash = $state<string | null>(null);
+  // Bumped every time a navigation target is requested (search result, reflog
+  // Show in Graph, pinned slice) so the graph scrolls exactly once per request
+  // and never re-scrolls on a later resize/refresh.
+  let searchNavigateNonce = $state(0);
   let headOffscreen = $state(false);
   let headJumpNonce = $state(0);
   let remoteFilter = $state<string[]>([]);
@@ -117,6 +121,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
             uiStore.pinnedHash = msg.payload.pinnedHash;
             uiStore.selectSingle(msg.payload.pinnedHash);
             searchNavigateHash = msg.payload.pinnedHash;
+            searchNavigateNonce++;
           } else {
             // A normal payload ends any pinned view. Only drop the navigation
             // target when we were actually pinned, so ordinary refreshes leave
@@ -352,6 +357,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
 
   function handleSearchNavigate(hash: string) {
     searchNavigateHash = hash;
+    searchNavigateNonce++;
   }
 
   // Reflog context menu → "Show in Graph". v1: the commit is already in the
@@ -365,6 +371,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
     if (commit) {
       uiStore.selectSingle(commit.hash);
       searchNavigateHash = commit.hash;
+      searchNavigateNonce++;
     } else {
       vscode.postMessage({ type: 'revealCommitInGraph', payload: { hash } });
     }
@@ -585,7 +592,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
       {/if}
       {#if !uiStore.commitDetailFullscreen}
         <div class="graph-area">
-          <CommitGraph {searchMatchedHashes} {searchNavigateHash} headJumpNonce={headJumpNonce} onHeadOffscreenChange={(v) => headOffscreen = v} bisectActive={bisectMessage !== null} bisectCulpritHash={bisectMessage?.includes('is the first bad commit') ? bisectMessage.match(/^([a-f0-9]{7,40})/)?.[1] ?? null : null} {remoteFilter} />
+          <CommitGraph {searchMatchedHashes} {searchNavigateHash} searchNavigateNonce={searchNavigateNonce} headJumpNonce={headJumpNonce} onHeadOffscreenChange={(v) => headOffscreen = v} bisectActive={bisectMessage !== null} bisectCulpritHash={bisectMessage?.includes('is the first bad commit') ? bisectMessage.match(/^([a-f0-9]{7,40})/)?.[1] ?? null : null} {remoteFilter} />
         </div>
       {/if}
       {#if uiStore.showBottomPanel && (uiStore.selectedCommitHash || uiStore.comparing)}

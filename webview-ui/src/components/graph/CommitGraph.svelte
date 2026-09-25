@@ -89,6 +89,7 @@
   interface Props {
     searchMatchedHashes?: Set<string> | null;
     searchNavigateHash?: string | null;
+    searchNavigateNonce?: number;
     bisectActive?: boolean;
     bisectCulpritHash?: string | null;
     remoteFilter?: string[];
@@ -96,7 +97,7 @@
     onHeadOffscreenChange?: (offscreen: boolean) => void;
   }
 
-  let { searchMatchedHashes = null, searchNavigateHash = null, bisectActive = false, bisectCulpritHash = null, remoteFilter = [], headJumpNonce = 0, onHeadOffscreenChange = () => {} }: Props = $props();
+  let { searchMatchedHashes = null, searchNavigateHash = null, searchNavigateNonce = 0, bisectActive = false, bisectCulpritHash = null, remoteFilter = [], headJumpNonce = 0, onHeadOffscreenChange = () => {} }: Props = $props();
 
   const vscode = getVsCodeApi();
 
@@ -419,8 +420,15 @@
     if (next !== null) container.scrollTop = next;
   }
 
-  // Scroll to search result when navigating
+  // Scroll once per navigation request (search result / Reflog Show in Graph /
+  // pinned slice). The effect also reads viewportHeight and displayCommits, so
+  // it re-runs on any resize or refresh; the nonce guard keeps those from
+  // re-scrolling an old target and yanking the user away from where they are
+  // (e.g. the bottom panel opening on the first commit click).
+  let lastSearchNavigateNonce = 0;
   $effect(() => {
+    if (searchNavigateNonce === lastSearchNavigateNonce) return;
+    lastSearchNavigateNonce = searchNavigateNonce;
     if (searchNavigateHash && container) {
       navPath = [];
       scrollHashIntoView(searchNavigateHash, 'center');

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.14
+
+- Fix the graph scrolling back to a previous search / reflog target when the
+  bottom panel opens (a single commit click could jump the view unexpectedly).
+
 ## 0.7.13
 
 - Add a "create initial commit" action when the repository has no commits yet.
