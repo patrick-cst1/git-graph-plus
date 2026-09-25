@@ -362,6 +362,9 @@
 
 
   const ROW_HEIGHT = 30;
+  // Background behind the graph, used by the Git Graph-style line shadows and
+  // dot outlines so lanes read as separate when they cross.
+  const GRAPH_BACKGROUND = 'var(--bg-primary, var(--vscode-editor-background, #1e1e1e))';
   // Rows of breathing room kept between the selection and the viewport edge when
   // stepping with the arrow keys, so context above/below the selection stays visible.
   const KEYBOARD_NAV_SCROLL_MARGIN_ROWS = 3;
@@ -1440,8 +1443,8 @@
         {#each visiblePaths as path}
           {@const pathColor = resolveGraphColor(graphColorsStore.palette, path.color, path.colorOverride)}
           {#if path.d}
-            <path d={path.d} fill="none" stroke={pathColor} stroke-width="5" opacity="0.07" stroke-linecap="round" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined} />
-            <path d={path.d} fill="none" stroke={pathColor} stroke-width="2" opacity="0.85" stroke-linecap="round" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined} />
+            <path d={path.d} fill="none" stroke={GRAPH_BACKGROUND} stroke-width="4" stroke-opacity="0.75" stroke-linecap="round" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined} />
+            <path d={path.d} fill="none" stroke={pathColor} stroke-width="2" stroke-linecap="round" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined} />
           {/if}
         {/each}
 
@@ -1459,11 +1462,11 @@
             : `M ${sx} ${sy} Q ${cx} ${cy}, ${ex} ${ey}`}
           <path
             d={linkD}
-            fill="none" stroke={linkColor} stroke-width="5" opacity="0.07" stroke-linecap="round" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined}
+            fill="none" stroke={GRAPH_BACKGROUND} stroke-width="4" stroke-opacity="0.75" stroke-linecap="round" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined}
           />
           <path
             d={linkD}
-            fill="none" stroke={linkColor} stroke-width="2" opacity="0.85" stroke-linecap="round" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined}
+            fill="none" stroke={linkColor} stroke-width="2" stroke-linecap="round" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined}
           />
         {/each}
 
@@ -1474,14 +1477,11 @@
           {@const dy = dot.center.y * ROW_HEIGHT}
           {@const dotCommit = displayCommits[startIndex + i]}
           {#if dotCommit?.hash === 'UNCOMMITTED'}
-            <circle cx={dx} cy={dy} r={5} fill="none" stroke="#888888" stroke-width="1.5" stroke-dasharray="3 2" />
+            <circle cx={dx} cy={dy} r={4} fill="none" stroke="#888888" stroke-width="1.5" stroke-dasharray="3 2" />
           {:else if dot.type === 'head'}
-            <circle cx={dx} cy={dy} r={5} fill="var(--bg-primary, #1e1e1e)" stroke={dotColor} stroke-width="2" />
-          {:else if dot.type === 'merge'}
-            <circle cx={dx} cy={dy} r={4} fill="var(--bg-primary, #1e1e1e)" stroke={dotColor} stroke-width="1.5" />
-            <circle cx={dx} cy={dy} r={2} fill={dotColor} />
+            <circle cx={dx} cy={dy} r={4} fill={GRAPH_BACKGROUND} stroke={dotColor} stroke-width="2" />
           {:else}
-            <circle cx={dx} cy={dy} r={4} fill={dotColor} />
+            <circle cx={dx} cy={dy} r={4} fill={dotColor} stroke={GRAPH_BACKGROUND} stroke-width="1" stroke-opacity="0.75" />
           {/if}
         {/each}
       </svg>
