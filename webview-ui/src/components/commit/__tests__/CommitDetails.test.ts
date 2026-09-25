@@ -5,6 +5,7 @@ import { i18n } from '../../../lib/i18n/index.svelte';
 import { commitStore } from '../../../lib/stores/commits.svelte';
 import { uiStore } from '../../../lib/stores/ui.svelte';
 import { modalStore } from '../../../lib/stores/modals.svelte';
+import { commitLinkRulesStore } from '../../../lib/stores/commit-link-rules.svelte';
 import type { Commit, DiffData } from '../../../lib/types';
 
 function commit(over: Partial<Commit> = {}): Commit {
@@ -54,6 +55,7 @@ function deliverSignature(hash: string, signature: { status: 'good' | 'none' | '
 beforeEach(() => {
   i18n.setLocale('en');
   globalThis.__postedMessages = [];
+  commitLinkRulesStore.set([]);
   commitStore.commits = [];
   uiStore.selectedCommitHash = null;
   uiStore.commitDetailFullscreen = false;
@@ -1457,6 +1459,73 @@ describe('CommitDetails — markdown toggle', () => {
     expect(container.querySelector('.message-view-toggle')).toBeNull();
     expect(queryByText('Markdown')).toBeNull();
     expect(container.querySelector('.message-subject')?.textContent).toContain('Fix crash on startup');
+  });
+});
+
+describe('CommitDetails — auto-links in the commit message', () => {
+  const rule = { pattern: 'GH-(\\d+)', url: 'https://tickets.example/GH-$1' };
+
+  it('renders an anchor for a reference in a plain-text subject when rules are present', async () => {
+    commitLinkRulesStore.set([rule]);
+    const { container } = render(CommitDetails, {
+      commit: commit({ hash: 'h1', subject: 'fix GH-12 crash', body: '', parents: [] }),
+    });
+    await waitFor(() => expect(container.querySelector('.message-subject a.commit-link')).not.toBeNull());
+    const link = container.querySelector<HTMLAnchorElement>('.message-subject a.commit-link')!;
+    expect(link.textContent).toBe('GH-12');
+    expect(link.getAttribute('href')).toBe('https://tickets.example/GH-12');
+  });
+
+  it('linkifies references in the body as well as the subject', async () => {
+    commitLinkRulesStore.set([rule]);
+    const { container } = render(CommitDetails, {
+      commit: commit({ hash: 'h1', subject: 'chore: cleanup', body: 'closes GH-12', parents: [] }),
+    });
+    await waitFor(() => expect(container.querySelector('.message-body a.commit-link')).not.toBeNull());
+    expect(container.querySelector('.message-body a.commit-link')!.getAttribute('href'))
+      .toBe('https://tickets.example/GH-12');
+  });
+
+  it('produces no anchor when no rules are configured', async () => {
+    commitLinkRulesStore.set([]);
+    const { container } = render(CommitDetails, {
+      commit: commit({ hash: 'h1', subject: 'fix #12, see https://example.com/x', body: '', parents: [] }),
+    });
+    await waitFor(() => expect(container.querySelector('.message-subject')).not.toBeNull());
+    expect(container.querySelector('.message-subject a')).toBeNull();
+    expect(container.querySelector('.message-subject')!.textContent).toContain('fix #12');
+  });
+
+  it('linkifies references inside Markdown-formatted messages', async () => {
+    commitLinkRulesStore.set([rule]);
+    const { container } = render(CommitDetails, {
+      commit: commit({ hash: 'h1', subject: '**fix** GH-12', body: '', parents: [] }),
+    });
+    await waitFor(() => expect(container.querySelector('.message-markdown a.commit-link')).not.toBeNull());
+    expect(container.querySelector('.message-markdown strong')?.textContent).toBe('fix');
+    const link = container.querySelector<HTMLAnchorElement>('.message-markdown a.commit-link')!;
+    expect(link.textContent).toBe('GH-12');
+    expect(link.getAttribute('href')).toBe('https://tickets.example/GH-12');
+  });
+
+  it('keeps the link when a Markdown message is switched to plain text', async () => {
+    commitLinkRulesStore.set([rule]);
+    const { container, getByText } = render(CommitDetails, {
+      commit: commit({ hash: 'h1', subject: '**fix** GH-12', body: '', parents: [] }),
+    });
+    await fireEvent.click(getByText('Plain Text'));
+    await waitFor(() => expect(container.querySelector('.message-subject a.commit-link')).not.toBeNull());
+    expect(container.querySelector('.message-subject a.commit-link')!.getAttribute('href'))
+      .toBe('https://tickets.example/GH-12');
+  });
+
+  it('produces no anchor in a Markdown message when no rules are configured', async () => {
+    commitLinkRulesStore.set([]);
+    const { container } = render(CommitDetails, {
+      commit: commit({ hash: 'h1', subject: '**fix** #12', body: '', parents: [] }),
+    });
+    await waitFor(() => expect(container.querySelector('.message-markdown')).not.toBeNull());
+    expect(container.querySelector('.message-markdown a')).toBeNull();
   });
 });
 
