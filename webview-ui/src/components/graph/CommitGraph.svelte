@@ -47,7 +47,7 @@
   function buildPathD(points: Array<{ x: number; y: number }>, style: GraphStyle): string {
     if (points.length < 2) return '';
 
-    const d = ROW_HEIGHT * (style === 'angular' ? 0.38 : 0.8);
+    const factor = style === 'angular' ? 0.38 : 0.8;
     const parts: string[] = [];
     let last = { x: laneX(points[0].x), y: points[0].y * ROW_HEIGHT };
     parts.push(`M ${last.x} ${last.y}`);
@@ -58,17 +58,26 @@
       if (cur.x === last.x) {
         // Same lane: straight vertical run
         parts.push(`L ${cur.x} ${cur.y}`);
-      } else if (style === 'angular') {
-        // mhutchie angular: a diagonal to (cur.x, cur.y - d) then vertical when
-        // the line locks to its destination, or vertical then a diagonal to the
-        // destination. We lock to the destination lane when moving right
-        // (fork shape) and to the source lane when moving left.
-        if (cur.x > last.x) parts.push(`L ${cur.x} ${cur.y - d}`);
-        else parts.push(`L ${last.x} ${last.y + d}`);
-        parts.push(`L ${cur.x} ${cur.y}`);
       } else {
-        // mhutchie rounded: cubic with both control points offset by d
-        parts.push(`C ${last.x} ${last.y + d}, ${cur.x} ${cur.y - d}, ${cur.x} ${cur.y}`);
+        // SourceGit routes lane changes through half-row points, so a transition
+        // can span only half a row (12px). Scale the control offset to that
+        // span (mhutchie's 0.8/0.38 of a full row) instead of a fixed
+        // ROW_HEIGHT fraction — otherwise the control points escape the segment
+        // and the cubic overshoots into a visible kink instead of a round curve.
+        const d = Math.abs(cur.y - last.y) * factor;
+
+        if (style === 'angular') {
+          // mhutchie angular: a diagonal to (cur.x, cur.y - d) then vertical when
+          // the line locks to its destination, or vertical then a diagonal to the
+          // destination. We lock to the destination lane when moving right
+          // (fork shape) and to the source lane when moving left.
+          if (cur.x > last.x) parts.push(`L ${cur.x} ${cur.y - d}`);
+          else parts.push(`L ${last.x} ${last.y + d}`);
+          parts.push(`L ${cur.x} ${cur.y}`);
+        } else {
+          // mhutchie rounded: cubic with both control points offset by d
+          parts.push(`C ${last.x} ${last.y + d}, ${cur.x} ${cur.y - d}, ${cur.x} ${cur.y}`);
+        }
       }
 
       last = cur;
@@ -1389,7 +1398,22 @@
   {:else if commitStore.notGitRepo}
     <div class="empty">{t('graph.notGitRepo')}</div>
   {:else if displayCommits.length === 0}
-    <div class="empty">{isSearchActive ? t('graph.noResults') : t('graph.noCommits')}</div>
+    {#if isSearchActive}
+      <div class="empty">{t('graph.noResults')}</div>
+    {:else if commitStore.isEmptyRepo}
+      <div class="empty empty-initial">
+        <p class="empty-initial-text">{t('graph.emptyRepo')}</p>
+        <button
+          class="empty-initial-btn"
+          onclick={() => vscode.postMessage({ type: 'createInitialCommit' })}
+        >
+          <i class="codicon codicon-git-commit"></i>
+          {t('graph.createInitialCommit')}
+        </button>
+      </div>
+    {:else}
+      <div class="empty">{t('graph.noCommits')}</div>
+    {/if}
   {:else}
     {#if false}{/if}
 
@@ -1400,7 +1424,10 @@
         {#if commit.hash !== 'UNCOMMITTED'}
           <span class="author-id" use:tooltip={commit.author.name}>
             {#if avatarStore.enabled}
-              <img class="avatar-sm" src={avatarStore.url(commit.author.email, 20)} alt="" />
+              {@const avatarUrl = avatarStore.resolved(commit.author.email, 20)}
+              {#if avatarUrl}
+                <img class="avatar-sm" src={avatarUrl} alt="" />
+              {/if}
             {/if}
             <span class="author-name truncate">{commit.author.name}</span>
           </span>
@@ -1987,6 +2014,36 @@
     height: 100%;
     color: var(--text-secondary);
     font-size: 13px;
+  }
+
+  /* Empty-repository state: stack the message above the "create initial commit"
+     action. Overrides the shared row layout above only for this variant. */
+  .empty-initial {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .empty-initial-text {
+    margin: 0;
+    color: var(--text-secondary);
+  }
+
+  .empty-initial-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 12px;
+    height: 28px;
+    font-size: inherit;
+    border-radius: 5px;
+    background: var(--vscode-button-background, #0e639c);
+    color: var(--vscode-button-foreground, #fff);
+    cursor: pointer;
+  }
+
+  .empty-initial-btn:hover {
+    background: var(--vscode-button-hoverBackground, #1177bb);
   }
 
   /* ---- Load More ---- */

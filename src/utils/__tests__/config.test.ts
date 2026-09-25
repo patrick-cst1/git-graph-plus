@@ -13,7 +13,7 @@ vi.mock('vscode', () => ({
   },
 }));
 
-import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readAutoLoadHistory, readLfsLocksEnabled, readDefaultCommitTab, readShowStashes, readGraphStyle, readShowAvatars } from '../config';
+import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readAutoLoadHistory, readLfsLocksEnabled, readDefaultCommitTab, readShowStashes, readGraphStyle, readShowAvatars, readShowStats } from '../config';
 
 describe('readTimeoutMs', () => {
   // Back-compat alias so the existing timeout cases below read naturally.
@@ -237,5 +237,28 @@ describe('readShowAvatars', () => {
   it('falls back to true for a non-boolean value', () => {
     h.values.showAvatars = 'no';
     expect(readShowAvatars()).toBe(true);
+  });
+});
+
+describe('readShowStats', () => {
+  beforeEach(() => { h.values = {}; });
+
+  it('defaults to false when unset', () => {
+    expect(readShowStats()).toBe(false);
+  });
+
+  it('returns true when explicitly enabled', () => {
+    h.values.showStats = true;
+    expect(readShowStats()).toBe(true);
+  });
+
+  it('returns false when explicitly disabled', () => {
+    h.values.showStats = false;
+    expect(readShowStats()).toBe(false);
+  });
+
+  it('falls back to false for a non-boolean value', () => {
+    h.values.showStats = 'yes';
+    expect(readShowStats()).toBe(false);
   });
 });

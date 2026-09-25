@@ -12,6 +12,9 @@ class CommitStore {
   hasMore = $state(false);
   currentLimit = $state(0);
   notGitRepo = $state(false);
+  // True when the repo has an unborn HEAD (no commits yet); drives the empty
+  // state's "create initial commit" action.
+  isEmptyRepo = $state(false);
 
   // Hash → entry maps derived from the arrays so they auto-rebuild whether
   // callers replace via setData() or assign `commits` / `graphNodes`
@@ -41,6 +44,7 @@ class CommitStore {
     this.loading = false;
     this.loadingMore = false;
     this.notGitRepo = false;
+    this.isEmptyRepo = data.isEmptyRepo ?? false;
   }
 
   setLoading(value: boolean) {

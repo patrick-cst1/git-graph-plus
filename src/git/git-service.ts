@@ -108,7 +108,7 @@ export class GitService {
   }
 
   private warn(message: string): void {
-    console.warn(`Git Graph+: ${message}`);
+    console.warn(`Commit Timeline: ${message}`);
     try { this.warningHandler?.(message); } catch { /* never let a handler break a git call */ }
   }
 
@@ -823,7 +823,7 @@ export class GitService {
         ]);
         return parseStashList(raw);
       } catch (err) {
-        console.warn('Git Graph+: failed to list stashes:', err instanceof Error ? err.message : err);
+        console.warn('Commit Timeline: failed to list stashes:', err instanceof Error ? err.message : err);
         return [];
       }
     });
@@ -1885,7 +1885,7 @@ export class GitService {
       }
       return paths;
     } catch (err) {
-      console.warn('Git Graph+: failed to get conflict files:', err instanceof Error ? err.message : err);
+      console.warn('Commit Timeline: failed to get conflict files:', err instanceof Error ? err.message : err);
       return [];
     }
   }
@@ -1942,6 +1942,42 @@ export class GitService {
       case 'rebase': await this.abortRebase(); break;
       case 'cherry-pick': await this.exec(['cherry-pick', '--abort']); break;
       case 'revert': await this.exec(['revert', '--abort']); break;
+    }
+  }
+
+  /**
+   * Skip the commit that paused a rebase or cherry-pick. Only those two
+   * operations support `--skip`; merge/revert/squash have no equivalent and the
+   * caller only offers the action for rebase and cherry-pick.
+   */
+  async skipOperation(): Promise<void> {
+    const state = await this.getOperationState();
+    switch (state.type) {
+      case 'rebase': await this.exec(['rebase', '--skip']); break;
+      case 'cherry-pick': await this.exec(['cherry-pick', '--skip']); break;
+    }
+  }
+
+  /**
+   * Create an initial commit for a repository whose HEAD is unborn. Commits any
+   * staged files; when nothing is staged, records an empty root commit so the
+   * repository leaves the "no commits yet" state.
+   */
+  async createInitialCommit(): Promise<void> {
+    await this.exec(['commit', '--allow-empty', '-m', 'Initial commit']);
+  }
+
+  /**
+   * True when HEAD is unborn — a freshly initialised repository with no commits
+   * yet. Callers only use this after a successful `log`, so a false positive
+   * from a non-git directory cannot reach the UI.
+   */
+  async isUnbornHead(): Promise<boolean> {
+    try {
+      await this.exec(['rev-parse', '--verify', '--quiet', 'HEAD']);
+      return false;
+    } catch {
+      return true;
     }
   }
 
@@ -2152,7 +2188,7 @@ export class GitService {
       const commits = parseLog(raw, remoteNames);
       return commits[0] ?? null;
     } catch (err) {
-      console.warn('Git Graph+: failed to get commit by hash:', err instanceof Error ? err.message : err);
+      console.warn('Commit Timeline: failed to get commit by hash:', err instanceof Error ? err.message : err);
       return null;
     }
   }
@@ -2238,7 +2274,7 @@ export class GitService {
       if (err instanceof GitError && err.exitCode !== null && !this.isExpectedLfsFailure(err.stderr)) {
         this.warn(`LFS ls-files failed: ${err.stderr || err.message}`);
       }
-      console.warn('Git Graph+: LFS ls-files failed:', err instanceof Error ? err.message : err);
+      console.warn('Commit Timeline: LFS ls-files failed:', err instanceof Error ? err.message : err);
       return [];
     }
   }
@@ -2278,7 +2314,7 @@ export class GitService {
       if (err instanceof GitError && err.exitCode !== null && !this.isExpectedLfsFailure(err.stderr)) {
         this.warn(`LFS locks failed: ${err.stderr || err.message}`);
       }
-      console.warn('Git Graph+: LFS locks failed:', err instanceof Error ? err.message : err);
+      console.warn('Commit Timeline: LFS locks failed:', err instanceof Error ? err.message : err);
       return [];
     }
   }
@@ -2444,7 +2480,7 @@ export class GitService {
         hotfixPrefix: hotfix,
         versionTagPrefix: versionTag,
       };
-    } catch (err) { console.warn('Git Graph+: failed to get flow config:', err instanceof Error ? err.message : err); return null; }
+    } catch (err) { console.warn('Commit Timeline: failed to get flow config:', err instanceof Error ? err.message : err); return null; }
   }
 
   async getFlowBranches(): Promise<{ features: string[]; releases: string[]; hotfixes: string[] }> {
@@ -2613,14 +2649,14 @@ export class GitService {
     try {
       await this.exec(['flow', 'version']);
       return true;
-    } catch (err) { console.warn('Git Graph+: flow version check failed:', err instanceof Error ? err.message : err); return false; }
+    } catch (err) { console.warn('Commit Timeline: flow version check failed:', err instanceof Error ? err.message : err); return false; }
   }
 
   async isFlowInitialized(): Promise<boolean> {
     try {
       await this.exec(['config', '--get', 'gitflow.branch.master']);
       return true;
-    } catch (err) { console.warn('Git Graph+: flow init check failed:', err instanceof Error ? err.message : err); return false; }
+    } catch (err) { console.warn('Commit Timeline: flow init check failed:', err instanceof Error ? err.message : err); return false; }
   }
 
 }

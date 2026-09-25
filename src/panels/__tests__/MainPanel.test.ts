@@ -43,6 +43,9 @@ const H = vi.hoisted(() => {
     isLfsLocksVerifyEnabled: vi.fn(async () => true),
     searchCommits: vi.fn(async () => []),
     searchByFile: vi.fn(async () => []),
+    isUnbornHead: vi.fn(async () => false),
+    skipOperation: vi.fn(async () => {}),
+    createInitialCommit: vi.fn(async () => {}),
   };
   return {
     git,
@@ -154,6 +157,7 @@ beforeEach(() => {
   H.git.getOperationState.mockResolvedValue({ type: null });
   H.git.getConflictFiles.mockResolvedValue([]);
   H.git.getRemoteUrl.mockResolvedValue('');
+  H.git.isUnbornHead.mockResolvedValue(false);
   H.git.showCommitDiff.mockResolvedValue([]);
   H.git.openExternalDiff.mockResolvedValue(undefined);
   H.git.fileExistsAtRef.mockResolvedValue(true);
@@ -416,6 +420,43 @@ describe('MainPanel openConflictFile honours git.mergeEditor', () => {
     await openConflict();
 
     expect(vscode.window.showTextDocument).toHaveBeenCalled();
+  });
+});
+
+describe('MainPanel operation skip and initial commit', () => {
+  it('routes skipOperation to GitService and reports completion', async () => {
+    await dispatch({ type: 'skipOperation' });
+    expect(H.git.skipOperation).toHaveBeenCalled();
+    expect(postedOfType('operationComplete').some(m => m.payload?.operation === 'skip')).toBe(true);
+  });
+
+  it('routes createInitialCommit to GitService and reports completion', async () => {
+    await dispatch({ type: 'createInitialCommit' });
+    expect(H.git.createInitialCommit).toHaveBeenCalled();
+    expect(postedOfType('operationComplete').some(m => m.payload?.operation === 'createInitialCommit')).toBe(true);
+  });
+});
+
+describe('MainPanel empty repository detection', () => {
+  it('flags logData.isEmptyRepo when HEAD is unborn', async () => {
+    H.git.log.mockResolvedValue([]);
+    H.git.isUnbornHead.mockResolvedValue(true);
+
+    await dispatch({ type: 'getLog', payload: { limit: 50 } });
+
+    const data = postedOfType('logData').at(-1)!;
+    expect(data.payload!.isEmptyRepo).toBe(true);
+    expect(H.git.isUnbornHead).toHaveBeenCalled();
+  });
+
+  it('does not flag isEmptyRepo for a normal repository', async () => {
+    H.git.log.mockResolvedValue([]);
+    H.git.isUnbornHead.mockResolvedValue(false);
+
+    await dispatch({ type: 'getLog', payload: { limit: 50 } });
+
+    const data = postedOfType('logData').at(-1)!;
+    expect(data.payload!.isEmptyRepo).toBe(false);
   });
 });
 

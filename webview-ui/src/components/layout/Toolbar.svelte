@@ -230,13 +230,15 @@
     >
       {t('toolbar.log')}
     </button>
-    <button
-      class="view-tab"
-      class:active={uiStore.viewMode === 'stats'}
-      onclick={() => { uiStore.viewMode = 'stats'; }}
-    >
-      {t('toolbar.stats')}
-    </button>
+    {#if uiStore.showStats}
+      <button
+        class="view-tab"
+        class:active={uiStore.viewMode === 'stats'}
+        onclick={() => { uiStore.viewMode = 'stats'; }}
+      >
+        {t('toolbar.stats')}
+      </button>
+    {/if}
   </div>
 
   <div class="toolbar-right">

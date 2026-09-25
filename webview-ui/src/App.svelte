@@ -155,6 +155,11 @@ import AmendModal from './components/modals/AmendModal.svelte';
         case 'setShowAvatars':
           avatarStore.setEnabled(msg.payload.enabled);
           break;
+        case 'setShowStats':
+          uiStore.showStats = msg.payload.enabled;
+          // The Stats view is only reachable while enabled; leave it if hidden.
+          if (!uiStore.showStats && uiStore.viewMode === 'stats') uiStore.viewMode = 'graph';
+          break;
         case 'setLoadMoreCount':
           uiStore.loadMoreCount = msg.payload.count;
           break;
@@ -299,7 +304,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
 
     if (ctrl && e.key === '1') { e.preventDefault(); uiStore.viewMode = 'graph'; }
     if (ctrl && e.key === '2') { e.preventDefault(); uiStore.viewMode = 'log'; }
-    if (ctrl && e.key === '3') { e.preventDefault(); uiStore.viewMode = 'stats'; }
+    if (ctrl && e.key === '3' && uiStore.showStats) { e.preventDefault(); uiStore.viewMode = 'stats'; }
 
     if (ctrl && e.key === 'f' && uiStore.viewMode === 'graph') {
       e.preventDefault();
@@ -469,6 +474,11 @@ import AmendModal from './components/modals/AmendModal.svelte';
           <button class="banner-btn danger" onclick={() => { showAbortConfirmModal = true; }}>
             <i class="codicon codicon-discard"></i> {t('conflict.abort')}
           </button>
+          {#if conflict.operation === 'rebase' || conflict.operation === 'cherry-pick'}
+            <button class="banner-btn" onclick={() => { vscode.postMessage({ type: 'skipOperation' }); conflict = null; }}>
+              <i class="codicon codicon-debug-step-over"></i> {t('conflict.skip')}
+            </button>
+          {/if}
           <button class="banner-btn success" disabled={conflict.files.some(f => !f.resolved)} onclick={() => { const op = conflict?.operation ?? 'merge'; vscode.postMessage({ type: 'continueOperation' }); conflict = null; vscode.postMessage({ type: 'showNotification', payload: { message: t('conflict.resolveSuccess', { operation: t(`conflict.op.${op}`) }) } }); }}>
             <i class="codicon codicon-check"></i> {t('conflict.banner.resolve')}
           </button>
@@ -512,6 +522,10 @@ import AmendModal from './components/modals/AmendModal.svelte';
           vscode.postMessage({ type: 'continueOperation' });
           rebasePaused = false;
         }}>{t('rebase.pause.continue')}</button>
+        <button class="banner-btn" onclick={() => {
+          vscode.postMessage({ type: 'skipOperation' });
+          rebasePaused = false;
+        }}>{t('rebase.pause.skip')}</button>
         <button class="banner-btn danger" onclick={() => {
           vscode.postMessage({ type: 'abortOperation' });
           rebasePaused = false;
@@ -593,7 +607,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
       <div class="log-container">
         <Reflog active={uiStore.viewMode === 'log'} onShowInGraph={handleShowInGraph} />
       </div>
-    {:else if uiStore.viewMode === 'stats'}
+    {:else if uiStore.viewMode === 'stats' && uiStore.showStats}
       <div class="stats-container">
         <StatsView />
       </div>

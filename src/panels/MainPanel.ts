@@ -6,7 +6,7 @@ import { GitService, GitError } from '../git/git-service';
 import { formatGitError, isAuthFailure, transportFromRemoteUrl } from '../git/git-error-formatter';
 import { splitUpstreamRef } from '../git/git-parser';
 import { samePath } from '../utils/path';
-import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readAutoLoadHistory, readInteractiveRebaseMode, readLfsLocksEnabled, readDefaultCommitTab, readShowStashes, readGraphStyle, readShowAvatars } from '../utils/config';
+import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readAutoLoadHistory, readInteractiveRebaseMode, readLfsLocksEnabled, readDefaultCommitTab, readShowStashes, readGraphStyle, readShowAvatars, readShowStats } from '../utils/config';
 import { buildClassicRebaseCommand } from '../git/classic-rebase';
 import { buildFullGraph } from '../git/git-graph-builder';
 import { compileBranchColorRules, makeBranchColorResolver } from '../git/branch-color-resolver';
@@ -123,7 +123,7 @@ export class MainPanel {
     svc.setWarningHandler(msg => {
       // Surface non-fatal git failures (e.g., stash log / uncommitted status / remote list
       // failures) to the webview so the user knows the displayed graph may be incomplete.
-      this.post({ type: 'error', payload: { message: `Git Graph+: ${msg}` } });
+      this.post({ type: 'error', payload: { message: `Commit Timeline: ${msg}` } });
     });
     // On auth failure (missing/invalid HTTPS credentials), route through the
     // built-in `vscode.git` extension so the user sees the same credential
@@ -254,7 +254,11 @@ export class MainPanel {
           this.post({ type: 'setGraphStyle', payload: { style: readGraphStyle() } });
         }
         if (e.affectsConfiguration('gitGraphPlus.showAvatars')) {
-          this.post({ type: 'setShowAvatars', payload: { enabled: readShowAvatars() } });
+    this.post({ type: 'setShowAvatars', payload: { enabled: readShowAvatars() } });
+    this.post({ type: 'setShowStats', payload: { enabled: readShowStats() } });
+        }
+        if (e.affectsConfiguration('gitGraphPlus.showStats')) {
+          this.post({ type: 'setShowStats', payload: { enabled: readShowStats() } });
         }
         if (e.affectsConfiguration('gitGraphPlus.branchColors')) {
           this.refreshAll();
@@ -327,7 +331,7 @@ export class MainPanel {
     }
 
     if (!repoPath) {
-      vscode.window.showWarningMessage('Git Graph+: No workspace folder open.');
+      vscode.window.showWarningMessage('Commit Timeline: No workspace folder open.');
       return;
     }
 
@@ -342,7 +346,7 @@ export class MainPanel {
 
     const panel = vscode.window.createWebviewPanel(
       MainPanel.viewType,
-      'Git Graph+',
+      'Commit Timeline',
       vscode.ViewColumn.One,
       {
         enableScripts: true,
@@ -472,12 +476,17 @@ export class MainPanel {
           const commits = hasMore ? allFetched.slice(0, requestedLimit) : allFetched;
           const branchColorResolver = this.makeBranchColorResolver();
           const fullGraph = commits.length > 0 ? buildFullGraph(commits, logBranches, branchColorResolver) : { paths: [], links: [], dots: [], commitLeftMargin: [] };
+          // Distinguish a genuinely empty repository (unborn HEAD) from a
+          // filter/search that simply matched nothing, so the empty state can
+          // offer "create initial commit" only when it is actually valid.
+          const isEmptyRepo = commits.length === 0 ? await this.gitService.isUnbornHead() : false;
           this.post({
             type: 'logData',
             payload: {
               commits,
               hasMore,
               currentLimit: requestedLimit,
+              isEmptyRepo,
               // The webview renders from paths/links/dots; the legacy GraphNode[] is
               // unused, so we skip building and sending it (saves CPU + IPC payload).
               graph: [],
@@ -1087,7 +1096,7 @@ export class MainPanel {
         case 'runClassicRebase': {
           const command = buildClassicRebaseCommand(message.payload.base);
           if (!command) { break; }
-          const name = 'Git Graph+ Rebase';
+          const name = 'Commit Timeline Rebase';
           const terminal =
             vscode.window.terminals.find(t => t.name === name && t.exitStatus === undefined)
             ?? vscode.window.createTerminal({ name, cwd: this.repoPath });
@@ -1661,6 +1670,18 @@ export class MainPanel {
           await this.refreshAll();
           break;
         }
+        case 'skipOperation': {
+          await this.gitService.skipOperation();
+          this.post({ type: 'operationComplete', payload: { operation: 'skip', success: true } });
+          await this.refreshAll();
+          break;
+        }
+        case 'createInitialCommit': {
+          await this.gitService.createInitialCommit();
+          this.post({ type: 'operationComplete', payload: { operation: 'createInitialCommit', success: true } });
+          await this.refreshAll();
+          break;
+        }
         case 'abortOperation': {
           await this.gitService.abortOperation();
           this.post({ type: 'operationComplete', payload: { operation: 'abort', success: true } });
@@ -1904,13 +1925,13 @@ export class MainPanel {
       const branchFilter = this.isFirstGetLog ? MainPanel.savedBranchFilter : this.currentBranchFilter;
       const logArgs = { limit: refreshLimit + 1, sortOrder, remoteFilter, branches: branchFilter, includeSignature, includeStashes: readShowStashes() };
 
-      const buildLogData = (allFetched: Awaited<ReturnType<typeof this.gitService.log>>, branches: Awaited<ReturnType<typeof this.gitService.branches>>) => {
+      const buildLogData = (allFetched: Awaited<ReturnType<typeof this.gitService.log>>, branches: Awaited<ReturnType<typeof this.gitService.branches>>, isEmptyRepo: boolean) => {
         const hasMore = allFetched.length > refreshLimit;
         const allCommits = hasMore ? allFetched.slice(0, refreshLimit) : allFetched;
         // Handle empty repository (0 commits) gracefully. The webview renders from
         // paths/links/dots; the legacy GraphNode[] is unused so we don't build it.
         const fg = allCommits.length > 0 ? buildFullGraph(allCommits, branches, this.makeBranchColorResolver()) : { paths: [], links: [], dots: [], commitLeftMargin: [] };
-        return { commits: allCommits, hasMore, currentLimit: this.currentLimit, graph: [], paths: fg.paths, links: fg.links, dots: fg.dots, commitLeftMargin: fg.commitLeftMargin, remoteFilter, branches: branchFilter };
+        return { commits: allCommits, hasMore, currentLimit: this.currentLimit, isEmptyRepo, graph: [], paths: fg.paths, links: fg.links, dots: fg.dots, commitLeftMargin: fg.commitLeftMargin, remoteFilter, branches: branchFilter };
       };
 
       if (scope === 'status') {
@@ -1920,7 +1941,8 @@ export class MainPanel {
           this.gitService.log(logArgs),
           this.gitService.branches(),
         ]);
-        this.post({ type: 'logData', payload: buildLogData(allFetched, branches) });
+        const isEmptyRepo = allFetched.length === 0 ? await this.gitService.isUnbornHead() : false;
+        this.post({ type: 'logData', payload: buildLogData(allFetched, branches, isEmptyRepo) });
       } else {
         const [allFetched, branches, tags, remotes, stashes, worktrees] = await Promise.all([
           this.gitService.log(logArgs),
@@ -1930,18 +1952,19 @@ export class MainPanel {
           this.gitService.stashList(),
           this.gitService.worktreeList(),
         ]);
+        const isEmptyRepo = allFetched.length === 0 ? await this.gitService.isUnbornHead() : false;
         // Send as single combined message to ensure atomic update
         this.post({
           type: 'fullRefresh',
           payload: {
-            logData: buildLogData(allFetched, branches),
+            logData: buildLogData(allFetched, branches, isEmptyRepo),
             branchData: { branches, tags, remotes, stashes, worktrees },
           },
         });
         MainPanel.onSidebarRefresh?.();
       }
     } catch (err) {
-      console.warn('Git Graph+: refresh failed:', err instanceof Error ? err.message : err);
+      console.warn('Commit Timeline: refresh failed:', err instanceof Error ? err.message : err);
       if (err instanceof GitError && /not a git repository/.test(err.stderr)) {
         try { this.post({ type: 'notGitRepo' }); } catch { /* panel disposed */ }
       }
@@ -2120,7 +2143,7 @@ export class MainPanel {
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data:; font-src ${webview.cspSource};">
   <link rel="stylesheet" href="${codiconUri}">
   <link rel="stylesheet" href="${styleUri}">
-  <title>Git Graph+</title>
+  <title>Commit Timeline</title>
 </head>
 <body>
   <div id="app"></div>

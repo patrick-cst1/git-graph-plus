@@ -1,0 +1,16 @@
+Commit Timeline
+Copyright 2026 Patrick Cheung
+
+This product is an unofficial fork of Git Graph Plus
+(https://github.com/the0807/git-graph-plus), Copyright the Git Graph Plus
+contributors, and is distributed under the Apache License, Version 2.0.
+
+Modifications made in this fork relative to the original work include a product
+rename and rebrand, a configurable rounded/angular graph line style, an option to
+hide author avatars, a reflog "Show in Graph" action, ref-label click behaviour
+changes, and assorted bug fixes and enhancements. Command identifiers, view
+identifiers and settings keys may differ from the original.
+
+This fork is not affiliated with, sponsored by, or endorsed by the original
+project or its author. All trademarks are the property of their respective
+owners.

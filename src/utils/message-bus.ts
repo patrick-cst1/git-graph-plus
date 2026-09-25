@@ -116,9 +116,11 @@ export type WebviewMessage =
   | { type: 'compareCommits'; payload: { ref1: string; ref2: string } }
   | { type: 'getImageAtRef'; payload: { ref: string; path: string } }
   | { type: 'continueOperation' }
+  | { type: 'skipOperation' }
   | { type: 'refreshConflicts' }
   | { type: 'stageFile'; payload: { file: string } }
   | { type: 'abortOperation' }
+  | { type: 'createInitialCommit' }
   | { type: 'openConflictFile'; payload: { file: string } }
   | { type: 'setUpstream'; payload: { branch: string; remote: string; remoteBranch: string; createRemote?: boolean } }
   | { type: 'openWorktreeInNewWindow'; payload: { path: string } }
@@ -165,6 +167,7 @@ export type ExtensionMessage =
   | { type: 'setBadgeBarThickness'; payload: { width: number } }
   | { type: 'setDefaultCommitTab'; payload: { tab: 'details' | 'changes' } }
   | { type: 'setShowAvatars'; payload: { enabled: boolean } }
+  | { type: 'setShowStats'; payload: { enabled: boolean } }
   | { type: 'setGraphColors'; payload: { colors: string[] } }
   | { type: 'setCommitLinkRules'; payload: { rules: LinkRule[] } }
   | { type: 'repoList'; payload: { repos: Array<{ path: string; name: string; type: 'root' | 'submodule' | 'nested' }>; active: string } }

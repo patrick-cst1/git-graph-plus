@@ -30,6 +30,7 @@ function resetStores() {
   uiStore.operating = null;
   uiStore.repos = [];
   uiStore.activeRepo = '';
+  uiStore.showStats = false;
   modalStore.closeFetch?.();
   modalStore.closePull?.();
   modalStore.closePush?.();
@@ -42,14 +43,23 @@ beforeEach(() => {
 });
 
 describe('Toolbar — view tabs', () => {
-  it('renders the three view-mode tabs and graph is active by default', () => {
+  it('renders graph and log tabs by default (Stats hidden) and graph is active', () => {
     const { container } = render(Toolbar);
     const tabs = container.querySelectorAll<HTMLButtonElement>('.view-tab');
-    expect(tabs.length).toBe(3);
+    expect(tabs.length).toBe(2);
     expect(tabs[0].classList.contains('active')).toBe(true);
   });
 
+  it('renders the Stats tab when showStats is enabled', () => {
+    uiStore.showStats = true;
+    const { container } = render(Toolbar);
+    const tabs = container.querySelectorAll<HTMLButtonElement>('.view-tab');
+    expect(tabs.length).toBe(3);
+    expect(tabs[2].textContent?.trim()).toBe('Stats');
+  });
+
   it('clicking a tab switches the uiStore.viewMode', async () => {
+    uiStore.showStats = true;
     const { container } = render(Toolbar);
     const tabs = container.querySelectorAll<HTMLButtonElement>('.view-tab');
     await fireEvent.click(tabs[1]); // log

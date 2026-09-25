@@ -127,3 +127,11 @@ export function readGraphStyle(): GraphStyle {
 export function readShowAvatars(): boolean {
   return vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('showAvatars', true) !== false;
 }
+
+/**
+ * Reads `gitGraphPlus.showStats` — whether the Stats view is offered in the
+ * toolbar. Defaults to false; only an explicit `true` enables it.
+ */
+export function readShowStats(): boolean {
+  return vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('showStats', false) === true;
+}

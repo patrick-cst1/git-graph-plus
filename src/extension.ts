@@ -43,10 +43,10 @@ export function activate(context: vscode.ExtensionContext) {
   if (!workspaceFolder) {
     context.subscriptions.push(
       vscode.commands.registerCommand('git-graph-plus.open', () => {
-        vscode.window.showWarningMessage('Git Graph+: No workspace folder open.');
+        vscode.window.showWarningMessage('Commit Timeline: No workspace folder open.');
       }),
       vscode.commands.registerCommand('gitGraphPlus.open', () => {
-        vscode.window.showWarningMessage('Git Graph+: No workspace folder open.');
+        vscode.window.showWarningMessage('Commit Timeline: No workspace folder open.');
       }),
     );
     // VS Code does not re-run activate() when the user opens a folder later
@@ -58,7 +58,7 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.workspace.onDidChangeWorkspaceFolders(async (e) => {
         if (e.added.length === 0) return;
         const reload = await vscode.window.showInformationMessage(
-          vscode.l10n.t('Git Graph+: Reload window to activate the extension for the newly opened folder?'),
+          vscode.l10n.t('Commit Timeline: Reload window to activate the extension for the newly opened folder?'),
           vscode.l10n.t('Reload'),
         );
         if (reload) {
@@ -151,7 +151,7 @@ export function activate(context: vscode.ExtensionContext) {
     tagsProvider.prefetch(),
     stashesProvider.prefetch(),
     worktreesProvider.prefetch(),
-  ]).catch((err) => { console.warn('Git Graph+: sidebar prefetch failed:', err instanceof Error ? err.message : err); });
+  ]).catch((err) => { console.warn('Commit Timeline: sidebar prefetch failed:', err instanceof Error ? err.message : err); });
 
   // --- File Watcher ---
   // This watcher owns the sidebar; the graph panel runs its own FileWatcher
@@ -211,7 +211,7 @@ export function activate(context: vscode.ExtensionContext) {
       });
       fileWatcher.enabled = vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('autoRefresh', true);
     }
-  }).catch((err) => { console.warn('Git Graph+: repo discovery failed:', err instanceof Error ? err.message : err); });
+  }).catch((err) => { console.warn('Commit Timeline: repo discovery failed:', err instanceof Error ? err.message : err); });
 
   // When workspace folders change (multi-root add/remove), re-discover repos
   // so the repo dropdown in the panel reflects reality. The panel-side

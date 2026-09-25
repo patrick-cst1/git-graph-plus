@@ -116,6 +116,8 @@ export const en: Record<string, string> = {
   'graph.openLink': 'Open link',
   'graph.loading': 'Loading commits',
   'graph.noCommits': 'No commits found',
+  'graph.emptyRepo': 'This repository has no commits yet.',
+  'graph.createInitialCommit': 'Create initial commit',
   'graph.notGitRepo': 'This folder is not a Git repository.',
   'graph.noResults': 'No matching commits',
   'graph.loadMore': 'Load more commits',
@@ -539,6 +541,7 @@ export const en: Record<string, string> = {
   'conflict.abortTitle': 'Abort Operation',
   'conflict.abortConfirm': 'Abort the current {operation}? The operation will be <span class="modal-emph modal-emph--danger">cancelled</span> and changes will be <span class="modal-emph modal-emph--danger">reverted</span>.',
   'conflict.abort': 'Abort',
+  'conflict.skip': 'Skip',
   'conflict.resolveSuccess': '{operation} completed successfully.',
   'conflict.banner.resolved': '{resolved}/{total} resolved',
   'conflict.banner.resolve': 'Resolve',
@@ -553,6 +556,7 @@ export const en: Record<string, string> = {
   'rebase.pause.message': 'Rebase paused - make your changes, then continue',
   'rebase.pause.continue': 'Continue',
   'rebase.pause.abort': 'Abort',
+  'rebase.pause.skip': 'Skip',
 
   // Defaults
   'deleteBranch.forceWarning': 'Force delete discards the branch even if it has <span class="modal-emph modal-emph--danger">unmerged commits</span>.',

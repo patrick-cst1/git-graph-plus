@@ -31,6 +31,9 @@ class UiStore {
   // Issue #61: when true, scrolling near the bottom of the graph fetches the
   // next chunk automatically. Off by default so "Load more" stays manual.
   autoLoadHistory = $state(false);
+  // `gitGraphPlus.showStats` — the Stats view is opt-in. When false the toolbar
+  // tab is hidden and Ctrl+3 / viewMode is forced back to the graph.
+  showStats = $state(false);
   graphStyle = $state<GraphStyle>('rounded');
   interactiveRebaseMode = $state<InteractiveRebaseMode>('ui');
   // Which tab the commit-details panel opens on when a commit is selected

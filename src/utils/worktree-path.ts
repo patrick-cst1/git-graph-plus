@@ -17,7 +17,7 @@ export async function resolveDefaultWorktreePath(
       baseRepoPath = mainWorktree.path;
     }
   } catch (err) {
-    console.warn('Git Graph+: failed to resolve main worktree path:', err instanceof Error ? err.message : err);
+    console.warn('Commit Timeline: failed to resolve main worktree path:', err instanceof Error ? err.message : err);
   }
   return path.join(path.dirname(baseRepoPath), `${path.basename(baseRepoPath)}.worktrees`);
 }

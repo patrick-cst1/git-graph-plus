@@ -116,6 +116,8 @@ export const ko: Record<string, string> = {
   'graph.openLink': '링크 열기',
   'graph.loading': 'Commit 로딩 중',
   'graph.noCommits': 'Commit을 찾을 수 없습니다',
+  'graph.emptyRepo': '이 레포지토리에는 아직 commit이 없습니다.',
+  'graph.createInitialCommit': '초기 commit 만들기',
   'graph.notGitRepo': 'Git 레포지토리가 아닙니다.',
   'graph.noResults': '일치하는 commit이 없습니다',
   'graph.loadMore': 'Commit 더 불러오기',
@@ -539,6 +541,7 @@ export const ko: Record<string, string> = {
   'conflict.abortTitle': '작업 중단',
   'conflict.abortConfirm': '현재 {operation} 작업을 중단하시겠습니까? 작업이 <span class="modal-emph modal-emph--danger">중단</span>되고 변경사항이 <span class="modal-emph modal-emph--danger">되돌려집니다</span>.',
   'conflict.abort': '중단',
+  'conflict.skip': '건너뛰기',
   'conflict.resolveSuccess': '{operation} 작업이 완료되었습니다.',
   'conflict.banner.resolved': '{resolved}/{total} 해결됨',
   'conflict.banner.resolve': '해결 완료',
@@ -553,6 +556,7 @@ export const ko: Record<string, string> = {
   'rebase.pause.message': 'Rebase 일시 정지 - 변경 사항을 적용하고 계속하세요',
   'rebase.pause.continue': '계속',
   'rebase.pause.abort': '중단',
+  'rebase.pause.skip': '건너뛰기',
 
   // Defaults
   'deleteBranch.forceWarning': '병합되지 않은 커밋이 있어도 <span class="modal-emph modal-emph--danger">강제로 삭제</span>합니다.',
