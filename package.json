@@ -2,7 +2,7 @@
   "name": "git-graph-plus-private",
   "displayName": "Git Graph Plus (Private)",
   "description": "A modern, full-featured Git GUI for VS Code",
-  "version": "0.7.6",
+  "version": "0.7.7",
   "publisher": "patrick-local",
   "repository": {
     "type": "git",
