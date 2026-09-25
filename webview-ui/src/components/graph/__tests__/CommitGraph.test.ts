@@ -298,7 +298,7 @@ describe('CommitGraph graph line style', () => {
     // first lane (SourceGit x=10) centred at x=16; fixture lane 2 (x=12) lands
     // at 16 + 2*(16/12) = 18.666666666666668. Angular d = 24 * 0.38 = 9.12.
     expect(ds).toContain('M 16 0 L 18.666666666666668 14.879999999999999 L 18.666666666666668 24 L 18.666666666666668 33.120000000000005 L 16 48 L 16 72');
-    expect(ds).toContain('M 16 0 L 17.333333333333332 0 L 17.333333333333332 24');
+    expect(ds).toContain('M 16 0 L 17.333333333333332 14.879999999999999 L 17.333333333333332 24');
     for (const d of ds) {
       expect(d).toContain('L');
       expect(d).not.toContain('Q');
@@ -316,9 +316,9 @@ describe('CommitGraph graph line style', () => {
 
     const ds = renderedPathDs(container);
     expect(ds).toContain('M 16 0 C 16 19.200000000000003, 18.666666666666668 4.799999999999997, 18.666666666666668 24 C 18.666666666666668 43.2, 16 28.799999999999997, 16 48 L 16 72');
-    expect(ds).toContain('M 16 0 Q 17.333333333333332 0, 17.333333333333332 24');
-    expect(ds.some((d) => d.includes('Q'))).toBe(true);
+    expect(ds).toContain('M 16 0 C 16 19.200000000000003, 17.333333333333332 4.799999999999997, 17.333333333333332 24');
     expect(ds.some((d) => d.includes('C'))).toBe(true);
+    expect(ds.some((d) => d.includes('Q'))).toBe(false);
     for (const p of container.querySelectorAll('.graph-lines path')) {
       // Rounded mode keeps the previous DOM exactly: no explicit linejoin.
       expect(p.getAttribute('stroke-linejoin')).toBeNull();
@@ -333,9 +333,9 @@ describe('CommitGraph graph line style', () => {
 
     const ds = renderedPathDs(container);
     expect(ds).toContain('M 16 0 C 16 19.200000000000003, 18.666666666666668 4.799999999999997, 18.666666666666668 24 C 18.666666666666668 43.2, 16 28.799999999999997, 16 48 L 16 72');
-    expect(ds).toContain('M 16 0 Q 17.333333333333332 0, 17.333333333333332 24');
-    expect(ds.some((d) => d.includes('Q'))).toBe(true);
+    expect(ds).toContain('M 16 0 C 16 19.200000000000003, 17.333333333333332 4.799999999999997, 17.333333333333332 24');
     expect(ds.some((d) => d.includes('C'))).toBe(true);
+    expect(ds.some((d) => d.includes('Q'))).toBe(false);
   });
 });
 

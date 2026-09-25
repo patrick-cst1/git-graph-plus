@@ -1454,13 +1454,15 @@
           {@const linkColor = resolveGraphColor(graphColorsStore.palette, link.color, link.colorOverride)}
           {@const sx = laneX(link.start.x)}
           {@const sy = link.start.y * ROW_HEIGHT}
-          {@const cx = laneX(link.control.x)}
-          {@const cy = link.control.y * ROW_HEIGHT}
           {@const ex = laneX(link.end.x)}
           {@const ey = link.end.y * ROW_HEIGHT}
+          <!-- Merge connector: same geometry as Git Graph's branch transitions
+               (smooth cubic with vertical tangents; two-segment kink when
+               angular) instead of a quadratic pinned to the elbow corner. -->
+          {@const linkCurve = Math.min(ROW_HEIGHT * (uiStore.graphStyle === 'angular' ? 0.38 : 0.8), Math.abs(ey - sy))}
           {@const linkD = uiStore.graphStyle === 'angular'
-            ? `M ${sx} ${sy} L ${cx} ${cy} L ${ex} ${ey}`
-            : `M ${sx} ${sy} Q ${cx} ${cy}, ${ex} ${ey}`}
+            ? `M ${sx} ${sy} L ${ex} ${ey - linkCurve} L ${ex} ${ey}`
+            : `M ${sx} ${sy} C ${sx} ${sy + linkCurve}, ${ex} ${ey - linkCurve}, ${ex} ${ey}`}
           <path
             d={linkD}
             fill="none" stroke={GRAPH_BACKGROUND} stroke-width="4" stroke-opacity="0.75" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined}
