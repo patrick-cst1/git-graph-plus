@@ -38,13 +38,16 @@
 
 
   /**
-   * Build SVG path `d` string from SourceGit Path points.
-   * Rounded (default) exactly mirrors SourceGit's DrawCurves rendering (Q/C
-   * beziers); angular draws straight lines with right-angled elbows.
+   * Build the SVG path `d` for a branch from SourceGit path points using
+   * mhutchie Git Graph's transition geometry: vertical runs are `L`, a lane
+   * change is a cubic transition with control offset `d = row * 0.8` in the
+   * rounded style (default) or a two-segment kink with `d = row * 0.38` in the
+   * angular style.
    */
   function buildPathD(points: Array<{ x: number; y: number }>, style: GraphStyle): string {
     if (points.length < 2) return '';
 
+    const d = ROW_HEIGHT * (style === 'angular' ? 0.38 : 0.8);
     const parts: string[] = [];
     let last = { x: laneX(points[0].x), y: points[0].y * ROW_HEIGHT };
     parts.push(`M ${last.x} ${last.y}`);
@@ -52,29 +55,20 @@
     for (let i = 1; i < points.length; i++) {
       const cur = { x: laneX(points[i].x), y: points[i].y * ROW_HEIGHT };
 
-      if (style === 'angular') {
-        if (cur.x !== last.x) {
-          // Elbow: horizontal to the target lane, then vertical to the row.
-          parts.push(`L ${cur.x} ${last.y} L ${cur.x} ${cur.y}`);
-        } else {
-          // Same X: straight line
-          parts.push(`L ${cur.x} ${cur.y}`);
-        }
-      } else if (cur.x > last.x) {
-        // Going right: QuadraticBezier with control at (cur.x, last.y)
-        parts.push(`Q ${cur.x} ${last.y}, ${cur.x} ${cur.y}`);
-      } else if (cur.x < last.x) {
-        if (i < points.length - 1) {
-          // Middle: CubicBezier S-curve
-          const midY = (last.y + cur.y) / 2;
-          parts.push(`C ${last.x} ${midY + 4}, ${cur.x} ${midY - 4}, ${cur.x} ${cur.y}`);
-        } else {
-          // Last: QuadraticBezier with control at (last.x, cur.y)
-          parts.push(`Q ${last.x} ${cur.y}, ${cur.x} ${cur.y}`);
-        }
-      } else {
-        // Same X: straight line
+      if (cur.x === last.x) {
+        // Same lane: straight vertical run
         parts.push(`L ${cur.x} ${cur.y}`);
+      } else if (style === 'angular') {
+        // mhutchie angular: a diagonal to (cur.x, cur.y - d) then vertical when
+        // the line locks to its destination, or vertical then a diagonal to the
+        // destination. We lock to the destination lane when moving right
+        // (fork shape) and to the source lane when moving left.
+        if (cur.x > last.x) parts.push(`L ${cur.x} ${cur.y - d}`);
+        else parts.push(`L ${last.x} ${last.y + d}`);
+        parts.push(`L ${cur.x} ${cur.y}`);
+      } else {
+        // mhutchie rounded: cubic with both control points offset by d
+        parts.push(`C ${last.x} ${last.y + d}, ${cur.x} ${cur.y - d}, ${cur.x} ${cur.y}`);
       }
 
       last = cur;
@@ -1450,8 +1444,8 @@
         {#each visiblePaths as path}
           {@const pathColor = resolveGraphColor(graphColorsStore.palette, path.color, path.colorOverride)}
           {#if path.d}
-            <path d={path.d} fill="none" stroke={GRAPH_BACKGROUND} stroke-width="4" stroke-opacity="0.75" stroke-linecap="round" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined} />
-            <path d={path.d} fill="none" stroke={pathColor} stroke-width="2" stroke-linecap="round" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined} />
+            <path d={path.d} fill="none" stroke={GRAPH_BACKGROUND} stroke-width="4" stroke-opacity="0.75" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined} />
+            <path d={path.d} fill="none" stroke={pathColor} stroke-width="2" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined} />
           {/if}
         {/each}
 
@@ -1469,11 +1463,11 @@
             : `M ${sx} ${sy} Q ${cx} ${cy}, ${ex} ${ey}`}
           <path
             d={linkD}
-            fill="none" stroke={GRAPH_BACKGROUND} stroke-width="4" stroke-opacity="0.75" stroke-linecap="round" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined}
+            fill="none" stroke={GRAPH_BACKGROUND} stroke-width="4" stroke-opacity="0.75" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined}
           />
           <path
             d={linkD}
-            fill="none" stroke={linkColor} stroke-width="2" stroke-linecap="round" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined}
+            fill="none" stroke={linkColor} stroke-width="2" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined}
           />
         {/each}
 

@@ -293,11 +293,11 @@ describe('CommitGraph graph line style', () => {
 
     const ds = renderedPathDs(container);
     expect(ds.length).toBeGreaterThan(0);
-    // Path elbows, then the merge link elbow.
-    // Git Graph grid geometry: 16px lane pitch, first lane (SourceGit x=10)
-    // centred at x=16. Fixture lane 2 (x=12) lands at 16 + 2*(16/12) =
-    // 18.666666666666668.
-    expect(ds).toContain('M 16 0 L 18.666666666666668 0 L 18.666666666666668 24 L 16 24 L 16 48 L 16 72');
+    // Branch path uses mhutchie's angular kink (diagonal + vertical), then the
+    // merge link keeps its elbow. Git Graph grid geometry: 16px lane pitch,
+    // first lane (SourceGit x=10) centred at x=16; fixture lane 2 (x=12) lands
+    // at 16 + 2*(16/12) = 18.666666666666668. Angular d = 24 * 0.38 = 9.12.
+    expect(ds).toContain('M 16 0 L 18.666666666666668 14.879999999999999 L 18.666666666666668 24 L 18.666666666666668 33.120000000000005 L 16 48 L 16 72');
     expect(ds).toContain('M 16 0 L 17.333333333333332 0 L 17.333333333333332 24');
     for (const d of ds) {
       expect(d).toContain('L');
@@ -315,7 +315,7 @@ describe('CommitGraph graph line style', () => {
     await tick();
 
     const ds = renderedPathDs(container);
-    expect(ds).toContain('M 16 0 Q 18.666666666666668 0, 18.666666666666668 24 C 18.666666666666668 40, 16 32, 16 48 L 16 72');
+    expect(ds).toContain('M 16 0 C 16 19.200000000000003, 18.666666666666668 4.799999999999997, 18.666666666666668 24 C 18.666666666666668 43.2, 16 28.799999999999997, 16 48 L 16 72');
     expect(ds).toContain('M 16 0 Q 17.333333333333332 0, 17.333333333333332 24');
     expect(ds.some((d) => d.includes('Q'))).toBe(true);
     expect(ds.some((d) => d.includes('C'))).toBe(true);
@@ -332,7 +332,7 @@ describe('CommitGraph graph line style', () => {
     await tick();
 
     const ds = renderedPathDs(container);
-    expect(ds).toContain('M 16 0 Q 18.666666666666668 0, 18.666666666666668 24 C 18.666666666666668 40, 16 32, 16 48 L 16 72');
+    expect(ds).toContain('M 16 0 C 16 19.200000000000003, 18.666666666666668 4.799999999999997, 18.666666666666668 24 C 18.666666666666668 43.2, 16 28.799999999999997, 16 48 L 16 72');
     expect(ds).toContain('M 16 0 Q 17.333333333333332 0, 17.333333333333332 24');
     expect(ds.some((d) => d.includes('Q'))).toBe(true);
     expect(ds.some((d) => d.includes('C'))).toBe(true);
