@@ -364,7 +364,7 @@
   const ROW_HEIGHT = 24;
   // Background behind the graph, used by the Git Graph-style line shadows and
   // dot outlines so lanes read as separate when they cross.
-  const GRAPH_BACKGROUND = 'var(--bg-primary, var(--vscode-editor-background, #1e1e1e))';
+  const GRAPH_BACKGROUND = 'var(--vscode-editor-background, var(--bg-primary, #1e1e1e))';
   // Rows of breathing room kept between the selection and the viewport edge when
   // stepping with the arrow keys, so context above/below the selection stays visible.
   const KEYBOARD_NAV_SCROLL_MARGIN_ROWS = 3;
