@@ -31,6 +31,7 @@ function resetStores() {
   uiStore.operating = null;
   uiStore.badgeBarWidth = 4;
   uiStore.autoLoadHistory = false;
+  uiStore.defaultCommitTab = 'details';
   uiStore.setError(null);
   // modalStore is a singleton across tests; one stuck open modal will render
   // through every subsequent App mount and break unrelated assertions.
@@ -126,6 +127,14 @@ describe('App — message handling', () => {
     postMsg('setAutoLoadHistory', { enabled: false });
     await waitFor(() => {
       expect(uiStore.autoLoadHistory).toBe(false);
+    });
+  });
+
+  it('setDefaultCommitTab updates uiStore.defaultCommitTab', async () => {
+    render(App);
+    postMsg('setDefaultCommitTab', { tab: 'changes' });
+    await waitFor(() => {
+      expect(uiStore.defaultCommitTab).toBe('changes');
     });
   });
 

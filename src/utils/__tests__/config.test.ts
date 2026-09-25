@@ -8,12 +8,12 @@ const h = vi.hoisted(() => ({ values: {} as Record<string, unknown> }));
 vi.mock('vscode', () => ({
   workspace: {
     getConfiguration: () => ({
-      get: (key: string, def: number) => (h.values[key] === undefined ? def : h.values[key]),
+      get: (key: string, def: unknown) => (h.values[key] === undefined ? def : h.values[key]),
     }),
   },
 }));
 
-import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readAutoLoadHistory, readLfsLocksEnabled } from '../config';
+import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readAutoLoadHistory, readLfsLocksEnabled, readDefaultCommitTab } from '../config';
 
 describe('readTimeoutMs', () => {
   // Back-compat alias so the existing timeout cases below read naturally.
@@ -144,5 +144,28 @@ describe('readLfsLocksEnabled', () => {
     expect(readLfsLocksEnabled()).toBe(true);
     h.values.lfsLocks = 0;
     expect(readLfsLocksEnabled()).toBe(true);
+  });
+});
+
+describe('readDefaultCommitTab', () => {
+  beforeEach(() => { h.values = {}; });
+
+  it('defaults to details when unset (preserves the previous behavior)', () => {
+    expect(readDefaultCommitTab()).toBe('details');
+  });
+
+  it('returns changes when configured', () => {
+    h.values.defaultCommitTab = 'changes';
+    expect(readDefaultCommitTab()).toBe('changes');
+  });
+
+  it('returns details when explicitly configured', () => {
+    h.values.defaultCommitTab = 'details';
+    expect(readDefaultCommitTab()).toBe('details');
+  });
+
+  it('falls back to details for an unknown value', () => {
+    h.values.defaultCommitTab = 'bogus';
+    expect(readDefaultCommitTab()).toBe('details');
   });
 });
