@@ -368,8 +368,15 @@
   // Rows of breathing room kept between the selection and the viewport edge when
   // stepping with the arrow keys, so context above/below the selection stays visible.
   const KEYBOARD_NAV_SCROLL_MARGIN_ROWS = 3;
-  // SourceGit uses unitWidth=12 for X coordinates, we scale them up for display
-  const X_SCALE = 1.05; // multiply SourceGit X coords by this for pixel positions
+  // SourceGit uses unitWidth=12 for X coordinates. Git Graph's grid uses a
+  // 16px lane pitch with the first lane at x=16 (grid.offsetX), so scale the
+  // SourceGit units to 16px lanes and shift the rails so lane 0 lands on that
+  // padding. SourceGit's first rail sits at x = 4 - UNIT_W/2 + UNIT_W = 10
+  // (see git-graph-builder.ts), not 0, so that origin is subtracted too.
+  const SOURCE_UNIT = 12;
+  const X_SCALE = 16 / SOURCE_UNIT; // multiply SourceGit X coords by this for pixel positions
+  const GRAPH_LEFT_PADDING = 16; // absolute x of the first lane (Git Graph grid.offsetX)
+  const SOURCE_LANE_ORIGIN = 4 + SOURCE_UNIT / 2; // x of SourceGit's first rail (10)
   const BUFFER_ROWS = 20; // Larger buffer to keep lines visible during scroll
 
   let container: HTMLDivElement | undefined = $state();
@@ -472,7 +479,7 @@
     if (displayLeftMargin.length === 0) return 30;
     let maxMargin = 0;
     for (const m of displayLeftMargin) if (m > maxMargin) maxMargin = m;
-    return Math.ceil(maxMargin * X_SCALE) + 4;
+    return Math.ceil(GRAPH_LEFT_PADDING + (maxMargin - SOURCE_LANE_ORIGIN) * X_SCALE) + 4;
   });
 
   // Switch to horizontal scrolling only once the graph is wide enough that the
@@ -551,7 +558,7 @@
   let visibleDots = $derived(displayDots.slice(startIndex, endIndex));
 
   function laneX(col: number): number {
-    return col * X_SCALE;
+    return GRAPH_LEFT_PADDING + (col - SOURCE_LANE_ORIGIN) * X_SCALE;
   }
 
   // Same action as the "Load more commits" button, shared so auto-load sends an
@@ -613,7 +620,7 @@
     const t = Math.max(0, Math.min(1, f - i0));
     const m0 = displayLeftMargin[i0] ?? 0;
     const m1 = displayLeftMargin[i1] ?? 0;
-    const messageStartX = (m0 + (m1 - m0) * t) * X_SCALE + 4;
+    const messageStartX = GRAPH_LEFT_PADDING + (m0 + (m1 - m0) * t - SOURCE_LANE_ORIGIN) * X_SCALE + 4;
     const maxLeft = Math.max(0, contentWidth - viewportWidth);
     const target = Math.max(0, Math.min(messageStartX - viewportWidth / 4, maxLeft));
     if (Math.abs(container.scrollLeft - target) > 0.5) container.scrollLeft = target;
@@ -1532,7 +1539,7 @@
               }
             }}
           >
-            <div class="col-message" style="padding-left: {(displayLeftMargin[index] ?? 0) * X_SCALE + 4}px;">
+            <div class="col-message" style="padding-left: {GRAPH_LEFT_PADDING + ((displayLeftMargin[index] ?? 0) - SOURCE_LANE_ORIGIN) * X_SCALE + 4}px;">
               {#if currentBranchLocalOnly.has(commit.hash)}
                 <span class="local-dot" use:tooltip={t('graph.notPushed')}></span>
               {:else if currentBranchRemoteAhead.has(commit.hash)}

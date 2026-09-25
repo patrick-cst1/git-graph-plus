@@ -29,15 +29,17 @@ function makeGraphData(commits: Commit[]): CommitGraphData {
     graph: commits.map(c => ({ commit: c.hash, column: 0, color: '#63b0f4', parents: [] })),
     paths: [],
     links: [],
-    dots: commits.map((_, i) => ({ center: { x: 0, y: i }, color: 0, type: 'default' as const, localOnly: false, remoteTip: false })),
+    dots: commits.map((_, i) => ({ center: { x: 10, y: i }, color: 0, type: 'default' as const, localOnly: false, remoteTip: false })),
     commitLeftMargin: commits.map(() => 24),
     hasMore: false,
     currentLimit: 1000,
   };
 }
 
-// Multi-lane data: one path that moves right, back left (cubic), then straight,
-// plus one merge link. Exercises every branch of the geometry builder.
+// Multi-lane data: one path that moves from lane 0 (SourceGit x=10) to lane 2
+// (x=12) and back, then straight, plus one merge link. Exercises every branch
+// of the geometry builder. Coordinates use the real SourceGit rail origin of
+// 10, which the component normalises to GRAPH_LEFT_PADDING.
 function makeStyledGraphData(): CommitGraphData {
   const commits = [
     makeCommit('h1', 'first'),
@@ -48,12 +50,12 @@ function makeStyledGraphData(): CommitGraphData {
     commits,
     graph: commits.map((c, i) => ({ commit: c.hash, column: i, color: '#63b0f4', parents: [] })),
     paths: [
-      { points: [{ x: 0, y: 0 }, { x: 2, y: 1 }, { x: 0, y: 2 }, { x: 0, y: 3 }], color: 0 },
+      { points: [{ x: 10, y: 0 }, { x: 12, y: 1 }, { x: 10, y: 2 }, { x: 10, y: 3 }], color: 0 },
     ],
     links: [
-      { start: { x: 0, y: 0 }, control: { x: 1, y: 0 }, end: { x: 1, y: 1 }, color: 0 },
+      { start: { x: 10, y: 0 }, control: { x: 11, y: 0 }, end: { x: 11, y: 1 }, color: 0 },
     ],
-    dots: commits.map((_, i) => ({ center: { x: 0, y: i }, color: 0, type: 'default' as const, localOnly: false, remoteTip: false })),
+    dots: commits.map((_, i) => ({ center: { x: 10, y: i }, color: 0, type: 'default' as const, localOnly: false, remoteTip: false })),
     commitLeftMargin: commits.map(() => 24),
     hasMore: false,
     currentLimit: 1000,
@@ -292,8 +294,11 @@ describe('CommitGraph graph line style', () => {
     const ds = renderedPathDs(container);
     expect(ds.length).toBeGreaterThan(0);
     // Path elbows, then the merge link elbow.
-    expect(ds).toContain('M 0 0 L 2.1 0 L 2.1 24 L 0 24 L 0 48 L 0 72');
-    expect(ds).toContain('M 0 0 L 1.05 0 L 1.05 24');
+    // Git Graph grid geometry: 16px lane pitch, first lane (SourceGit x=10)
+    // centred at x=16. Fixture lane 2 (x=12) lands at 16 + 2*(16/12) =
+    // 18.666666666666668.
+    expect(ds).toContain('M 16 0 L 18.666666666666668 0 L 18.666666666666668 24 L 16 24 L 16 48 L 16 72');
+    expect(ds).toContain('M 16 0 L 17.333333333333332 0 L 17.333333333333332 24');
     for (const d of ds) {
       expect(d).toContain('L');
       expect(d).not.toContain('Q');
@@ -310,8 +315,8 @@ describe('CommitGraph graph line style', () => {
     await tick();
 
     const ds = renderedPathDs(container);
-    expect(ds).toContain('M 0 0 Q 2.1 0, 2.1 24 C 2.1 40, 0 32, 0 48 L 0 72');
-    expect(ds).toContain('M 0 0 Q 1.05 0, 1.05 24');
+    expect(ds).toContain('M 16 0 Q 18.666666666666668 0, 18.666666666666668 24 C 18.666666666666668 40, 16 32, 16 48 L 16 72');
+    expect(ds).toContain('M 16 0 Q 17.333333333333332 0, 17.333333333333332 24');
     expect(ds.some((d) => d.includes('Q'))).toBe(true);
     expect(ds.some((d) => d.includes('C'))).toBe(true);
     for (const p of container.querySelectorAll('.graph-lines path')) {
@@ -327,8 +332,8 @@ describe('CommitGraph graph line style', () => {
     await tick();
 
     const ds = renderedPathDs(container);
-    expect(ds).toContain('M 0 0 Q 2.1 0, 2.1 24 C 2.1 40, 0 32, 0 48 L 0 72');
-    expect(ds).toContain('M 0 0 Q 1.05 0, 1.05 24');
+    expect(ds).toContain('M 16 0 Q 18.666666666666668 0, 18.666666666666668 24 C 18.666666666666668 40, 16 32, 16 48 L 16 72');
+    expect(ds).toContain('M 16 0 Q 17.333333333333332 0, 17.333333333333332 24');
     expect(ds.some((d) => d.includes('Q'))).toBe(true);
     expect(ds.some((d) => d.includes('C'))).toBe(true);
   });
