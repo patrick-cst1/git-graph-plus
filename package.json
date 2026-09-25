@@ -1,12 +1,12 @@
 {
-  "name": "git-graph-plus",
-  "displayName": "Git Graph Plus",
+  "name": "git-graph-plus-private",
+  "displayName": "Git Graph Plus (Private)",
   "description": "A modern, full-featured Git GUI for VS Code",
-  "version": "0.7.3",
-  "publisher": "the0807",
+  "version": "0.7.4",
+  "publisher": "patrick-local",
   "repository": {
     "type": "git",
-    "url": "https://github.com/the0807/git-graph-plus"
+    "url": "https://github.com/patrick-cst1/git-graph-plus.git"
   },
   "license": "Apache-2.0",
   "icon": "resources/icon-marketplace.png",
