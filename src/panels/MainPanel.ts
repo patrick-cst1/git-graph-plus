@@ -2107,7 +2107,7 @@ export class MainPanel {
     const scriptUri = `${webview.asWebviewUri(vscode.Uri.joinPath(distUri, 'main.js'))}?v=${assetVersion}`;
     const styleUri = `${webview.asWebviewUri(vscode.Uri.joinPath(distUri, 'main.css'))}?v=${assetVersion}`;
     const codiconUri = `${webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, 'node_modules', '@vscode', 'codicons', 'dist', 'codicon.css')
+      vscode.Uri.joinPath(distUri, 'codicons', 'codicon.css')
     )}?v=${assetVersion}`;
 
     const nonce = getNonce();

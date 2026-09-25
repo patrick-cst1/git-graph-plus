@@ -599,7 +599,8 @@
   "scripts": {
     "build:extension": "node esbuild.config.mjs",
     "build:webview": "cd webview-ui && npm run build",
-    "build": "npm run build:extension && npm run build:webview",
+    "build:codicons": "node scripts/copy-codicons.mjs",
+    "build": "npm run build:extension && npm run build:webview && npm run build:codicons",
     "watch:extension": "node esbuild.config.mjs --watch",
     "watch:webview": "cd webview-ui && npm run dev",
     "dev": "concurrently \"npm:watch:*\"",
