@@ -141,6 +141,9 @@ import AmendModal from './components/modals/AmendModal.svelte';
         case 'setDefaultCommitTab':
           uiStore.defaultCommitTab = msg.payload.tab;
           break;
+        case 'setGraphStyle':
+          uiStore.graphStyle = msg.payload.style;
+          break;
         case 'setInteractiveRebaseMode':
           uiStore.interactiveRebaseMode = msg.payload.mode;
           break;

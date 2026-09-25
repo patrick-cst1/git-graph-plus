@@ -5,7 +5,7 @@ import { GitService, GitError } from '../git/git-service';
 import { formatGitError, isAuthFailure, transportFromRemoteUrl } from '../git/git-error-formatter';
 import { splitUpstreamRef } from '../git/git-parser';
 import { samePath } from '../utils/path';
-import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readAutoLoadHistory, readInteractiveRebaseMode, readLfsLocksEnabled, readDefaultCommitTab, readShowStashes } from '../utils/config';
+import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readAutoLoadHistory, readInteractiveRebaseMode, readLfsLocksEnabled, readDefaultCommitTab, readShowStashes, readGraphStyle } from '../utils/config';
 import { buildClassicRebaseCommand } from '../git/classic-rebase';
 import { buildFullGraph } from '../git/git-graph-builder';
 import { compileBranchColorRules, makeBranchColorResolver } from '../git/branch-color-resolver';
@@ -249,6 +249,9 @@ export class MainPanel {
         if (e.affectsConfiguration('gitGraphPlus.defaultCommitTab')) {
           this.post({ type: 'setDefaultCommitTab', payload: { tab: readDefaultCommitTab() } });
         }
+        if (e.affectsConfiguration('gitGraphPlus.graphStyle')) {
+          this.post({ type: 'setGraphStyle', payload: { style: readGraphStyle() } });
+        }
         if (e.affectsConfiguration('gitGraphPlus.branchColors')) {
           this.refreshAll();
         }
@@ -283,6 +286,7 @@ export class MainPanel {
     this.post({ type: 'setLoadMoreCount', payload: { count: readLoadMoreCommitCount() } });
     this.post({ type: 'setAutoLoadHistory', payload: { enabled: readAutoLoadHistory() } });
     this.post({ type: 'setDefaultCommitTab', payload: { tab: readDefaultCommitTab() } });
+    this.post({ type: 'setGraphStyle', payload: { style: readGraphStyle() } });
     this.post({ type: 'setInteractiveRebaseMode', payload: { mode: readInteractiveRebaseMode() } });
     void this.postCommitLinkRules();
 

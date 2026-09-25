@@ -13,7 +13,7 @@ vi.mock('vscode', () => ({
   },
 }));
 
-import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readAutoLoadHistory, readLfsLocksEnabled, readDefaultCommitTab, readShowStashes } from '../config';
+import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readAutoLoadHistory, readLfsLocksEnabled, readDefaultCommitTab, readShowStashes, readGraphStyle } from '../config';
 
 describe('readTimeoutMs', () => {
   // Back-compat alias so the existing timeout cases below read naturally.
@@ -187,5 +187,32 @@ describe('readShowStashes', () => {
   it('falls back to true for a non-boolean value', () => {
     h.values.showStashes = 'no';
     expect(readShowStashes()).toBe(true);
+  });
+});
+
+describe('readGraphStyle', () => {
+  beforeEach(() => { h.values = {}; });
+
+  it('defaults to rounded when unset', () => {
+    expect(readGraphStyle()).toBe('rounded');
+  });
+
+  it('returns angular when configured', () => {
+    h.values.graphStyle = 'angular';
+    expect(readGraphStyle()).toBe('angular');
+  });
+
+  it('returns rounded when explicitly configured', () => {
+    h.values.graphStyle = 'rounded';
+    expect(readGraphStyle()).toBe('rounded');
+  });
+
+  it('falls back to rounded for unknown or non-string values', () => {
+    h.values.graphStyle = 'zigzag';
+    expect(readGraphStyle()).toBe('rounded');
+    h.values.graphStyle = 42;
+    expect(readGraphStyle()).toBe('rounded');
+    h.values.graphStyle = null;
+    expect(readGraphStyle()).toBe('rounded');
   });
 });
