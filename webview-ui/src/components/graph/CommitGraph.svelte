@@ -361,7 +361,7 @@
   let displayLeftMargin = $derived(commitStore.commitLeftMargin);
 
 
-  const ROW_HEIGHT = 30;
+  const ROW_HEIGHT = 24;
   // Background behind the graph, used by the Git Graph-style line shadows and
   // dot outlines so lanes read as separate when they cross.
   const GRAPH_BACKGROUND = 'var(--bg-primary, var(--vscode-editor-background, #1e1e1e))';

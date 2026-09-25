@@ -292,8 +292,8 @@ describe('CommitGraph graph line style', () => {
     const ds = renderedPathDs(container);
     expect(ds.length).toBeGreaterThan(0);
     // Path elbows, then the merge link elbow.
-    expect(ds).toContain('M 0 0 L 2.1 0 L 2.1 30 L 0 30 L 0 60 L 0 90');
-    expect(ds).toContain('M 0 0 L 1.05 0 L 1.05 30');
+    expect(ds).toContain('M 0 0 L 2.1 0 L 2.1 24 L 0 24 L 0 48 L 0 72');
+    expect(ds).toContain('M 0 0 L 1.05 0 L 1.05 24');
     for (const d of ds) {
       expect(d).toContain('L');
       expect(d).not.toContain('Q');
@@ -310,8 +310,8 @@ describe('CommitGraph graph line style', () => {
     await tick();
 
     const ds = renderedPathDs(container);
-    expect(ds).toContain('M 0 0 Q 2.1 0, 2.1 30 C 2.1 49, 0 41, 0 60 L 0 90');
-    expect(ds).toContain('M 0 0 Q 1.05 0, 1.05 30');
+    expect(ds).toContain('M 0 0 Q 2.1 0, 2.1 24 C 2.1 40, 0 32, 0 48 L 0 72');
+    expect(ds).toContain('M 0 0 Q 1.05 0, 1.05 24');
     expect(ds.some((d) => d.includes('Q'))).toBe(true);
     expect(ds.some((d) => d.includes('C'))).toBe(true);
     for (const p of container.querySelectorAll('.graph-lines path')) {
@@ -327,8 +327,8 @@ describe('CommitGraph graph line style', () => {
     await tick();
 
     const ds = renderedPathDs(container);
-    expect(ds).toContain('M 0 0 Q 2.1 0, 2.1 30 C 2.1 49, 0 41, 0 60 L 0 90');
-    expect(ds).toContain('M 0 0 Q 1.05 0, 1.05 30');
+    expect(ds).toContain('M 0 0 Q 2.1 0, 2.1 24 C 2.1 40, 0 32, 0 48 L 0 72');
+    expect(ds).toContain('M 0 0 Q 1.05 0, 1.05 24');
     expect(ds.some((d) => d.includes('Q'))).toBe(true);
     expect(ds.some((d) => d.includes('C'))).toBe(true);
   });
