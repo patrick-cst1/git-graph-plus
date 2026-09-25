@@ -658,7 +658,9 @@
           <div class="info-column">
             <div class="info-label">{t('details.author')}</div>
             <div class="person-info">
-              <img class="avatar-lg" src={avatarStore.url(commit.author.email, 48)} alt="" />
+              {#if avatarStore.enabled}
+                <img class="avatar-lg" src={avatarStore.url(commit.author.email, 48)} alt="" />
+              {/if}
               <div class="person-details">
                 <div class="person-name">
                   {commit.author.name}
@@ -679,7 +681,9 @@
             <div class="info-column">
               <div class="info-label">{t('details.committer')}</div>
               <div class="person-info">
-                <img class="avatar-lg" src={avatarStore.url(commit.committer.email, 48)} alt="" />
+                {#if avatarStore.enabled}
+                  <img class="avatar-lg" src={avatarStore.url(commit.committer.email, 48)} alt="" />
+                {/if}
                 <div class="person-details">
                   <div class="person-name">
                     {commit.committer.name}

@@ -118,3 +118,12 @@ export function readGraphStyle(): GraphStyle {
     vscode.workspace.getConfiguration('gitGraphPlus').get<string>('graphStyle', DEFAULT_GRAPH_STYLE),
   );
 }
+
+/**
+ * Reads `gitGraphPlus.showAvatars` — whether author/committer avatars are
+ * shown in the graph, hover cards, commit details, and stats view. Defaults to
+ * true; only an explicit `false` disables them.
+ */
+export function readShowAvatars(): boolean {
+  return vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('showAvatars', true) !== false;
+}
