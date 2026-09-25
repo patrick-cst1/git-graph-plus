@@ -1606,7 +1606,7 @@
                   {/if}
                   <span
                     class="ref-badge"
-                    style="--badge-color: {badgeColor};{ref.type === 'stash' ? ' --fixed-tint: 28%;' : ''}"
+                    style="--badge-color: {badgeColor};"
                     class:badge-fixed={ref.type === 'tag' || ref.type === 'stash' || isWtBranch}
                     class:badge-head={ref.type === 'head'}
                     class:badge-no-bar={showCloudOnly}
@@ -1669,19 +1669,19 @@
                     {#if ref.type === 'head'}
                       <i class="codicon codicon-check ref-icon"></i>
                       {#if worktreeBranches.has(ref.name)}<i class="codicon codicon-worktree ref-icon"></i>{/if}
-                      {ref.name}
+                      <span class="ref-name">{ref.name}</span>
                     {:else if ref.type === 'remote-branch'}
                       <i class="codicon codicon-cloud ref-icon"></i>
-                      {ref.remote}/{ref.name}
+                      <span class="ref-name">{ref.remote}/{ref.name}</span>
                     {:else if ref.type === 'tag'}
                       <i class="codicon codicon-tag ref-icon"></i>
-                      {ref.name}
+                      <span class="ref-name">{ref.name}</span>
                     {:else if ref.type === 'stash'}
                       <i class="codicon codicon-archive ref-icon"></i>
-                      {ref.name}
+                      <span class="ref-name">{ref.name}</span>
                     {:else}
                       {#if (ref.type === 'branch') && worktreeBranches.has(ref.name)}<i class="codicon codicon-worktree ref-icon"></i>{/if}
-                      {ref.name}
+                      <span class="ref-name">{ref.name}</span>
                     {/if}
                   </span>
                 {/each}
@@ -2351,14 +2351,12 @@
   }
 
   /* ---- Ref badges ----
-     Branches carry their color through a solid left accent bar (the same color
-     as the commit dot, drawn as a ::before so it follows the badge's rounded
-     corners cleanly instead of a mismatched thick border) over a neutral fill,
-     so a branch's badge color is legible regardless of color vision. Three
-     levels of emphasis share this one visual language: regular branch (no fill)
-     < tag/stash/worktree (light tint) < current branch (strong tint + bold).
-     The bar width is user-configurable via --badge-bar-width (see
-     gitGraphPlus.branchBadgeBarThickness). */
+     Mirrors Git Graph's `.gitRef` label: an 18px (content-box) pill with a
+     neutral grey fill and border, a colour block at the left carrying the ref's
+     colour with its icon painted in the editor background, then the name. The
+     current branch (badge-head) takes its branch colour for the border and
+     bolds the name. Ref-type colours (tag/stash/worktree) still arrive through
+     the inline --badge-color custom property. */
   /* Drag-over target uses the same subtle fill as hover. */
   .ref-badge.drag-over {
     box-shadow: inset 0 0 0 100px rgba(255, 255, 255, 0.12);
@@ -2369,83 +2367,72 @@
   }
 
   .ref-badge {
-    position: relative;
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    padding: 1px 7px 1px calc(var(--badge-bar-width, 4px) + 6px);
-    border-radius: 4px;
-    font-size: 0.95em;
+    /* content-box: 18px content + 1px borders matches .gitRef's 20px pill
+       (the webview sets box-sizing: border-box globally) */
+    box-sizing: content-box;
+    height: 18px;
+    line-height: 18px;
+    margin: 2px 5px 0 0;
+    background: rgba(128, 128, 128, 0.15);
+    border: 1px solid rgba(128, 128, 128, 0.75);
+    border-radius: 5px;
+    font-size: 12px;
     font-weight: normal;
     white-space: nowrap;
     flex-shrink: 0;
-    line-height: 17px;
     cursor: pointer;
     overflow: hidden;
+    vertical-align: top;
     transition: box-shadow 0.1s;
-    /* Dark theme defaults: neutral fill */
-    background: rgba(255, 255, 255, 0.05);
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.12);
   }
 
-  /* Colored accent bar. Clipped to the badge's rounded corners by its
-     overflow:hidden, so it reads as an integrated edge accent. Painted above the
-     hover overlay (inset box-shadow) while text/icons stay above both. */
-  .ref-badge::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: var(--badge-bar-width, 4px);
+  /* `.col-message` is a 5px-gap flex row; fold that gap into the pill's own
+     5px right margin so adjacent labels sit 5px apart, as Git Graph's
+     inline-block labels do (they have no container gap). */
+  .ref-badge + .ref-badge {
+    margin-left: -5px;
+  }
+
+  /* Left colour block: 14px icon + 2px padding = 18px square, background in
+     the ref colour and glyph in the editor background (mhutchie's
+     `.gitRef > svg`). Only the leading icon gets the block; trailing icons
+     (e.g. the worktree marker on a checked-out worktree branch) stay plain. */
+  .ref-badge > .ref-icon:first-child {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    padding: 2px;
+    box-sizing: content-box;
     background: var(--badge-color);
+    color: var(--vscode-editor-background);
+    flex-shrink: 0;
+    font-size: 12px;
   }
 
   /* No focus ring on click/keyboard focus. Otherwise clicking a badge and then
      pressing Esc flips it into :focus-visible, drawing an unwanted outline. */
   .ref-badge:focus-visible { outline: none; }
 
-  /* Fixed-color refs: tag/worktree 20%, stash 28% (via inline --fixed-tint). */
-  .ref-badge.badge-fixed {
-    background: color-mix(in srgb, var(--badge-color) var(--fixed-tint, 20%), transparent);
+  /* Name: 18px line box with 5px side padding, exactly `.gitRefName`. */
+  .ref-name {
+    display: inline-block;
+    height: 18px;
+    line-height: 18px;
+    padding: 0 5px;
+    white-space: nowrap;
   }
 
-  /* Current branch: strongest tint + bold — the most prominent badge. */
+  /* Current branch: branch-coloured border + bold name (`.gitRef.active`). */
   .ref-badge.badge-head {
-    background: color-mix(in srgb, var(--badge-color) 55%, transparent);
-    font-weight: 600;
+    border-color: var(--badge-color);
   }
 
-  /* Only the current-branch check mark gets a heavier stroke for emphasis.
-     Other icons (cloud/worktree/tag/…) keep their normal weight — a text-stroke
-     on those glyphs reads as a rendering glitch rather than emphasis. */
-  .ref-badge.badge-head .ref-icon.codicon-check {
-    -webkit-text-stroke: 1px currentColor;
-  }
-
-  /* Paired local badge whose colored bar lives on the cloud companion instead. */
-  .ref-badge.badge-no-bar {
-    padding-left: 7px;
-  }
-  .ref-badge.badge-no-bar::before {
-    content: none;
-  }
-
-  /* Light theme overrides */
-  :global(body.vscode-light) .ref-badge {
-    background: rgba(0, 0, 0, 0.04);
-    color: #000;
-    border: 1px solid rgba(0, 0, 0, 0.15);
-  }
-
-  :global(body.vscode-light) .ref-badge.badge-fixed {
-    background: color-mix(in srgb, var(--badge-color) var(--fixed-tint, 20%), #fff);
-  }
-
-  :global(body.vscode-light) .ref-badge.badge-head {
-    background: color-mix(in srgb, var(--badge-color) 70%, #fff);
-    color: #000;
+  .ref-badge.badge-head .ref-name {
+    font-weight: bold;
   }
 
   /* High contrast overrides. HC light themes put both vscode-light and
@@ -2459,17 +2446,11 @@
     border: 1px solid var(--badge-color);
   }
 
-  .badge-cloud-only {
-    padding: 1px 5px 1px calc(var(--badge-bar-width, 4px) + 4px);
-    height: calc(17px + 2px + 2px); /* line-height + padding top/bottom + border */
-    box-sizing: border-box;
-  }
-
   /* Pull the local name badge closer to its cloud companion: tightens the
-     .col-message flex gap (5px) down to 2px for this pair only, so the two
-     read as a single unit. */
+     badge spacing (5px flex gap + 5px right margin) down to 2px for this pair
+     only, so the two read as a single unit. */
   .badge-cloud-only + .ref-badge {
-    margin-left: -3px;
+    margin-left: -8px;
   }
 
   /* Hover highlight: a translucent inset overlay painted below the text and the
@@ -2494,7 +2475,6 @@
     font-size: 1em;
     flex-shrink: 0;
     line-height: 1;
-    transform: translateY(1px);
   }
 
 
