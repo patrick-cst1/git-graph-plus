@@ -160,6 +160,7 @@ export type ExtensionMessage =
   | { type: 'setDefaults'; payload: ModalDefaults }
   | { type: 'setLoadMoreCount'; payload: { count: number } }
   | { type: 'setAutoLoadHistory'; payload: { enabled: boolean } }
+  | { type: 'setGraphStyle'; payload: { style: 'rounded' | 'angular' } }
   | { type: 'setBadgeBarThickness'; payload: { width: number } }
   | { type: 'setDefaultCommitTab'; payload: { tab: 'details' | 'changes' } }
   | { type: 'setShowAvatars'; payload: { enabled: boolean } }

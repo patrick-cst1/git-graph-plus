@@ -33,6 +33,7 @@ function resetStores() {
   uiStore.badgeBarWidth = 4;
   uiStore.defaultCommitTab = 'details';
   uiStore.autoLoadHistory = false;
+  uiStore.graphStyle = 'rounded';
   uiStore.setError(null);
   // modalStore is a singleton across tests; one stuck open modal will render
   // through every subsequent App mount and break unrelated assertions.
@@ -132,6 +133,14 @@ describe('App — message handling', () => {
     await waitFor(() => expect(avatarStore.enabled).toBe(false));
     postMsg('setShowAvatars', { enabled: true });
     await waitFor(() => expect(avatarStore.enabled).toBe(true));
+  });
+
+  it('setGraphStyle updates uiStore.graphStyle', async () => {
+    render(App);
+    postMsg('setGraphStyle', { style: 'angular' });
+    await waitFor(() => {
+      expect(uiStore.graphStyle).toBe('angular');
+    });
   });
 
   it('repoList populates uiStore.repos and activeRepo', async () => {

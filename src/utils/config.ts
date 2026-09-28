@@ -105,3 +105,25 @@ export function readShowStashes(): boolean {
 export function readShowAvatars(): boolean {
   return vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('showAvatars', true) !== false;
 }
+
+/** Line style used when drawing the commit graph. */
+export type GraphStyle = 'rounded' | 'angular';
+
+/** Default value of `gitGraphPlus.graphStyle`. */
+export const DEFAULT_GRAPH_STYLE: GraphStyle = 'rounded';
+
+/** Maps any raw setting value to a supported graph style (`rounded` fallback). */
+export function normalizeGraphStyle(value: unknown): GraphStyle {
+  return value === 'angular' ? 'angular' : 'rounded';
+}
+
+/**
+ * Reads `gitGraphPlus.graphStyle` — `rounded` (default) draws smooth curves,
+ * `angular` draws straight lines with right-angled elbows. Falls back to
+ * `rounded` when unset or invalid.
+ */
+export function readGraphStyle(): GraphStyle {
+  return normalizeGraphStyle(
+    vscode.workspace.getConfiguration('gitGraphPlus').get<string>('graphStyle', DEFAULT_GRAPH_STYLE),
+  );
+}
