@@ -6,8 +6,26 @@ export interface GraphPathPoint {
   y: number;
 }
 
-/** mhutchie Git Graph control-offset factors (of a row). */
+/** Knobs for the transition geometry / dot anchoring. */
+export interface GraphPathOptions {
+  /**
+   * How many rows a lane change may sweep over when a straight run is
+   * available to borrow from. One row gives mhutchie's tight hook; three rows
+   * (72px at the default row height) reads as a gentle parabola.
+   */
+  maxTransitionRows?: number;
+  /**
+   * Commit dots (pixel coordinates). The line must keep passing exactly
+   * through its own commits, so a dot is never smoothed away: it always stays
+   * an endpoint of a drawn segment.
+   */
+  dots?: readonly GraphPathPoint[];
+}
+
+/** mhutchie Git Graph control-offset factors (of the transition span). */
 const FACTOR: Record<GraphStyle, number> = { rounded: 0.8, angular: 0.38 };
+
+const DEFAULT_MAX_TRANSITION_ROWS = 3;
 
 /** Rounds to 2 decimals so emitted path data stays compact. */
 function fmt(n: number): string {
@@ -16,6 +34,10 @@ function fmt(n: number): string {
 
 function samePoint(a: GraphPathPoint, b: GraphPathPoint): boolean {
   return a.x === b.x && a.y === b.y;
+}
+
+function pointKey(p: GraphPathPoint): string {
+  return `${Math.round(p.x * 100)}|${Math.round(p.y * 100)}`;
 }
 
 function dedupe(points: GraphPathPoint[]): GraphPathPoint[] {
@@ -30,37 +52,66 @@ function dedupe(points: GraphPathPoint[]): GraphPathPoint[] {
 /**
  * Normalise a routed polyline before drawing.
  *
- * SourceGit's router moves lane changes through half-row waypoints, so a
- * transition can span only half a row (and the endY guard can even leave a
- * purely horizontal leg). Drawn as-is with mhutchie's control offset, a
- * half-row transition is twice as tight as Git Graph's — the elbows look
- * right-angled. Merge a lane change with an adjacent vertical stub (up to one
- * full row) and collapse collinear runs, so every transition gets the full
- * row mhutchie's geometry assumes.
+ * SourceGit's router snaps lane changes to half-row waypoints, so a transition
+ * spans half a row at most (and the endY guard can even leave a purely
+ * horizontal leg). Drawn as-is, the bend is a tight hook that reads as a
+ * right-angled elbow. Fold each lane change into the adjacent vertical run —
+ * up to `maxTransitionRows` rows — and collapse collinear runs, so the line
+ * sweeps across like a parabola instead of turning a corner.
+ *
+ * A lane change grows into the neighbouring straight run; the straight run is
+ * trimmed, never a commit dot. Dots are anchors: the middle point of a merged
+ * or collapsed chain is kept whenever it is a dot, so the drawn line always
+ * passes through its own commits.
  */
-export function normalizeGraphPoints(points: GraphPathPoint[], rowHeight: number): GraphPathPoint[] {
-  let pts = dedupe(points);
+export function normalizeGraphPoints(
+  points: GraphPathPoint[],
+  rowHeight: number,
+  options: GraphPathOptions = {},
+): GraphPathPoint[] {
+  const cap = rowHeight * (options.maxTransitionRows ?? DEFAULT_MAX_TRANSITION_ROWS);
   const eps = 0.01;
+  const dotKeys = options.dots && options.dots.length > 0 ? new Set(options.dots.map(pointKey)) : null;
+  const isDot = (p: GraphPathPoint) => dotKeys !== null && dotKeys.has(pointKey(p));
+  let pts = dedupe(points);
   let changed = true;
   while (changed && pts.length > 2) {
     changed = false;
     for (let i = 1; i < pts.length - 1; i++) {
       const a = pts[i - 1], b = pts[i], c = pts[i + 1];
-      const sameDirection = (c.y - b.y) * (b.y - a.y) >= 0;
-      const span = Math.abs(c.y - a.y);
-      const laneChangeThenStub = a.x !== b.x && b.x === c.x && sameDirection && span <= rowHeight + eps;
-      const stubThenLaneChange = a.x === b.x && b.x !== c.x && sameDirection && span <= rowHeight + eps;
-      if (laneChangeThenStub || stubThenLaneChange) {
-        pts.splice(i, 1);
-        changed = true;
-        i--;
-        continue;
+      const dy1 = b.y - a.y, dy2 = c.y - b.y;
+      const sameDirection = dy1 * dy2 >= 0;
+      const laneChangeThenStub = a.x !== b.x && b.x === c.x && sameDirection;
+      const stubThenLaneChange = a.x === b.x && b.x !== c.x && sameDirection;
+      if (!isDot(b) && (laneChangeThenStub || stubThenLaneChange)) {
+        const total = Math.abs(c.y - a.y);
+        if (total <= cap + eps) {
+          // Fits inside the budget: one transition covers the whole chain.
+          pts.splice(i, 1);
+          changed = true;
+          i--;
+          continue;
+        }
+        // Grow the transition to the full budget by trimming the stub it
+        // borrows from (only possible while the lane change itself fits).
+        const laneChangeSpan = laneChangeThenStub ? Math.abs(dy1) : Math.abs(dy2);
+        if (laneChangeSpan < cap - eps) {
+          const sign = c.y > a.y ? 1 : -1;
+          pts[i] = laneChangeThenStub
+            ? { x: b.x, y: a.y + sign * cap }
+            : { x: b.x, y: c.y - sign * cap };
+          changed = true;
+          i--;
+          continue;
+        }
       }
-      const collinear = (a.x === b.x && b.x === c.x) || (a.y === b.y && b.y === c.y);
-      if (collinear) {
-        pts.splice(i, 1);
-        changed = true;
-        i--;
+      if (!isDot(b)) {
+        const collinear = (a.x === b.x && b.x === c.x) || (a.y === b.y && b.y === c.y);
+        if (collinear) {
+          pts.splice(i, 1);
+          changed = true;
+          i--;
+        }
       }
     }
     if (changed) pts = dedupe(pts);
@@ -72,12 +123,18 @@ export function normalizeGraphPoints(points: GraphPathPoint[], rowHeight: number
  * Build the SVG path `d` for one branch polyline (points in pixel space).
  *
  * Same geometry as mhutchie Git Graph: vertical runs are straight `L`s and a
- * lane change is a cubic with control offset `row * 0.8` (rounded, default)
- * or a two-segment kink with `row * 0.38` (angular). `normalizeGraphPoints`
- * first widens half-row transitions to a full row.
+ * lane change is a cubic with control offset `span * 0.8` (rounded, default)
+ * or a two-segment kink with `span * 0.38` (angular). `normalizeGraphPoints`
+ * first folds each lane change into the neighbouring straight run so the bend
+ * sweeps over several rows.
  */
-export function buildGraphPathD(points: GraphPathPoint[], style: GraphStyle, rowHeight: number): string {
-  const pts = normalizeGraphPoints(points, rowHeight);
+export function buildGraphPathD(
+  points: GraphPathPoint[],
+  style: GraphStyle,
+  rowHeight: number,
+  options: GraphPathOptions = {},
+): string {
+  const pts = normalizeGraphPoints(points, rowHeight, options);
   if (pts.length < 2) return '';
 
   const factor = FACTOR[style];

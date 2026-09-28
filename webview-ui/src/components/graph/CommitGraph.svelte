@@ -502,6 +502,7 @@
     p.points.map(pt => ({ x: laneX(pt.x), y: pt.y * ROW_HEIGHT })),
     uiStore.graphStyle,
     ROW_HEIGHT,
+    { dots: displayDots.map(d => ({ x: laneX(d.center.x), y: d.center.y * ROW_HEIGHT })) },
   )));
 
   let visiblePaths = $derived.by(() => {

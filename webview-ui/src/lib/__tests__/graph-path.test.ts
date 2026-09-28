@@ -17,12 +17,69 @@ describe('normalizeGraphPoints', () => {
     ).toEqual([{ x: 0, y: 0 }, { x: 100, y: 24 }]);
   });
 
-  it('keeps a half-row transition when the following vertical stub would exceed one row', () => {
+  it('sweeps a short transition to the cap by trimming a long straight run', () => {
+    // cap = 3 rows: the transition grows to span 72px by trimming the straight
+    // run that follows, leaving the rest of the run vertical.
+    expect(normalizeGraphPoints([{ x: 0, y: 0 }, { x: 100, y: 12 }, { x: 100, y: 200 }], ROW)).toEqual([
+      { x: 0, y: 0 },
+      { x: 100, y: 72 },
+      { x: 100, y: 200 },
+    ]);
+  });
+
+  it('merges a chain into one transition when it fits the cap', () => {
     expect(normalizeGraphPoints([{ x: 0, y: 0 }, { x: 100, y: 12 }, { x: 100, y: 60 }], ROW)).toEqual([
       { x: 0, y: 0 },
-      { x: 100, y: 12 },
       { x: 100, y: 60 },
     ]);
+  });
+
+  it('extends a stub-then-lane-change by trimming the stub', () => {
+    expect(normalizeGraphPoints([{ x: 0, y: 0 }, { x: 0, y: 200 }, { x: 100, y: 212 }], ROW)).toEqual([
+      { x: 0, y: 0 },
+      { x: 0, y: 140 },
+      { x: 100, y: 212 },
+    ]);
+  });
+
+  it('respects maxTransitionRows', () => {
+    expect(normalizeGraphPoints([{ x: 0, y: 0 }, { x: 100, y: 12 }, { x: 100, y: 200 }], ROW, { maxTransitionRows: 1 })).toEqual([
+      { x: 0, y: 0 },
+      { x: 100, y: 24 },
+      { x: 100, y: 200 },
+    ]);
+    // A transition already at the cap is left alone.
+    expect(normalizeGraphPoints([{ x: 0, y: 0 }, { x: 100, y: 24 }, { x: 100, y: 200 }], ROW, { maxTransitionRows: 1 })).toEqual([
+      { x: 0, y: 0 },
+      { x: 100, y: 24 },
+      { x: 100, y: 200 },
+    ]);
+  });
+
+  it('never smooths away a commit dot', () => {
+    // The mid dot sits on the rail; the incoming transition must anchor at it
+    // instead of being extended past it.
+    const dots = [{ x: 48, y: 384 }];
+    const pts = normalizeGraphPoints(
+      [{ x: 16, y: 0 }, { x: 48, y: 0 }, { x: 48, y: 12 }, { x: 48, y: 384 }, { x: 48, y: 420 }, { x: 16, y: 432 }],
+      ROW,
+      { dots },
+    );
+    expect(pts).toEqual([
+      { x: 16, y: 0 },
+      { x: 48, y: 72 },
+      { x: 48, y: 384 },
+      { x: 16, y: 432 },
+    ]);
+  });
+
+  it('keeps a dot in the middle of a collinear run', () => {
+    const pts = normalizeGraphPoints(
+      [{ x: 48, y: 0 }, { x: 48, y: 24 }, { x: 48, y: 48 }],
+      ROW,
+      { dots: [{ x: 48, y: 24 }] },
+    );
+    expect(pts).toEqual([{ x: 48, y: 0 }, { x: 48, y: 24 }, { x: 48, y: 48 }]);
   });
 
   it('does not merge a vertical stub with an opposite-direction lane change', () => {
@@ -73,9 +130,9 @@ describe('buildGraphPathD', () => {
     );
   });
 
-  it('keeps a short transition tight when it cannot borrow a full row', () => {
-    expect(buildGraphPathD([{ x: 0, y: 0 }, { x: 100, y: 12 }, { x: 100, y: 60 }], 'rounded', ROW)).toBe(
-      'M 0 0 C 0 9.6, 100 2.4, 100 12 L 100 60',
+  it('sweeps a short transition across the whole cap when a long run follows', () => {
+    expect(buildGraphPathD([{ x: 0, y: 0 }, { x: 100, y: 12 }, { x: 100, y: 200 }], 'rounded', ROW)).toBe(
+      'M 0 0 C 0 57.6, 100 14.4, 100 72 L 100 200',
     );
   });
 
