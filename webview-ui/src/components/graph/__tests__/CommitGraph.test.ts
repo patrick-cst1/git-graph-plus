@@ -331,8 +331,9 @@ describe('CommitGraph graph line style', () => {
     // Branch path uses mhutchie's angular kink (diagonal + vertical), then the
     // merge link keeps its elbow. Git Graph grid geometry: 16px lane pitch,
     // first lane (SourceGit x=10) centred at x=16; fixture lane 2 (x=12) lands
-    // at 16 + 2*(16/12) = 18.666666666666668. Angular d = 24 * 0.38 = 9.12.
-    expect(ds).toContain('M 16 0 L 18.666666666666668 14.879999999999999 L 18.666666666666668 24 L 18.666666666666668 33.120000000000005 L 16 48 L 16 72');
+    // at 16 + 2*(16/12) ≈ 18.67 (path data is emitted rounded to 2 decimals).
+    // Angular d = 24 * 0.38 = 9.12.
+    expect(ds).toContain('M 16 0 L 18.67 14.88 L 18.67 24 L 18.67 33.12 L 16 48 L 16 72');
     expect(ds).toContain('M 16 0 L 17.333333333333332 14.879999999999999 L 17.333333333333332 24');
     for (const d of ds) {
       expect(d).toContain('L');
@@ -350,7 +351,7 @@ describe('CommitGraph graph line style', () => {
     await tick();
 
     const ds = renderedPathDs(container);
-    expect(ds).toContain('M 16 0 C 16 19.200000000000003, 18.666666666666668 4.799999999999997, 18.666666666666668 24 C 18.666666666666668 43.2, 16 28.799999999999997, 16 48 L 16 72');
+    expect(ds).toContain('M 16 0 C 16 19.2, 18.67 4.8, 18.67 24 C 18.67 43.2, 16 28.8, 16 48 L 16 72');
     expect(ds).toContain('M 16 0 C 16 19.200000000000003, 17.333333333333332 4.799999999999997, 17.333333333333332 24');
     expect(ds.some((d) => d.includes('C'))).toBe(true);
     expect(ds.some((d) => d.includes('Q'))).toBe(false);
@@ -367,7 +368,7 @@ describe('CommitGraph graph line style', () => {
     await tick();
 
     const ds = renderedPathDs(container);
-    expect(ds).toContain('M 16 0 C 16 19.200000000000003, 18.666666666666668 4.799999999999997, 18.666666666666668 24 C 18.666666666666668 43.2, 16 28.799999999999997, 16 48 L 16 72');
+    expect(ds).toContain('M 16 0 C 16 19.2, 18.67 4.8, 18.67 24 C 18.67 43.2, 16 28.8, 16 48 L 16 72');
     expect(ds).toContain('M 16 0 C 16 19.200000000000003, 17.333333333333332 4.799999999999997, 17.333333333333332 24');
     expect(ds.some((d) => d.includes('C'))).toBe(true);
     expect(ds.some((d) => d.includes('Q'))).toBe(false);
@@ -400,7 +401,7 @@ describe('CommitGraph graph line style', () => {
     const ds = renderedPathDs(container);
     // last=(16,12), cur=(32,24), d = 9.6 -> controls at 21.6 and 14.4, both
     // inside the [12, 24] segment.
-    expect(ds).toContain('M 16 12 C 16 21.6, 32 14.399999999999999, 32 24');
+    expect(ds).toContain('M 16 12 C 16 21.6, 32 14.4, 32 24');
   });
 
   it('scales the angular elbow to a half-row transition', async () => {
@@ -426,7 +427,34 @@ describe('CommitGraph graph line style', () => {
 
     const ds = renderedPathDs(container);
     // d = 0.38 * 12 = 4.56 -> elbow at y = 24 - 4.56 = 19.44.
-    expect(ds).toContain('M 16 12 L 32 19.439999999999998 L 32 24');
+    expect(ds).toContain('M 16 12 L 32 19.44 L 32 24');
+  });
+
+  it('widens a half-row right transition with a following stub to a full row (rounded)', async () => {
+    // SourceGit emits (lane, y) -> (newLane, y + 0.5) -> (newLane, y + 1); the
+    // stub is folded into the transition so it spans the full row mhutchie's
+    // geometry assumes (d = 0.8 * 24 = 19.2) instead of a tight half-row elbow.
+    commitStore.setData({
+      commits: [makeCommit('h1', 'first'), makeCommit('h2', 'second', ['h1'])],
+      graph: [
+        { commit: 'h1', column: 0, color: '#63b0f4', parents: [] },
+        { commit: 'h2', column: 1, color: '#63b0f4', parents: [] },
+      ],
+      paths: [{ points: [{ x: 10, y: 0 }, { x: 22, y: 0.5 }, { x: 22, y: 1 }], color: 0 }],
+      links: [],
+      dots: [
+        { center: { x: 10, y: 0 }, color: 0, type: 'default', localOnly: false, remoteTip: false },
+        { center: { x: 22, y: 1 }, color: 0, type: 'default', localOnly: false, remoteTip: false },
+      ],
+      commitLeftMargin: [24, 24],
+      hasMore: false,
+      currentLimit: 1000,
+    });
+    const { container } = render(CommitGraph, {});
+    await tick();
+
+    const ds = renderedPathDs(container);
+    expect(ds).toContain('M 16 0 C 16 19.2, 32 4.8, 32 24');
   });
 });
 

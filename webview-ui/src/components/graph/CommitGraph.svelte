@@ -23,7 +23,8 @@
   import SquashModal from '../modals/SquashModal.svelte';
   import MultiCherryPickModal from '../modals/MultiCherryPickModal.svelte';
   import { modalStore } from '../../lib/stores/modals.svelte';
-  import type { Commit, CommitGraphData, GraphStyle } from '../../lib/types';
+  import type { Commit, CommitGraphData } from '../../lib/types';
+  import { buildGraphPathD } from '../../lib/utils/graph-path';
   import { tooltip } from '../../lib/actions/tooltip';
   import { getSquashChain } from '../../lib/utils/squash';
   import { chainBranches } from '../../lib/utils/branchChain';
@@ -36,55 +37,6 @@
   import LinkifiedText from '../common/LinkifiedText.svelte';
   import { dispatchInteractiveRebase } from '../../lib/interactive-rebase';
 
-
-  /**
-   * Build the SVG path `d` for a branch from SourceGit path points using
-   * mhutchie Git Graph's transition geometry: vertical runs are `L`, a lane
-   * change is a cubic transition with control offset `d = row * 0.8` in the
-   * rounded style (default) or a two-segment kink with `d = row * 0.38` in the
-   * angular style.
-   */
-  function buildPathD(points: Array<{ x: number; y: number }>, style: GraphStyle): string {
-    if (points.length < 2) return '';
-
-    const factor = style === 'angular' ? 0.38 : 0.8;
-    const parts: string[] = [];
-    let last = { x: laneX(points[0].x), y: points[0].y * ROW_HEIGHT };
-    parts.push(`M ${last.x} ${last.y}`);
-
-    for (let i = 1; i < points.length; i++) {
-      const cur = { x: laneX(points[i].x), y: points[i].y * ROW_HEIGHT };
-
-      if (cur.x === last.x) {
-        // Same lane: straight vertical run
-        parts.push(`L ${cur.x} ${cur.y}`);
-      } else {
-        // SourceGit routes lane changes through half-row points, so a transition
-        // can span only half a row (12px). Scale the control offset to that
-        // span (mhutchie's 0.8/0.38 of a full row) instead of a fixed
-        // ROW_HEIGHT fraction — otherwise the control points escape the segment
-        // and the cubic overshoots into a visible kink instead of a round curve.
-        const d = Math.abs(cur.y - last.y) * factor;
-
-        if (style === 'angular') {
-          // mhutchie angular: a diagonal to (cur.x, cur.y - d) then vertical when
-          // the line locks to its destination, or vertical then a diagonal to the
-          // destination. We lock to the destination lane when moving right
-          // (fork shape) and to the source lane when moving left.
-          if (cur.x > last.x) parts.push(`L ${cur.x} ${cur.y - d}`);
-          else parts.push(`L ${last.x} ${last.y + d}`);
-          parts.push(`L ${cur.x} ${cur.y}`);
-        } else {
-          // mhutchie rounded: cubic with both control points offset by d
-          parts.push(`C ${last.x} ${last.y + d}, ${cur.x} ${cur.y - d}, ${cur.x} ${cur.y}`);
-        }
-      }
-
-      last = cur;
-    }
-
-    return parts.join(' ');
-  }
 
   interface Props {
     searchMatchedHashes?: Set<string> | null;
@@ -546,7 +498,11 @@
 
   // Path geometry never changes, only which paths are on screen does. Precompute the
   // SVG "d" string once per path (on data change) so scrolling never rebuilds them.
-  let pathDs = $derived(displayPaths.map(p => buildPathD(p.points, uiStore.graphStyle)));
+  let pathDs = $derived(displayPaths.map(p => buildGraphPathD(
+    p.points.map(pt => ({ x: laneX(pt.x), y: pt.y * ROW_HEIGHT })),
+    uiStore.graphStyle,
+    ROW_HEIGHT,
+  )));
 
   let visiblePaths = $derived.by(() => {
     const out: Array<{ color: number; colorOverride?: string; d: string }> = [];
