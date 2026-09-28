@@ -1420,11 +1420,26 @@ export class MainPanel {
           break;
         }
         case 'compareCommits': {
+          const { ref1, ref2, mode } = message.payload;
+          // 3-dot mode diffs one side against the merge base, so the panel shows
+          // only what that ref changed on its own — the same view a PR's
+          // "Files changed" shows. Unrelated histories (no merge base) fall back
+          // to the empty tree, i.e. everything on that side counts as added.
+          let leftRef = ref1;
+          let rightRef = ref2;
+          let base: string | undefined;
+          if (mode === 'ref1' || mode === 'ref2') {
+            const target = mode === 'ref1' ? ref1 : ref2;
+            const other = mode === 'ref1' ? ref2 : ref1;
+            base = (await this.gitService.getMergeBase(other, target)) ?? (await this.gitService.getEmptyTreeRef());
+            leftRef = base;
+            rightRef = target;
+          }
           const [compareDiffs, compareFiles] = await Promise.all([
-            this.gitService.diffCommits(message.payload.ref1, message.payload.ref2),
-            this.gitService.diffFiles(message.payload.ref1, message.payload.ref2),
+            this.gitService.diffCommits(leftRef, rightRef),
+            this.gitService.diffFiles(leftRef, rightRef),
           ]);
-          this.post({ type: 'commitDiffData', payload: { hash: '', diffs: compareDiffs, files: compareFiles } });
+          this.post({ type: 'commitDiffData', payload: { hash: '', diffs: compareDiffs, files: compareFiles, base } });
           break;
         }
         // --- File tree at commit ---

@@ -1049,6 +1049,22 @@ export class GitService {
     return { kind: 'error' };
   }
 
+  /**
+   * Merge base of two refs, or null when there is none (unrelated histories)
+   * or the refs cannot be resolved. Used by 3-dot compare to diff one side
+   * against the common ancestor.
+   */
+  async getMergeBase(ref1: string, ref2: string): Promise<string | null> {
+    this.assertSafeRef(ref1, 'merge-base');
+    this.assertSafeRef(ref2, 'merge-base');
+    try {
+      const out = (await this.exec(['merge-base', ref1, ref2], { silent: true })).trim();
+      return out || null;
+    } catch {
+      return null;
+    }
+  }
+
   async predictConflicts(ours: string, theirs: string, mergeBase?: string): Promise<{ hasConflict: boolean; files: string[] }> {
     this.assertSafeRef(ours, 'merge-tree');
     this.assertSafeRef(theirs, 'merge-tree');

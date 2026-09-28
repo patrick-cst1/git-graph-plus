@@ -43,6 +43,9 @@ const H = vi.hoisted(() => {
     isLfsLocksVerifyEnabled: vi.fn(async () => true),
     searchCommits: vi.fn(async () => []),
     searchByFile: vi.fn(async () => []),
+    diffCommits: vi.fn(async () => []),
+    diffFiles: vi.fn(async () => []),
+    getMergeBase: vi.fn(async () => 'basesha'),
   };
   return {
     git,
@@ -166,6 +169,9 @@ beforeEach(() => {
   H.git.isLfsLocksVerifyEnabled.mockResolvedValue(true);
   H.git.searchCommits.mockResolvedValue([]);
   H.git.searchByFile.mockResolvedValue([]);
+  H.git.diffCommits.mockResolvedValue([]);
+  H.git.diffFiles.mockResolvedValue([]);
+  H.git.getMergeBase.mockResolvedValue('basesha');
   H.config = {};
   H.configListener = null;
   H.repos = [{ path: '/repo', name: 'repo', type: 'root' }];
@@ -327,6 +333,26 @@ describe('MainPanel message routing', () => {
     expect(H.git.showCommitFiles).toHaveBeenCalledWith('h1');
     const data = postedOfType('commitDiffData').at(-1)!;
     expect(data.payload!.hash).toBe('h1');
+  });
+
+  it('compareCommits diffs the two refs directly in 2-dot mode', async () => {
+    await dispatch({ type: 'compareCommits', payload: { ref1: 'r1', ref2: 'r2' } });
+    expect(H.git.diffCommits).toHaveBeenCalledWith('r1', 'r2');
+    expect(postedOfType('commitDiffData').at(-1)!.payload!.base).toBeUndefined();
+  });
+
+  it('compareCommits diffs one side against the merge base in 3-dot mode', async () => {
+    H.git.getMergeBase.mockResolvedValue('basesha');
+    await dispatch({ type: 'compareCommits', payload: { ref1: 'r1', ref2: 'r2', mode: 'ref2' } });
+    expect(H.git.getMergeBase).toHaveBeenCalledWith('r1', 'r2');
+    expect(H.git.diffCommits).toHaveBeenCalledWith('basesha', 'r2');
+    expect(postedOfType('commitDiffData').at(-1)!.payload!.base).toBe('basesha');
+  });
+
+  it('compareCommits falls back to the empty tree when there is no merge base', async () => {
+    H.git.getMergeBase.mockResolvedValue(null);
+    await dispatch({ type: 'compareCommits', payload: { ref1: 'r1', ref2: 'r2', mode: 'ref1' } });
+    expect(H.git.diffCommits).toHaveBeenCalledWith('4b825dc642cb6eb9a060e54bf8d69288fbee4904', 'r1');
   });
 
   it('merge calls GitService.merge then refreshes the whole view', async () => {

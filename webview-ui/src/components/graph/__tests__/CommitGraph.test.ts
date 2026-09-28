@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, cleanup, fireEvent } from '@testing-library/svelte';
+import { render, cleanup, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import CommitGraph from '../CommitGraph.svelte';
 import { commitStore } from '../../../lib/stores/commits.svelte';
@@ -698,5 +698,33 @@ describe('CommitGraph avatars', () => {
     expect(
       globalThis.__postedMessages.some(m => (m.data as { type?: string }).type === 'getAvatar')
     ).toBe(false);
+  });
+});
+
+describe('CommitGraph compare diff modes', () => {
+  function comparePosts() {
+    return globalThis.__postedMessages
+      .map(m => m.data as { type?: string; payload?: Record<string, unknown> })
+      .filter(m => m.type === 'compareCommits');
+  }
+
+  it('requests 2-dot by default and re-requests when the scope changes', async () => {
+    commitStore.setData(makeGraphData([makeCommit('h1', 'first'), makeCommit('h2', 'second', ['h1']), makeCommit('h3', 'third', ['h2'])]));
+    uiStore.multiSelectArmed = true;
+    uiStore.selectedCommitHashes = ['h1', 'h2'];
+    render(CommitGraph, {});
+    await waitFor(() => {
+      expect(comparePosts().length).toBeGreaterThan(0);
+    });
+    const first = comparePosts().pop()!;
+    expect(first.payload?.mode).toBe('direct');
+    expect(first.payload?.ref1).toBe('h2');   // older
+    expect(first.payload?.ref2).toBe('h1');   // newer
+
+    uiStore.compareMode = 'ref2';
+    await waitFor(() => {
+      expect(comparePosts().pop()?.payload?.mode).toBe('ref2');
+    });
+    expect(comparePosts().pop()?.payload?.ref2).toBe('h1');
   });
 });

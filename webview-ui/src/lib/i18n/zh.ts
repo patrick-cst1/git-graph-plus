@@ -278,6 +278,16 @@ export const zh: Record<string, string> = {
   'details.fullscreen': '展开面板',
   'details.restore': '恢复面板',
 
+  // Compare scope bar
+  'compare.direct': 'A↔B（2-dot）',
+  'compare.directHint': '两个 ref 之间的全部差异（两边改动合计）',
+  'compare.onlyRef': '只看 {ref}（3-dot）',
+  'compare.onlyRefHint': '仅显示 {ref} 自 merge base 以来的自身改动 — 与 PR 的 Files changed 相同',
+  'compare.checkConflicts': '检查冲突',
+  'compare.checking': '检查中…',
+  'compare.noConflicts': '无冲突',
+  'compare.conflictFiles': '{count} 个冲突文件',
+
   // Search bar
   'search.placeholder': '搜索提交（消息、作者、哈希、分支、标签）',
   'search.search': '搜索',

@@ -278,6 +278,16 @@ export const ko: Record<string, string> = {
   'details.fullscreen': '패널 확장',
   'details.restore': '패널 복원',
 
+  // Compare scope bar
+  'compare.direct': 'A↔B (2-dot)',
+  'compare.directHint': '두 ref 사이의 모든 차이 (양쪽 변경 합계)',
+  'compare.onlyRef': '{ref} 변경만 (3-dot)',
+  'compare.onlyRefHint': 'merge base 이후 {ref} 자체 변경만 표시 — PR의 Files changed와 동일',
+  'compare.checkConflicts': '충돌 확인',
+  'compare.checking': '확인 중…',
+  'compare.noConflicts': '충돌 없음',
+  'compare.conflictFiles': '충돌 파일 {count}개',
+
   // Search bar
   'search.placeholder': 'Commit 검색 (메시지, 작성자, 해시, 브랜치, 태그)',
   'search.search': '검색',

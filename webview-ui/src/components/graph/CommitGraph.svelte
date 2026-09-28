@@ -1309,8 +1309,10 @@
     return () => ro.disconnect();
   });
 
-  // Orchestration: when armed selection changes, request the right compare data.
+  // Orchestration: when the armed selection or the compare mode changes, request
+  // the right compare data.
   let lastCompareKey = '';
+  let lastComparePair = '';
   $effect(() => {
     // Only fetch the comparison while the bottom panel is open — the panel hosts
     // CommitDetails, which is the listener for the compare/section responses.
@@ -1322,15 +1324,22 @@
     const idx = new Map(displayCommits.map((c, i) => [c.hash, i]));
     const ordered = [...sel].sort((a, b) => (idx.get(a) ?? 0) - (idx.get(b) ?? 0));
     const key = ordered.join(',');
-    if (key === lastCompareKey) return;
-    lastCompareKey = key;
+    // A different pair starts back in the default direct (2-dot) scope.
+    if (key !== lastComparePair) {
+      lastComparePair = key;
+      uiStore.compareMode = 'direct';
+    }
+    const mode = ordered.length === 2 ? uiStore.compareMode : 'direct';
+    const requestKey = `${key}|${mode}`;
+    if (requestKey === lastCompareKey) return;
+    lastCompareKey = requestKey;
     uiStore.comparing = true;
     uiStore.selectedCommitHash = null;
     if (ordered.length === 2) {
       const ref2 = ordered[0];                 // newer
       const ref1 = ordered[1];                 // older
       uiStore.compareRef1 = ref1; uiStore.compareRef2 = ref2;
-      vscode.postMessage({ type: 'compareCommits', payload: { ref1, ref2 } });
+      vscode.postMessage({ type: 'compareCommits', payload: { ref1, ref2, mode } });
     } else {
       const head = ordered[0];
       const oldest = ordered[ordered.length - 1];

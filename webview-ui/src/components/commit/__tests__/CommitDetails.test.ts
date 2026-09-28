@@ -62,6 +62,11 @@ beforeEach(() => {
   uiStore.showBottomPanel = true;
   uiStore.commitFileSelected = false;
   uiStore.defaultCommitTab = 'details';
+  uiStore.compareRef1 = null;
+  uiStore.compareRef2 = null;
+  uiStore.compareMode = 'direct';
+  uiStore.selectedCommitHashes = [];
+  uiStore.multiSelectArmed = false;
 });
 
 afterEach(() => {
@@ -356,6 +361,65 @@ describe('CommitDetails — empty / compare', () => {
     await waitFor(() => {
       expect(queryByText('old.txt')).toBeNull();
     });
+  });
+});
+
+describe('CommitDetails — compare scope (2-dot/3-dot) & conflict check', () => {
+  const REF1 = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const REF2 = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+
+  function renderCompare() {
+    uiStore.comparing = true;
+    uiStore.compareRef1 = REF1;
+    uiStore.compareRef2 = REF2;
+    uiStore.selectedCommitHashes = [REF1, REF2];
+    return render(CommitDetails); // compare mode: no commit prop
+  }
+
+  function postedOfType(type: string) {
+    return globalThis.__postedMessages
+      .map(m => m.data as { type?: string; payload?: Record<string, unknown> })
+      .filter(m => m.type === type);
+  }
+
+  it('shows the scope bar and switches the diff mode', async () => {
+    const { container, findByText } = renderCompare();
+    expect(container.querySelectorAll('.compare-mode-btn').length).toBe(3);
+    await fireEvent.click(await findByText('Only bbbbbbb (3-dot)'));
+    expect(uiStore.compareMode).toBe('ref2');
+    await fireEvent.click(await findByText('A↔B (2-dot)'));
+    expect(uiStore.compareMode).toBe('direct');
+  });
+
+  it('checks conflicts through merge-tree and shows the conflicted files', async () => {
+    const { container, findByText } = renderCompare();
+    await fireEvent.click(await findByText('Check conflicts'));
+    const req = postedOfType('predictConflicts').pop();
+    expect(req?.payload?.ours).toBe(REF1);
+    expect(req?.payload?.theirs).toBe(REF2);
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      type: 'conflictPrediction',
+      payload: { hasConflict: true, files: ['a.sql'], requestId: req?.payload?.requestId },
+    }}));
+    await waitFor(() => {
+      expect(container.querySelector('.compare-conflict-state.has-conflict')).not.toBeNull();
+    });
+  });
+
+  it('opens per-file diffs against the merge base in 3-dot scope', async () => {
+    const { container, findByText } = renderCompare();
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      type: 'commitDiffData',
+      payload: { hash: '', files: [{ path: 'a.sql', status: 'M' }], diffs: [], base: 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee' },
+    }}));
+    await findByText('a.sql');
+    uiStore.compareMode = 'ref1';
+    const file = container.querySelector<HTMLElement>('.file-item');
+    expect(file).not.toBeNull();
+    await fireEvent.dblClick(file!);
+    const open = postedOfType('openDiff').pop();
+    expect(open?.payload?.ref1).toBe('eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee');
+    expect(open?.payload?.ref2).toBe(REF1);
   });
 });
 

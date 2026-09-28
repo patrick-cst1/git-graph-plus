@@ -16,6 +16,8 @@
   import LinkifiedText from '../common/LinkifiedText.svelte';
   import Markdown from '../common/Markdown.svelte';
   import { hasMarkdown } from '../../lib/markdown-detect';
+  import ConflictFilesPopover from '../common/ConflictFilesPopover.svelte';
+  import { shortenRef } from '../../lib/utils/git-ref';
 
   interface Props {
     commit?: Commit;
@@ -58,6 +60,15 @@
   // On-demand signature for the selected commit, fetched independently of the
   // graph-wide setting so the panel always shows verification status.
   let signature = $state<CommitSignature | null>(null);
+
+  // Compare mode: the merge base of the active 3-dot scope (shipped with the
+  // compare data) and the merge-tree conflict check result.
+  let compareBase = $state<string | null>(null);
+  let conflictChecking = $state(false);
+  let conflictResult = $state<{ hasConflict: boolean; files: string[] } | null>(null);
+  let conflictRequestId = '';
+  const compareShort1 = $derived(uiStore.compareRef1 ? shortenRef(uiStore.compareRef1) : '');
+  const compareShort2 = $derived(uiStore.compareRef2 ? shortenRef(uiStore.compareRef2) : '');
 
   // Build a "Name <email>" display for the *verified* signer. git's %GS varies
   // by format: GPG often yields "Name <email>", SSH yields just the principal
@@ -298,6 +309,9 @@
       sections = [];
       selectedFile = null;
       selectedPatchFiles = new Set();
+      compareBase = null;
+      conflictChecking = false;
+      conflictResult = null;
     }
   });
 
@@ -349,11 +363,17 @@
         if (msg.payload.hash !== activeHash) return;
         files = msg.payload.files;
         sections = [];
+        compareBase = msg.payload.base ?? null;
         // Compare mode (compareCommits / compareToWorking) ships all diffs
         // upfront with an empty hash, so lazy per-file fetching never runs for
         // it. Store those diffs so clicking a file shows its content. Normal
         // commit selection omits `diffs` and loads them lazily per file.
         if (msg.payload.diffs) diffs = msg.payload.diffs;
+      }
+      if (msg.type === 'conflictPrediction') {
+        if (msg.payload.requestId !== conflictRequestId) return;
+        conflictChecking = false;
+        conflictResult = { hasConflict: msg.payload.hasConflict, files: msg.payload.files };
       }
       if (msg.type === 'fileDiffData') {
         if (msg.payload.hash !== activeHash) return;
@@ -594,6 +614,32 @@
     expandedDirs = next;
   }
 
+  // Refs used when opening a per-file diff from the compare panel. In 3-dot
+  // scope the left side is the merge base, so the editor diff matches the file
+  // list on screen.
+  function compareOpenRefs(): { ref1: string; ref2: string } {
+    if (compareBase && uiStore.compareMode !== 'direct' && uiStore.compareRef1 && uiStore.compareRef2) {
+      return {
+        ref1: compareBase,
+        ref2: uiStore.compareMode === 'ref1' ? uiStore.compareRef1 : uiStore.compareRef2,
+      };
+    }
+    return { ref1: uiStore.compareRef1 ?? '', ref2: uiStore.compareRef2 ?? '' };
+  }
+
+  // Dry-run `git merge-tree` between the two compared refs — reports the files
+  // that would conflict, without touching the working tree.
+  function checkConflicts() {
+    if (!uiStore.compareRef1 || !uiStore.compareRef2) return;
+    conflictChecking = true;
+    conflictResult = null;
+    conflictRequestId = `cc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    vscode.postMessage({
+      type: 'predictConflicts',
+      payload: { ours: uiStore.compareRef1, theirs: uiStore.compareRef2, requestId: conflictRequestId },
+    });
+  }
+
 </script>
 
 <div class="commit-details">
@@ -625,6 +671,57 @@
       </button>
     </div>
   </div>
+
+  <!-- Compare scope + conflict check (two-ref compare only) -->
+  {#if uiStore.comparing && uiStore.selectedCommitHashes.length === 2 && uiStore.compareRef1 && uiStore.compareRef2}
+    <div class="compare-bar">
+      <div class="compare-modes">
+        <button
+          class="compare-mode-btn"
+          class:active={uiStore.compareMode === 'direct'}
+          use:tooltip={t('compare.directHint')}
+          onclick={() => { uiStore.compareMode = 'direct'; }}
+        >
+          {t('compare.direct')}
+        </button>
+        <button
+          class="compare-mode-btn"
+          class:active={uiStore.compareMode === 'ref1'}
+          use:tooltip={t('compare.onlyRefHint', { ref: compareShort1 })}
+          onclick={() => { uiStore.compareMode = 'ref1'; }}
+        >
+          {t('compare.onlyRef', { ref: compareShort1 })}
+        </button>
+        <button
+          class="compare-mode-btn"
+          class:active={uiStore.compareMode === 'ref2'}
+          use:tooltip={t('compare.onlyRefHint', { ref: compareShort2 })}
+          onclick={() => { uiStore.compareMode = 'ref2'; }}
+        >
+          {t('compare.onlyRef', { ref: compareShort2 })}
+        </button>
+      </div>
+      <div class="compare-conflict">
+        {#if conflictChecking}
+          <span class="compare-conflict-state">{t('compare.checking')}</span>
+        {:else if conflictResult === null}
+          <button class="compare-check-btn" onclick={checkConflicts}>
+            <i class="codicon codicon-checklist"></i> {t('compare.checkConflicts')}
+          </button>
+        {:else if conflictResult.hasConflict}
+          <ConflictFilesPopover files={conflictResult.files}>
+            <span class="compare-conflict-state has-conflict">
+              <i class="codicon codicon-warning"></i> {t('compare.conflictFiles', { count: String(conflictResult.files.length) })}
+            </span>
+          </ConflictFilesPopover>
+        {:else}
+          <span class="compare-conflict-state no-conflict">
+            <i class="codicon codicon-pass"></i> {t('compare.noConflicts')}
+          </span>
+        {/if}
+      </div>
+    </div>
+  {/if}
 
   <!-- Commit tab -->
   {#if activeTab === 'commit' && commit}
@@ -935,7 +1032,8 @@
                     if (commit) {
                       vscode.postMessage({ type: 'openDiff', payload: { file: node.path, commitHash: commit.hash } });
                     } else if (uiStore.comparing && uiStore.compareRef1 && uiStore.compareRef2) {
-                      vscode.postMessage({ type: 'openDiff', payload: { file: node.path, ref1: uiStore.compareRef1, ref2: uiStore.compareRef2 } });
+                      const refs = compareOpenRefs();
+                      vscode.postMessage({ type: 'openDiff', payload: { file: node.path, ref1: refs.ref1, ref2: refs.ref2 } });
                     } else if (uiStore.comparing && uiStore.compareRef1) {
                       vscode.postMessage({ type: 'openDiff', payload: { file: node.path, ref1: uiStore.compareRef1, ref2: 'working' } });
                     } else {
@@ -961,7 +1059,8 @@
                         if (commit) {
                           vscode.postMessage({ type: 'openDiff', payload: { file: node.path, commitHash: commit.hash } });
                         } else if (uiStore.comparing && uiStore.compareRef1 && uiStore.compareRef2) {
-                          vscode.postMessage({ type: 'openDiff', payload: { file: node.path, ref1: uiStore.compareRef1, ref2: uiStore.compareRef2 } });
+                          const refs = compareOpenRefs();
+                          vscode.postMessage({ type: 'openDiff', payload: { file: node.path, ref1: refs.ref1, ref2: refs.ref2 } });
                         } else if (uiStore.comparing && uiStore.compareRef1) {
                           vscode.postMessage({ type: 'openDiff', payload: { file: node.path, ref1: uiStore.compareRef1, ref2: 'working' } });
                         } else {
@@ -1281,6 +1380,87 @@
     opacity: 0.6;
     font-weight: normal;
     font-size: 0.75em;
+  }
+
+  /* ── Compare scope bar ── */
+  .compare-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 10px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  .compare-modes {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .compare-mode-btn {
+    padding: 3px 9px;
+    font-size: 0.85em;
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .compare-mode-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--vscode-focusBorder, #007fd4);
+  }
+
+  .compare-mode-btn.active {
+    color: var(--text-primary);
+    border-color: var(--vscode-focusBorder, #007fd4);
+    background: rgba(0, 127, 212, 0.12);
+  }
+
+  .compare-conflict {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85em;
+  }
+
+  .compare-check-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    font-size: 0.9em;
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    cursor: pointer;
+  }
+
+  .compare-check-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--vscode-focusBorder, #007fd4);
+  }
+
+  .compare-conflict-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text-secondary);
+  }
+
+  .compare-conflict-state.has-conflict {
+    color: #e2c08d;
+  }
+
+  .compare-conflict-state.no-conflict {
+    color: #4caf50;
   }
 
   /* ── Commit tab ── */

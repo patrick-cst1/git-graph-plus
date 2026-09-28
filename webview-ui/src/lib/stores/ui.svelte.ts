@@ -13,6 +13,9 @@ class UiStore {
   comparing = $state(false);
   compareRef1 = $state<string | null>(null);
   compareRef2 = $state<string | null>(null);
+  // Compare diff scope: 'direct' = both sides (2-dot); 'ref1'/'ref2' = only
+  // that side's own changes since the merge base (3-dot, PR "Files changed").
+  compareMode = $state<'direct' | 'ref1' | 'ref2'>('direct');
   viewMode = $state<'graph' | 'log' | 'stats'>('graph');
   // Non-null while the graph shows a pinned slice fetched from a reflog entry
   // outside the loaded window. Cleared by any normal logData payload or by the
