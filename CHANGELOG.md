@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.18
+
+- Tune the transition sweep to two rows (48px): three rows felt too swoopy and
+  one row too tight.
+
 ## 0.7.17
 
 - Sweep lane changes over up to three rows (borrowing from the straight run)
