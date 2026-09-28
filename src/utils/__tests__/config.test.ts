@@ -13,7 +13,7 @@ vi.mock('vscode', () => ({
   },
 }));
 
-import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readLfsLocksEnabled, readDefaultCommitTab } from '../config';
+import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readLfsLocksEnabled, readDefaultCommitTab, readAutoLoadHistory } from '../config';
 
 describe('readTimeoutMs', () => {
   // Back-compat alias so the existing timeout cases below read naturally.
@@ -144,5 +144,28 @@ describe('readDefaultCommitTab', () => {
   it('falls back to details for an unknown value', () => {
     h.values.defaultCommitTab = 'bogus';
     expect(readDefaultCommitTab()).toBe('details');
+  });
+});
+
+describe('readAutoLoadHistory', () => {
+  beforeEach(() => { h.values = {}; });
+
+  it('defaults to false when unset (manual "Load more" button preserved)', () => {
+    expect(readAutoLoadHistory()).toBe(false);
+  });
+
+  it('returns true when explicitly enabled', () => {
+    h.values.autoLoadHistory = true;
+    expect(readAutoLoadHistory()).toBe(true);
+  });
+
+  it('returns false when explicitly disabled', () => {
+    h.values.autoLoadHistory = false;
+    expect(readAutoLoadHistory()).toBe(false);
+  });
+
+  it('falls back to false for a non-boolean value', () => {
+    h.values.autoLoadHistory = 'yes';
+    expect(readAutoLoadHistory()).toBe(false);
   });
 });

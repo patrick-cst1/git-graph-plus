@@ -159,6 +159,7 @@ export type ExtensionMessage =
   | { type: 'setInteractiveRebaseMode'; payload: { mode: 'ui' | 'classic' } }
   | { type: 'setDefaults'; payload: ModalDefaults }
   | { type: 'setLoadMoreCount'; payload: { count: number } }
+  | { type: 'setAutoLoadHistory'; payload: { enabled: boolean } }
   | { type: 'setBadgeBarThickness'; payload: { width: number } }
   | { type: 'setDefaultCommitTab'; payload: { tab: 'details' | 'changes' } }
   | { type: 'setGraphColors'; payload: { colors: string[] } }

@@ -24,6 +24,9 @@ class UiStore {
   operating = $state<string | null>(null);
   badgeBarWidth = $state(4);
   loadMoreCount = $state(50);
+  // Issue #61: when true, scrolling near the bottom of the graph fetches the
+  // next chunk automatically. Off by default so "Load more" stays manual.
+  autoLoadHistory = $state(false);
   interactiveRebaseMode = $state<InteractiveRebaseMode>('ui');
   // Which tab the commit-details panel opens on when a commit is selected
   // (`gitGraphPlus.defaultCommitTab`). The uncommitted view ignores this and
