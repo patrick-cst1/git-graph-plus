@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.15
+
+- Merge the remote fork line into this fork: the two-commit compare feature
+  (2-dot/3-dot scope, merge-tree conflict checks, conflict preview) now ships
+  alongside everything below.
+- Stats stays a single opt-in view (`gitGraphPlus.showStats`, off by default);
+  the duplicate toolbar wiring was removed so there is no overlapping feature.
+- Search/reflog navigation uses a single nonce guard; the graph scrolls exactly
+  once per navigation request and never re-scrolls to a stale target.
+
 ## 0.7.14
 
 - Fix the graph scrolling back to a previous search / reflog target when the
