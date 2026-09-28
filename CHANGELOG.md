@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.20
+
+- Align the graph lines with mhutchie Git Graph's geometry again: a lane change
+  is a single one-row transition (0.8-row control offset), so lines stay on
+  their lanes, every commit dot stays connected and nothing sweeps across the
+  graph. Reverts the experimental wide/spread transitions.
+
 ## 0.7.19
 
 - Spread each lane change across the whole run between the two surrounding
