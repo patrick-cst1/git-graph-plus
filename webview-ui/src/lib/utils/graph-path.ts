@@ -21,8 +21,8 @@ export interface GraphPathOptions {
   dots?: readonly GraphPathPoint[];
 }
 
-/** mhutchie Git Graph control-offset factors (of the transition span). */
-const FACTOR: Record<GraphStyle, number> = { rounded: 0.8, angular: 0.38 };
+/** mhutchie angular control-offset factor (of the transition span). */
+const FACTOR_ANGULAR = 0.38;
 
 /**
  * mhutchie Git Graph draws one segment per commit row, so a lane change is
@@ -128,11 +128,13 @@ export function normalizeGraphPoints(
 /**
  * Build the SVG path `d` for one branch polyline (points in pixel space).
  *
- * Same geometry as mhutchie Git Graph: vertical runs are straight `L`s and a
- * lane change is a cubic with control offset `span * 0.8` (rounded, default)
- * or a two-segment kink with `span * 0.38` (angular). `normalizeGraphPoints`
- * first folds each lane change into the neighbouring straight run so the bend
- * sweeps over several rows.
+ * Vertical runs are straight `L`s. `rounded` (default) uses Git Graph Plus's
+ * upstream transition geometry — a corner-hugging quadratic for right moves,
+ * a gentle cubic mid-path and a flat quadratic entry on the final left move —
+ * so each bend is a single sweeping curve with no extra hook at its ends.
+ * `angular` uses mhutchie's two-segment kink (`span * 0.38`).
+ * `normalizeGraphPoints` first folds lane changes into the neighbouring
+ * straight runs.
  */
 export function buildGraphPathD(
   points: GraphPathPoint[],
@@ -143,7 +145,6 @@ export function buildGraphPathD(
   const pts = normalizeGraphPoints(points, rowHeight, options);
   if (pts.length < 2) return '';
 
-  const factor = FACTOR[style];
   const parts: string[] = [`M ${fmt(pts[0].x)} ${fmt(pts[0].y)}`];
 
   for (let i = 1; i < pts.length; i++) {
@@ -155,8 +156,8 @@ export function buildGraphPathD(
       continue;
     }
 
-    const d = Math.abs(cur.y - last.y) * factor;
     if (style === 'angular') {
+      const d = Math.abs(cur.y - last.y) * FACTOR_ANGULAR;
       // mhutchie angular: a diagonal to (cur.x, cur.y - d) then vertical when the
       // line locks to its destination, or vertical then a diagonal to the
       // destination. Lock to the destination lane when moving right, and to the
@@ -164,8 +165,18 @@ export function buildGraphPathD(
       if (cur.x > last.x) parts.push(`L ${fmt(cur.x)} ${fmt(cur.y - d)}`);
       else parts.push(`L ${fmt(last.x)} ${fmt(last.y + d)}`);
       parts.push(`L ${fmt(cur.x)} ${fmt(cur.y)}`);
+    } else if (cur.x > last.x) {
+      // Git Graph Plus: corner-hugging quadratic — leaves horizontally, sweeps
+      // around the corner and arrives vertically on the new lane.
+      parts.push(`Q ${fmt(cur.x)} ${fmt(last.y)}, ${fmt(cur.x)} ${fmt(cur.y)}`);
+    } else if (i < pts.length - 1) {
+      // Git Graph Plus: a gentle S across the transition.
+      const midY = (last.y + cur.y) / 2;
+      parts.push(`C ${fmt(last.x)} ${fmt(midY + 4)}, ${fmt(cur.x)} ${fmt(midY - 4)}, ${fmt(cur.x)} ${fmt(cur.y)}`);
     } else {
-      parts.push(`C ${fmt(last.x)} ${fmt(last.y + d)}, ${fmt(cur.x)} ${fmt(cur.y - d)}, ${fmt(cur.x)} ${fmt(cur.y)}`);
+      // Git Graph Plus: flat entry — leaves vertically and sweeps horizontally
+      // into the last point.
+      parts.push(`Q ${fmt(last.x)} ${fmt(cur.y)}, ${fmt(cur.x)} ${fmt(cur.y)}`);
     }
   }
 

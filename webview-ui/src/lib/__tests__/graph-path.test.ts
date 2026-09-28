@@ -130,21 +130,29 @@ describe('normalizeGraphPoints', () => {
 });
 
 describe('buildGraphPathD', () => {
-  it('draws a normalised half-row right transition as one full-row cubic', () => {
+  it('draws a normalised half-row right transition as one sweeping quadratic', () => {
     expect(buildGraphPathD([{ x: 0, y: 0 }, { x: 100, y: 12 }, { x: 100, y: 24 }], 'rounded', ROW)).toBe(
-      'M 0 0 C 0 19.2, 100 4.8, 100 24',
+      'M 0 0 Q 100 0, 100 24',
     );
   });
 
-  it('draws a full-row lane change as a single cubic (mhutchie geometry)', () => {
-    expect(buildGraphPathD([{ x: 0, y: 0 }, { x: 100, y: 24 }], 'rounded', ROW)).toBe(
-      'M 0 0 C 0 19.2, 100 4.8, 100 24',
-    );
+  it('draws a full-row right lane change as a single quadratic (Git Graph Plus geometry)', () => {
+    expect(buildGraphPathD([{ x: 0, y: 0 }, { x: 100, y: 24 }], 'rounded', ROW)).toBe('M 0 0 Q 100 0, 100 24');
   });
 
   it('sweeps a short transition to one row by default', () => {
     expect(buildGraphPathD([{ x: 0, y: 0 }, { x: 100, y: 12 }, { x: 100, y: 200 }], 'rounded', ROW)).toBe(
-      'M 0 0 C 0 19.2, 100 4.8, 100 24 L 100 200',
+      'M 0 0 Q 100 0, 100 24 L 100 200',
+    );
+  });
+
+  it('sweeps a flat entry into the final point on a left move', () => {
+    expect(buildGraphPathD([{ x: 100, y: 0 }, { x: 0, y: 24 }], 'rounded', ROW)).toBe('M 100 0 Q 100 24, 0 24');
+  });
+
+  it('draws a mid-path left move as a gentle cubic S', () => {
+    expect(buildGraphPathD([{ x: 0, y: 0 }, { x: 100, y: 24 }, { x: 0, y: 48 }, { x: 0, y: 72 }], 'rounded', ROW)).toBe(
+      'M 0 0 Q 100 0, 100 24 C 100 40, 0 32, 0 48 L 0 72',
     );
   });
 

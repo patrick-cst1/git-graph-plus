@@ -351,10 +351,10 @@ describe('CommitGraph graph line style', () => {
     await tick();
 
     const ds = renderedPathDs(container);
-    expect(ds).toContain('M 16 0 C 16 19.2, 18.67 4.8, 18.67 24 C 18.67 43.2, 16 28.8, 16 48 L 16 72');
+    expect(ds).toContain('M 16 0 Q 18.67 0, 18.67 24 C 18.67 40, 16 32, 16 48 L 16 72');
     expect(ds).toContain('M 16 0 C 16 19.200000000000003, 17.333333333333332 4.799999999999997, 17.333333333333332 24');
     expect(ds.some((d) => d.includes('C'))).toBe(true);
-    expect(ds.some((d) => d.includes('Q'))).toBe(false);
+    expect(ds.some((d) => d.includes('Q'))).toBe(true);
     for (const p of container.querySelectorAll('.graph-lines path')) {
       // Rounded mode keeps the previous DOM exactly: no explicit linejoin.
       expect(p.getAttribute('stroke-linejoin')).toBeNull();
@@ -368,17 +368,16 @@ describe('CommitGraph graph line style', () => {
     await tick();
 
     const ds = renderedPathDs(container);
-    expect(ds).toContain('M 16 0 C 16 19.2, 18.67 4.8, 18.67 24 C 18.67 43.2, 16 28.8, 16 48 L 16 72');
+    expect(ds).toContain('M 16 0 Q 18.67 0, 18.67 24 C 18.67 40, 16 32, 16 48 L 16 72');
     expect(ds).toContain('M 16 0 C 16 19.200000000000003, 17.333333333333332 4.799999999999997, 17.333333333333332 24');
     expect(ds.some((d) => d.includes('C'))).toBe(true);
-    expect(ds.some((d) => d.includes('Q'))).toBe(false);
+    expect(ds.some((d) => d.includes('Q'))).toBe(true);
   });
 
-  it('keeps the control offset inside a half-row transition (no overshoot kink)', async () => {
+  it('draws a half-row transition as a single quadratic sweep (no overshoot kink)', async () => {
     // SourceGit routes lane changes through half-row points (y = 0.5), so a
-    // transition can span only 12px. The control offset must scale to that span
-    // (0.8 * 12 = 9.6) instead of the fixed 0.8 * ROW_HEIGHT (19.2), which would
-    // push both controls outside the segment and bow the line into a kink.
+    // transition can span only 12px; Git Graph Plus's corner-hugging quadratic
+    // covers exactly that segment with no control points escaping it.
     commitStore.setData({
       commits: [makeCommit('h1', 'first'), makeCommit('h2', 'second', ['h1'])],
       graph: [
@@ -399,9 +398,8 @@ describe('CommitGraph graph line style', () => {
     await tick();
 
     const ds = renderedPathDs(container);
-    // last=(16,12), cur=(32,24), d = 9.6 -> controls at 21.6 and 14.4, both
-    // inside the [12, 24] segment.
-    expect(ds).toContain('M 16 12 C 16 21.6, 32 14.4, 32 24');
+    // One corner-hugging quadratic from (16,12) to (32,24).
+    expect(ds).toContain('M 16 12 Q 32 12, 32 24');
   });
 
   it('scales the angular elbow to a half-row transition', async () => {
@@ -454,7 +452,7 @@ describe('CommitGraph graph line style', () => {
     await tick();
 
     const ds = renderedPathDs(container);
-    expect(ds).toContain('M 16 0 C 16 19.2, 32 4.8, 32 24');
+    expect(ds).toContain('M 16 0 Q 32 0, 32 24');
   });
 });
 
