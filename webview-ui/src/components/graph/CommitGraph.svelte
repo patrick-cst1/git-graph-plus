@@ -45,11 +45,12 @@
     bisectActive?: boolean;
     bisectCulpritHash?: string | null;
     remoteFilter?: string[];
+    dimFocusHashes?: Set<string> | null;
     headJumpNonce?: number;
     onHeadOffscreenChange?: (offscreen: boolean) => void;
   }
 
-  let { searchMatchedHashes = null, searchNavigateHash = null, searchNavigateNonce = 0, bisectActive = false, bisectCulpritHash = null, remoteFilter = [], headJumpNonce = 0, onHeadOffscreenChange = () => {} }: Props = $props();
+  let { searchMatchedHashes = null, searchNavigateHash = null, searchNavigateNonce = 0, bisectActive = false, bisectCulpritHash = null, remoteFilter = [], dimFocusHashes = null, headJumpNonce = 0, onHeadOffscreenChange = () => {} }: Props = $props();
 
   const vscode = getVsCodeApi();
 
@@ -1438,6 +1439,7 @@
       <!-- SVG for graph - SourceGit-style Path + Link + Dot rendering -->
       <svg
         class="graph-lines"
+        class:dimmed={dimFocusHashes !== null}
         width={graphWidth}
         style="position: absolute; top: 0; height: {totalHeight}px; overflow: hidden;"
       >
@@ -1480,13 +1482,16 @@
           {@const dx = laneX(dot.center.x)}
           {@const dy = dot.center.y * ROW_HEIGHT}
           {@const dotCommit = displayCommits[startIndex + i]}
-          {#if dotCommit?.hash === 'UNCOMMITTED'}
-            <circle cx={dx} cy={dy} r={4} fill="none" stroke="#888888" stroke-width="1.5" stroke-dasharray="3 2" />
-          {:else if dot.type === 'head'}
-            <circle cx={dx} cy={dy} r={4} fill={GRAPH_BACKGROUND} stroke={dotColor} stroke-width="2" />
-          {:else}
-            <circle cx={dx} cy={dy} r={4} fill={dotColor} stroke={GRAPH_BACKGROUND} stroke-width="1" stroke-opacity="0.75" />
-          {/if}
+          {@const dotDim = dimFocusHashes !== null && dotCommit !== undefined && dotCommit.hash !== 'UNCOMMITTED' && !dimFocusHashes.has(dotCommit.hash)}
+          <g opacity={dotDim ? 0.25 : 1}>
+            {#if dotCommit?.hash === 'UNCOMMITTED'}
+              <circle cx={dx} cy={dy} r={4} fill="none" stroke="#888888" stroke-width="1.5" stroke-dasharray="3 2" />
+            {:else if dot.type === 'head'}
+              <circle cx={dx} cy={dy} r={4} fill={GRAPH_BACKGROUND} stroke={dotColor} stroke-width="2" />
+            {:else}
+              <circle cx={dx} cy={dy} r={4} fill={dotColor} stroke={GRAPH_BACKGROUND} stroke-width="1" stroke-opacity="0.75" />
+            {/if}
+          </g>
         {/each}
       </svg>
 
@@ -1511,6 +1516,7 @@
             class:search-dim={isSearchActive && !searchMatchedHashes?.has(commit.hash)}
             class:search-current={searchNavigateHash === commit.hash}
             class:other-branch={!isSearchActive && !currentBranchCommits.has(commit.hash) && commit.hash !== 'UNCOMMITTED'}
+            class:focus-dim={dimFocusHashes !== null && commit.hash !== 'UNCOMMITTED' && !dimFocusHashes.has(commit.hash)}
             class:compare-mode={uiStore.multiSelectArmed && !uiStore.selectedCommitHashes.includes(commit.hash)}
             class:compare-base={uiStore.multiSelectArmed && uiStore.selectedCommitHashes.includes(commit.hash)}
             class:compare-active={uiStore.comparing && (uiStore.compareRef1 === commit.hash || uiStore.compareRef2 === commit.hash)}
@@ -1718,6 +1724,7 @@
               class:search-dim={isSearchActive && !searchMatchedHashes?.has(commit.hash)}
               class:search-current={searchNavigateHash === commit.hash}
               class:other-branch={!isSearchActive && !currentBranchCommits.has(commit.hash) && commit.hash !== 'UNCOMMITTED'}
+              class:focus-dim={dimFocusHashes !== null && commit.hash !== 'UNCOMMITTED' && !dimFocusHashes.has(commit.hash)}
               class:compare-base={uiStore.multiSelectArmed && uiStore.selectedCommitHashes.includes(commit.hash)}
               class:compare-active={uiStore.comparing && (uiStore.compareRef1 === commit.hash || uiStore.compareRef2 === commit.hash)}
               class:bisect-bad={bisectBadCommit === commit.hash}
@@ -2144,6 +2151,18 @@
 
   .commit-row.search-dim {
     opacity: 0.3;
+  }
+
+  .commit-row.focus-dim {
+    opacity: 0.3;
+  }
+
+  .meta-row.focus-dim {
+    opacity: 0.3;
+  }
+
+  .graph-lines.dimmed {
+    opacity: 0.35;
   }
 
   .commit-row.search-match {

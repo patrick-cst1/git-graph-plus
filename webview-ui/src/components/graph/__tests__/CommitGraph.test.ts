@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+﻿import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, cleanup, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import CommitGraph from '../CommitGraph.svelte';
@@ -268,7 +268,7 @@ describe('CommitGraph smoke', () => {
       makeCommit('h1', 'first'),
       makeCommit('h2', 'second', ['h1']),
     ]));
-    // currentBranch is a getter — set it by adding a current branch to the list.
+    // currentBranch is a getter 窶・set it by adding a current branch to the list.
     branchStore.branches = [
       { name: 'main', current: true, remote: undefined, upstream: undefined, ahead: 0, behind: 0, hash: 'h2' },
     ];
@@ -277,7 +277,7 @@ describe('CommitGraph smoke', () => {
     await tick();
     expect(container.querySelectorAll('.commit-row').length).toBe(2);
 
-    // Re-render with the SAME data — the fingerprint must match, no errors.
+    // Re-render with the SAME data 窶・the fingerprint must match, no errors.
     cleanup();
     const { container: c2 } = render(CommitGraph, {});
     await tick();
@@ -331,7 +331,7 @@ describe('CommitGraph graph line style', () => {
     // Branch path uses mhutchie's angular kink (diagonal + vertical), then the
     // merge link keeps its elbow. Git Graph grid geometry: 16px lane pitch,
     // first lane (SourceGit x=10) centred at x=16; fixture lane 2 (x=12) lands
-    // at 16 + 2*(16/12) ≈ 18.67 (path data is emitted rounded to 2 decimals).
+    // at 16 + 2*(16/12) 竕・18.67 (path data is emitted rounded to 2 decimals).
     // Angular d = 24 * 0.38 = 9.12.
     expect(ds).toContain('M 16 0 L 18.67 14.88 L 18.67 24 L 18.67 33.12 L 16 48 L 16 72');
     expect(ds).toContain('M 16 0 L 17.333333333333332 14.879999999999999 L 17.333333333333332 24');
@@ -508,7 +508,7 @@ describe('CommitGraph signature icon', () => {
   it('keeps the right-clicked commit outlined while a context-menu modal is open, then clears it on close', async () => {
     // Regression: opening a modal from the context menu (e.g. New Branch, which
     // is managed by modalStore and rendered in App.svelte) used to clear the
-    // row outline immediately — reset kept it, these did not. The outline must
+    // row outline immediately 窶・reset kept it, these did not. The outline must
     // persist while any follow-up modal is open and drop once it closes.
     commitStore.setData(makeGraphData([
       makeCommit('h1', 'first'),
@@ -776,6 +776,29 @@ describe('CommitGraph avatars', () => {
     expect(
       globalThis.__postedMessages.some(m => (m.data as { type?: string }).type === 'getAvatar')
     ).toBe(false);
+  });
+});
+
+describe('CommitGraph branch focus dimming', () => {
+  it('dims rows, dots and lines outside the focus set', async () => {
+    commitStore.setData(makeGraphData([makeCommit('h1', 'first'), makeCommit('h2', 'second', ['h1'])]));
+    const { container } = render(CommitGraph, { dimFocusHashes: new Set(['h2']) });
+    await tick();
+    const rows = Array.from(container.querySelectorAll('.commit-row'));
+    const rowFirst = rows.find(r => r.textContent?.includes('first'))!;
+    const rowSecond = rows.find(r => r.textContent?.includes('second'))!;
+    expect(rowFirst.classList.contains('focus-dim')).toBe(true);
+    expect(rowSecond.classList.contains('focus-dim')).toBe(false);
+    expect(container.querySelector('.graph-lines.dimmed')).toBeTruthy();
+    expect(container.querySelectorAll('.graph-lines g[opacity="0.25"]').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('renders normally without a focus set', async () => {
+    commitStore.setData(makeGraphData([makeCommit('h1', 'first')]));
+    const { container } = render(CommitGraph, {});
+    await tick();
+    expect(container.querySelector('.commit-row')!.classList.contains('focus-dim')).toBe(false);
+    expect(container.querySelector('.graph-lines.dimmed')).toBeNull();
   });
 });
 

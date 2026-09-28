@@ -1675,6 +1675,68 @@ describe('App — filter change handlers', () => {
     expect(lastGetLog()!.branches).toBeUndefined();
     expect((lastGetLog()!.remoteFilter as string[])).toContain('origin');
   });
+
+  it('solo shows only that branch (one-click, same filter plumbing)', async () => {
+    const { container } = render(App);
+    postMsg('branchData', {
+      branches: [
+        { name: 'main', current: true, ahead: 0, behind: 0, hash: 'h1' },
+        { name: 'feature', current: false, ahead: 0, behind: 0, hash: 'h2' },
+      ],
+      tags: [], remotes: [], stashes: [], worktrees: [],
+    });
+    await waitFor(() => container.querySelectorAll('.filter-btn').length >= 2);
+    globalThis.__postedMessages = [];
+    await fireEvent.click(container.querySelectorAll<HTMLButtonElement>('.filter-btn')[1]);
+    const row = Array.from(container.querySelectorAll('.dd-row')).find(r => r.textContent?.includes('feature'))!;
+    await fireEvent.click(row.querySelectorAll<HTMLButtonElement>('.dd-act')[0]);
+    await waitFor(() => lastGetLog() !== null);
+    expect(lastGetLog()!.branches).toEqual(['feature']);
+  });
+
+  it('dim mode keeps the log unfiltered while a branch is focused', async () => {
+    const { container } = render(App);
+    postMsg('branchData', {
+      branches: [
+        { name: 'main', current: true, ahead: 0, behind: 0, hash: 'h1' },
+        { name: 'feature', current: false, ahead: 0, behind: 0, hash: 'h2' },
+      ],
+      tags: [], remotes: [], stashes: [], worktrees: [],
+    });
+    await waitFor(() => container.querySelectorAll('.filter-btn').length >= 2);
+    await fireEvent.click(container.querySelectorAll<HTMLButtonElement>('.filter-btn')[1]);
+    const item = Array.from(container.querySelectorAll<HTMLButtonElement>('.dd-item'))
+      .find(el => el.textContent?.includes('feature'))!;
+    await fireEvent.click(item);
+    await waitFor(() => lastGetLog() !== null);
+    globalThis.__postedMessages = [];
+    const dimBtn = Array.from(container.querySelectorAll<HTMLButtonElement>('.dd-mode-btn'))
+      .find(b => b.textContent?.includes('Dim'))!;
+    await fireEvent.click(dimBtn);
+    await waitFor(() => lastGetLog() !== null);
+    // The focus selection must not filter the query in dim mode.
+    expect(lastGetLog()!.branches).toBeUndefined();
+  });
+
+  it('hiding a branch excludes it from the query', async () => {
+    const { container } = render(App);
+    postMsg('branchData', {
+      branches: [
+        { name: 'main', current: true, ahead: 0, behind: 0, hash: 'h1' },
+        { name: 'feature', current: false, ahead: 0, behind: 0, hash: 'h2' },
+      ],
+      tags: [], remotes: [], stashes: [], worktrees: [],
+    });
+    await waitFor(() => container.querySelectorAll('.filter-btn').length >= 2);
+    globalThis.__postedMessages = [];
+    await fireEvent.click(container.querySelectorAll<HTMLButtonElement>('.filter-btn')[1]);
+    const row = Array.from(container.querySelectorAll('.dd-row')).find(r => r.textContent?.includes('feature'))!;
+    await fireEvent.click(row.querySelectorAll<HTMLButtonElement>('.dd-act')[1]);
+    await waitFor(() => lastGetLog() !== null);
+    const branches = lastGetLog()!.branches as string[];
+    expect(branches).not.toContain('feature');
+    expect(branches).toContain('main');
+  });
 });
 
 describe('App — checkout-remote dirty options', () => {

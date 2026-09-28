@@ -64,6 +64,12 @@ import AmendModal from './components/modals/AmendModal.svelte';
   let headJumpNonce = $state(0);
   let remoteFilter = $state<string[]>([]);
   let branchFilter = $state<string[]>([]);
+  // Branch focus: 'filter' removes unselected branches from the query, while
+  // 'dim' keeps the full graph and fades everything outside the selection.
+  let focusMode = $state<'filter' | 'dim'>('filter');
+  // Branches hidden from the graph for this webview session (excluded from the
+  // log query; session-only, not persisted).
+  let hiddenBranches = $state<string[]>([]);
   let resizing = $state(false);
   let conflict = $state<{ operation: string; files: Array<{ path: string; resolved: boolean }> } | null>(null);
   let rebasePaused = $state(false);
@@ -112,7 +118,17 @@ import AmendModal from './components/modals/AmendModal.svelte';
       switch (msg.type) {
         case 'logData':
           if (msg.payload.remoteFilter !== undefined) remoteFilter = msg.payload.remoteFilter;
-          if (msg.payload.branches !== undefined) branchFilter = msg.payload.branches;
+          // The extension echoes the branches it used. In dim mode that list is
+          // an internal include-list (or absent), so it must not overwrite the
+          // user's focus selection; same when a hide forced an explicit list
+          // while nothing is selected.
+          if (
+            msg.payload.branches !== undefined &&
+            focusMode === 'filter' &&
+            (branchFilter.length > 0 || hiddenBranches.length === 0)
+          ) {
+            branchFilter = msg.payload.branches;
+          }
           commitStore.setData(msg.payload);
           pruneInvalidSelection();
           if (msg.payload.pinnedHash) {
@@ -323,12 +339,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
 
     if (ctrl && e.key === 'r') {
       e.preventDefault();
-      commitStore.setLoading(true);
-      vscode.postMessage({ type: 'getLog', payload: {
-        limit: commitStore.currentLimit || undefined,
-        branches: branchFilter.length > 0 ? [...branchFilter] : undefined,
-        remoteFilter: remoteFilter.length > 0 ? [...remoteFilter] : undefined,
-      }});
+      requeryLog();
       vscode.postMessage({ type: 'getBranches' });
     }
 
@@ -385,12 +396,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
   function clearPinnedGraph() {
     uiStore.pinnedHash = null;
     searchNavigateHash = null;
-    commitStore.setLoading(true);
-    vscode.postMessage({ type: 'getLog', payload: {
-      limit: commitStore.currentLimit || undefined,
-      branches: branchFilter.length > 0 ? [...branchFilter] : undefined,
-      remoteFilter: remoteFilter.length > 0 ? [...remoteFilter] : undefined,
-    }});
+    requeryLog();
   }
 
   function handleJumpToHead() {
@@ -411,24 +417,88 @@ import AmendModal from './components/modals/AmendModal.svelte';
       type: 'getLog',
       payload: {
         limit: commitStore.currentLimit || undefined,
-        branches: branchFilter.length > 0 ? [...branchFilter] : undefined,
+        branches: effectiveLogBranches(),
         remoteFilter: filter.length > 0 ? [...filter] : undefined,
+      },
+    });
+  }
+
+  // Branch list for the log query. Hidden branches are always excluded; in dim
+  // mode the selection never filters the query (it only drives the fade) unless
+  // hides force an explicit include list.
+  function effectiveLogBranches(): string[] | undefined {
+    const includes = focusMode === 'filter' ? branchFilter : [];
+    if (hiddenBranches.length === 0) {
+      return includes.length > 0 ? [...includes] : undefined;
+    }
+    const base = includes.length > 0 ? includes : branchStore.branches.map(b => b.name);
+    const kept = base.filter(name => !hiddenBranches.includes(name));
+    return kept.length > 0 ? kept : undefined;
+  }
+
+  function requeryLog() {
+    commitStore.setLoading(true);
+    vscode.postMessage({
+      type: 'getLog',
+      payload: {
+        limit: commitStore.currentLimit || undefined,
+        branches: effectiveLogBranches(),
+        remoteFilter: remoteFilter.length > 0 ? [...remoteFilter] : undefined,
       },
     });
   }
 
   function handleBranchFilterChange(branches: string[]) {
     branchFilter = branches;
-    commitStore.setLoading(true);
-    vscode.postMessage({
-      type: 'getLog',
-      payload: {
-        limit: commitStore.currentLimit || undefined,
-        branches: branches.length > 0 ? [...branches] : undefined,
-        remoteFilter: remoteFilter.length > 0 ? [...remoteFilter] : undefined,
-      },
-    });
+    requeryLog();
   }
+
+  function handleFocusModeChange(mode: 'filter' | 'dim') {
+    if (focusMode === mode) return;
+    focusMode = mode;
+    requeryLog();
+  }
+
+  function handleHideBranch(name: string) {
+    if (!hiddenBranches.includes(name)) hiddenBranches = [...hiddenBranches, name];
+    branchFilter = branchFilter.filter(n => n !== name);
+    requeryLog();
+  }
+
+  function handleUnhideBranch(name: string) {
+    hiddenBranches = hiddenBranches.filter(n => n !== name);
+    requeryLog();
+  }
+
+  function handleUnhideAll() {
+    hiddenBranches = [];
+    requeryLog();
+  }
+
+  // Commits reachable from the focused branches ('dim' mode): everything else
+  // is faded. Null = no dimming (not in dim mode, or nothing selected).
+  const dimFocusHashes = $derived.by<Set<string> | null>(() => {
+    if (focusMode !== 'dim' || branchFilter.length === 0) return null;
+    const focus = new Set(branchFilter);
+    const byHash = new Map(commitStore.commits.map(c => [c.hash, c]));
+    const stack: string[] = [];
+    for (const c of commitStore.commits) {
+      if (c.refs.some(r => (r.type === 'branch' || r.type === 'head' || r.type === 'remote-branch')
+        && (focus.has(r.name) || (r.type === 'remote-branch' && r.remote && focus.has(`${r.remote}/${r.name}`))))) {
+        stack.push(c.hash);
+      }
+    }
+    if (stack.length === 0) return null;
+    const seen = new Set<string>();
+    while (stack.length > 0) {
+      const h = stack.pop()!;
+      if (seen.has(h)) continue;
+      seen.add(h);
+      const c = byHash.get(h);
+      if (c) for (const p of c.parents) if (!seen.has(p)) stack.push(p);
+    }
+    return seen;
+  });
 
   // Draggable resize handle - track active listeners for cleanup
   let resizeCleanup: (() => void) | null = null;
@@ -461,12 +531,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
 
 <div class="app-container" class:resizing>
   <Toolbar onRefresh={() => {
-    commitStore.setLoading(true);
-    vscode.postMessage({ type: 'getLog', payload: {
-      limit: commitStore.currentLimit || undefined,
-      branches: branchFilter.length > 0 ? [...branchFilter] : undefined,
-      remoteFilter: remoteFilter.length > 0 ? [...remoteFilter] : undefined,
-    }});
+    requeryLog();
     vscode.postMessage({ type: 'getBranches' });
     vscode.postMessage({ type: 'getRepoList' });
   }} />
@@ -582,6 +647,12 @@ import AmendModal from './components/modals/AmendModal.svelte';
           branches={branchStore.branches}
           {branchFilter}
           onBranchFilterChange={handleBranchFilterChange}
+          {focusMode}
+          onFocusModeChange={handleFocusModeChange}
+          {hiddenBranches}
+          onHideBranch={handleHideBranch}
+          onUnhideBranch={handleUnhideBranch}
+          onUnhideAll={handleUnhideAll}
           {headOffscreen}
           onJumpToHead={handleJumpToHead}
         />
@@ -596,7 +667,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
       {/if}
       {#if !uiStore.commitDetailFullscreen}
         <div class="graph-area">
-          <CommitGraph {searchMatchedHashes} {searchNavigateHash} searchNavigateNonce={searchNavigateNonce} headJumpNonce={headJumpNonce} onHeadOffscreenChange={(v) => headOffscreen = v} bisectActive={bisectMessage !== null} bisectCulpritHash={bisectMessage?.includes('is the first bad commit') ? bisectMessage.match(/^([a-f0-9]{7,40})/)?.[1] ?? null : null} {remoteFilter} />
+          <CommitGraph {searchMatchedHashes} {searchNavigateHash} searchNavigateNonce={searchNavigateNonce} headJumpNonce={headJumpNonce} onHeadOffscreenChange={(v) => headOffscreen = v} bisectActive={bisectMessage !== null} bisectCulpritHash={bisectMessage?.includes('is the first bad commit') ? bisectMessage.match(/^([a-f0-9]{7,40})/)?.[1] ?? null : null} {remoteFilter} {dimFocusHashes} />
         </div>
       {/if}
       {#if uiStore.showBottomPanel && (uiStore.selectedCommitHash || uiStore.comparing)}

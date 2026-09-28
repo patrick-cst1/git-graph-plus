@@ -14,6 +14,12 @@
     branches?: BranchInfo[];
     branchFilter?: string[];
     onBranchFilterChange?: (filter: string[]) => void;
+    focusMode?: 'filter' | 'dim';
+    onFocusModeChange?: (mode: 'filter' | 'dim') => void;
+    hiddenBranches?: string[];
+    onHideBranch?: (name: string) => void;
+    onUnhideBranch?: (name: string) => void;
+    onUnhideAll?: () => void;
     headOffscreen?: boolean;
     onJumpToHead?: () => void;
   }
@@ -27,6 +33,12 @@
     branches = [],
     branchFilter = [],
     onBranchFilterChange = () => {},
+    focusMode = 'filter',
+    onFocusModeChange = () => {},
+    hiddenBranches = [],
+    onHideBranch = () => {},
+    onUnhideBranch = () => {},
+    onUnhideAll = () => {},
     headOffscreen = false,
     onJumpToHead = () => {},
   }: Props = $props();
@@ -47,13 +59,13 @@
 
   const localBranches = $derived(
     (remoteFilter.length === 0 || remoteFilter.includes('local'))
-      ? branches.filter(b => !b.remote)
+      ? branches.filter(b => !b.remote && !hiddenBranches.includes(b.name))
       : []
   );
 
   const remoteBranchGroups = $derived.by(() => {
     const groups = new Map<string, BranchInfo[]>();
-    for (const b of branches.filter(b => !!b.remote && b.name !== `${b.remote}/HEAD` && b.name !== b.remote)) {
+    for (const b of branches.filter(b => !!b.remote && b.name !== `${b.remote}/HEAD` && b.name !== b.remote && !hiddenBranches.includes(b.name))) {
       if (remoteFilter.length === 0 || remoteFilter.includes(b.remote!)) {
         const key = b.remote!;
         if (!groups.has(key)) groups.set(key, []);
@@ -78,6 +90,17 @@
       ? branchFilter.filter(v => v !== fullName)
       : [...branchFilter, fullName];
     onBranchFilterChange(next);
+  }
+
+  // One-click "show only this branch": reuse the existing filter plumbing.
+  function soloBranch(fullName: string) {
+    branchFilterOpen = false;
+    branchQuery = '';
+    onBranchFilterChange([fullName]);
+  }
+
+  function hideBranch(fullName: string) {
+    onHideBranch(fullName);
   }
 
   function clearBranchFilter() {
@@ -298,16 +321,29 @@
     <button
       class="filter-btn"
       class:active={branchFilterActive}
+      class:has-focus-clear={branchFilter.length === 1}
       onclick={() => { branchFilterOpen = !branchFilterOpen; }}
       use:tooltip={t('search.branchFilterTooltip')}
     >
       <i class="codicon codicon-git-branch filter-btn-icon"></i>
       <span class="filter-label">
-        {t('search.branchFilter')}
-        {#if branchFilterActive}<span class="filter-count">{branchFilter.length}</span>{/if}
+        {#if branchFilter.length === 1}
+          {t('search.focusLabel', { name: branchFilter[0] })}
+        {:else}
+          {t('search.branchFilter')}
+          {#if branchFilterActive}<span class="filter-count">{branchFilter.length}</span>{/if}
+        {/if}
       </span>
       <i class="codicon {branchFilterOpen ? 'codicon-chevron-up' : 'codicon-chevron-down'} chevron"></i>
     </button>
+    {#if branchFilter.length === 1}
+      <button
+        class="focus-clear"
+        aria-label={t('search.clearFocus')}
+        use:tooltip={t('search.clearFocus')}
+        onclick={(e) => { e.stopPropagation(); clearBranchFilter(); }}
+      ><i class="codicon codicon-close"></i></button>
+    {/if}
 
     {#if branchFilterOpen}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -323,6 +359,24 @@
             autocomplete="off"
           />
         </div>
+        <div class="dd-mode" role="radiogroup" aria-label={t('search.branchFilter')}>
+          <button
+            class="dd-mode-btn"
+            class:active={focusMode === 'filter'}
+            role="radio"
+            aria-checked={focusMode === 'filter'}
+            onclick={() => onFocusModeChange('filter')}
+            use:tooltip={t('search.modeFilterTooltip')}
+          >{t('search.modeFilter')}</button>
+          <button
+            class="dd-mode-btn"
+            class:active={focusMode === 'dim'}
+            role="radio"
+            aria-checked={focusMode === 'dim'}
+            onclick={() => onFocusModeChange('dim')}
+            use:tooltip={t('search.modeDimTooltip')}
+          >{t('search.modeDim')}</button>
+        </div>
         <button class="dd-item" class:active={!branchFilterActive} onclick={clearBranchFilter}>
           <input type="checkbox" checked={!branchFilterActive} readonly />
           {t('search.allBranches')}
@@ -331,14 +385,28 @@
           <div class="dd-sep"></div>
           <div class="dd-section-header">LOCAL</div>
           {#each filteredByQuery(localBranches) as b}
-            <button
-              class="dd-item"
-              class:active={branchFilter.includes(b.name)}
-              onclick={() => toggleBranch(b.name)}
-            >
-              <input type="checkbox" checked={branchFilter.includes(b.name)} readonly />
-              {b.name}
-            </button>
+            <div class="dd-row">
+              <button
+                class="dd-item"
+                class:active={branchFilter.includes(b.name)}
+                onclick={() => toggleBranch(b.name)}
+              >
+                <input type="checkbox" checked={branchFilter.includes(b.name)} readonly />
+                <span class="dd-name">{b.name}</span>
+              </button>
+              <button
+                class="dd-act"
+                aria-label={t('search.solo')}
+                onclick={() => soloBranch(b.name)}
+                use:tooltip={t('search.soloTooltip')}
+              ><i class="codicon codicon-target"></i></button>
+              <button
+                class="dd-act"
+                aria-label={t('search.hide')}
+                onclick={() => hideBranch(b.name)}
+                use:tooltip={t('search.hideTooltip')}
+              ><i class="codicon codicon-eye-closed"></i></button>
+            </div>
           {/each}
         {/if}
         {#each remoteBranchGroups as [remote, rBranches]}
@@ -348,17 +416,50 @@
               <i class="codicon codicon-cloud remote-icon"></i>{remote}
             </div>
             {#each filteredByQuery(rBranches) as b}
-              <button
-                class="dd-item"
-                class:active={branchFilter.includes(b.name)}
-                onclick={() => toggleBranch(b.name)}
-              >
-                <input type="checkbox" checked={branchFilter.includes(b.name)} readonly />
-                {b.name}
-              </button>
+              <div class="dd-row">
+                <button
+                  class="dd-item"
+                  class:active={branchFilter.includes(b.name)}
+                  onclick={() => toggleBranch(b.name)}
+                >
+                  <input type="checkbox" checked={branchFilter.includes(b.name)} readonly />
+                  <span class="dd-name">{b.name}</span>
+                </button>
+                <button
+                  class="dd-act"
+                  aria-label={t('search.solo')}
+                  onclick={() => soloBranch(b.name)}
+                  use:tooltip={t('search.soloTooltip')}
+                ><i class="codicon codicon-target"></i></button>
+                <button
+                  class="dd-act"
+                  aria-label={t('search.hide')}
+                  onclick={() => hideBranch(b.name)}
+                  use:tooltip={t('search.hideTooltip')}
+                ><i class="codicon codicon-eye-closed"></i></button>
+              </div>
             {/each}
           {/if}
         {/each}
+        {#if hiddenBranches.length > 0}
+          <div class="dd-sep"></div>
+          <div class="dd-section-header">{t('search.hidden')}</div>
+          {#each hiddenBranches as name}
+            <div class="dd-row dd-row-hidden">
+              <span class="dd-name dd-name-hidden">{name}</span>
+              <button
+                class="dd-act dd-act-visible"
+                aria-label={t('search.unhide')}
+                onclick={() => onUnhideBranch(name)}
+                use:tooltip={t('search.unhideTooltip')}
+              ><i class="codicon codicon-eye"></i></button>
+            </div>
+          {/each}
+          <button class="dd-item dd-show-all" onclick={() => onUnhideAll()}>
+            <i class="codicon codicon-clear-all"></i>
+            {t('search.showAll')}
+          </button>
+        {/if}
       </div>
     {/if}
   </div>
@@ -544,6 +645,35 @@
     max-width: 130px;
   }
 
+  .filter-btn.has-focus-clear {
+    padding-right: 26px;
+  }
+
+  .focus-clear {
+    position: absolute;
+    top: 50%;
+    right: 26px;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 3px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 12px;
+    z-index: 2;
+  }
+
+  .focus-clear:hover {
+    background: rgba(128, 128, 128, 0.25);
+    color: var(--text-primary);
+  }
+
   .filter-btn-icon { font-size: 13px; flex-shrink: 0; }
 
   .filter-label {
@@ -627,6 +757,99 @@
 
   .dd-item.active {
     color: var(--text-primary);
+  }
+
+  /* ── Focus / solo / hide ── */
+
+  .dd-mode {
+    display: flex;
+    gap: 4px;
+    padding: 2px 8px 6px;
+  }
+
+  .dd-mode-btn {
+    flex: 1;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-family: inherit;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .dd-mode-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--vscode-focusBorder, #007fd4);
+  }
+
+  .dd-mode-btn.active {
+    border-color: var(--vscode-focusBorder, #007fd4);
+    color: var(--vscode-focusBorder, #007fd4);
+    background: color-mix(in srgb, var(--vscode-focusBorder, #007fd4) 15%, transparent);
+  }
+
+  .dd-row {
+    display: flex;
+    align-items: center;
+  }
+
+  .dd-row .dd-item {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .dd-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dd-act {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    margin-right: 4px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 13px;
+    visibility: hidden;
+    flex-shrink: 0;
+  }
+
+  .dd-row:hover .dd-act,
+  .dd-act:focus-visible,
+  .dd-act-visible {
+    visibility: visible;
+  }
+
+  .dd-act:hover {
+    background: rgba(128, 128, 128, 0.2);
+    color: var(--text-primary);
+  }
+
+  .dd-row-hidden {
+    padding: 4px 12px;
+    gap: 8px;
+  }
+
+  .dd-name-hidden {
+    flex: 1;
+    min-width: 0;
+    text-decoration: line-through;
+    opacity: 0.7;
+  }
+
+  .dd-show-all {
+    gap: 6px;
   }
 
   input[type="checkbox"] {

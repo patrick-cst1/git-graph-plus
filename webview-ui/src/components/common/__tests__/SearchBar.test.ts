@@ -332,6 +332,91 @@ describe('SearchBar — branch filter', () => {
   });
 });
 
+describe('SearchBar — solo / focus / hide', () => {
+  const branches: BranchInfo[] = [
+    { name: 'main', current: true, ahead: 0, behind: 0, hash: 'h' },
+    { name: 'feature/login', current: false, ahead: 0, behind: 0, hash: 'h' },
+    { name: 'origin/main', current: false, remote: 'origin', ahead: 0, behind: 0, hash: 'h' },
+  ];
+
+  function soloButtonFor(container: HTMLElement, name: string): HTMLButtonElement {
+    const row = Array.from(container.querySelectorAll('.dd-row')).find(r => r.textContent?.includes(name))!;
+    return row.querySelectorAll<HTMLButtonElement>('.dd-act')[0];
+  }
+
+  function hideButtonFor(container: HTMLElement, name: string): HTMLButtonElement {
+    const row = Array.from(container.querySelectorAll('.dd-row')).find(r => r.textContent?.includes(name))!;
+    return row.querySelectorAll<HTMLButtonElement>('.dd-act')[1];
+  }
+
+  it('solo button sets the branch filter to just that branch and closes the dropdown', async () => {
+    const onBranchFilterChange = vi.fn();
+    const { container } = render(SearchBar, { ...baseProps, branches, remotes: ['origin'], onBranchFilterChange });
+    await fireEvent.click(container.querySelectorAll<HTMLButtonElement>('.filter-btn')[1]);
+    await fireEvent.click(soloButtonFor(container, 'feature/login'));
+    expect(onBranchFilterChange).toHaveBeenCalledWith(['feature/login']);
+    expect(container.querySelector('.branch-dropdown')).toBeNull();
+  });
+
+  it('shows the focus label in the filter button when exactly one branch is selected', () => {
+    const { container } = render(SearchBar, { ...baseProps, branches, branchFilter: ['feature/login'] });
+    const label = container.querySelectorAll('.filter-btn')[1].querySelector('.filter-label')!;
+    expect(label.textContent).toContain('Focus: feature/login');
+    expect(container.querySelector('.focus-clear')).toBeTruthy();
+  });
+
+  it('the clear button empties the filter', async () => {
+    const onBranchFilterChange = vi.fn();
+    const { container } = render(SearchBar, {
+      ...baseProps,
+      branches,
+      branchFilter: ['feature/login'],
+      onBranchFilterChange,
+    });
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.focus-clear')!);
+    expect(onBranchFilterChange).toHaveBeenCalledWith([]);
+  });
+
+  it('mode buttons fire onFocusModeChange', async () => {
+    const onFocusModeChange = vi.fn();
+    const { container } = render(SearchBar, { ...baseProps, branches, onFocusModeChange });
+    await fireEvent.click(container.querySelectorAll<HTMLButtonElement>('.filter-btn')[1]);
+    const modeButtons = container.querySelectorAll<HTMLButtonElement>('.dd-mode-btn');
+    expect(modeButtons[0].classList.contains('active')).toBe(true);
+    await fireEvent.click(modeButtons[1]);
+    expect(onFocusModeChange).toHaveBeenCalledWith('dim');
+  });
+
+  it('hide button fires onHideBranch', async () => {
+    const onHideBranch = vi.fn();
+    const { container } = render(SearchBar, { ...baseProps, branches, remotes: ['origin'], onHideBranch });
+    await fireEvent.click(container.querySelectorAll<HTMLButtonElement>('.filter-btn')[1]);
+    await fireEvent.click(hideButtonFor(container, 'feature/login'));
+    expect(onHideBranch).toHaveBeenCalledWith('feature/login');
+  });
+
+  it('lists hidden branches with an unhide action and a show-all item', async () => {
+    const onUnhideBranch = vi.fn();
+    const onUnhideAll = vi.fn();
+    const { container } = render(SearchBar, {
+      ...baseProps,
+      branches,
+      hiddenBranches: ['feature/login'],
+      onUnhideBranch,
+      onUnhideAll,
+    });
+    await fireEvent.click(container.querySelectorAll<HTMLButtonElement>('.filter-btn')[1]);
+    const hiddenRow = container.querySelector('.dd-row-hidden')!;
+    expect(hiddenRow.textContent).toContain('feature/login');
+    await fireEvent.click(hiddenRow.querySelector<HTMLButtonElement>('.dd-act')!);
+    expect(onUnhideBranch).toHaveBeenCalledWith('feature/login');
+    const showAll = Array.from(container.querySelectorAll<HTMLButtonElement>('.dd-item'))
+      .find(el => el.classList.contains('dd-show-all'))!;
+    await fireEvent.click(showAll);
+    expect(onUnhideAll).toHaveBeenCalled();
+  });
+});
+
 describe('SearchBar — jump to HEAD button', () => {
   it('is disabled when no commit is HEAD', () => {
     setCommits([commit({ hash: 'h1' })]);
