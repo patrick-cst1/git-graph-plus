@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.23
+
+- Commit list columns: drag the border between the Author / SHA / Date headers
+  to resize any column, and right-click the header to show or hide columns. The
+  layout is remembered between webview reloads.
+
 ## 0.7.22
 
 - Branch focus in the graph header: one-click **Solo** on any branch in the
