@@ -56,6 +56,10 @@ import AmendModal from './components/modals/AmendModal.svelte';
   let bisectMessage = $state<string | null>(null);
   let searchMatchedHashes = $state<Set<string> | null>(null);
   let searchNavigateHash = $state<string | null>(null);
+  // Bumped every time a navigation target is requested (search result, reflog
+  // Show in Graph, pinned slice) so the graph scrolls exactly once per request
+  // and never re-scrolls on a later resize/refresh.
+  let searchNavigateNonce = $state(0);
   let headOffscreen = $state(false);
   let headJumpNonce = $state(0);
   let remoteFilter = $state<string[]>([]);
@@ -82,6 +86,24 @@ import AmendModal from './components/modals/AmendModal.svelte';
     document.documentElement.style.setProperty('--badge-bar-width', `${uiStore.badgeBarWidth}px`);
   });
 
+  // After the graph is replaced (refresh, rebase, amend, filter change), the
+  // previously selected commit may no longer exist in the new list. Clear such
+  // stale selections so the bottom panel closes instead of staying open, empty,
+  // and without a way to dismiss it (issue #74).
+  function pruneInvalidSelection() {
+    if (uiStore.multiSelectArmed) {
+      const valid = uiStore.selectedCommitHashes.filter((h) => commitStore.getCommit(h));
+      if (valid.length !== uiStore.selectedCommitHashes.length) {
+        if (valid.length === 0) uiStore.exitMultiSelect();
+        else uiStore.selectedCommitHashes = valid;
+      }
+      return;
+    }
+    if (uiStore.selectedCommitHash && !commitStore.getCommit(uiStore.selectedCommitHash)) {
+      uiStore.selectCommit(null);
+    }
+  }
+
   onMount(() => {
     uiStore.bottomPanelHeight = Math.round(window.innerHeight * BOTTOM_PANEL_DEFAULT_RATIO);
 
@@ -92,12 +114,14 @@ import AmendModal from './components/modals/AmendModal.svelte';
           if (msg.payload.remoteFilter !== undefined) remoteFilter = msg.payload.remoteFilter;
           if (msg.payload.branches !== undefined) branchFilter = msg.payload.branches;
           commitStore.setData(msg.payload);
+          pruneInvalidSelection();
           if (msg.payload.pinnedHash) {
             // Reflog "Show in Graph" landed a pinned slice: select the commit
             // and drive CommitGraph's scroll-to through the search-navigation prop.
             uiStore.pinnedHash = msg.payload.pinnedHash;
             uiStore.selectSingle(msg.payload.pinnedHash);
             searchNavigateHash = msg.payload.pinnedHash;
+            searchNavigateNonce++;
           } else {
             // A normal payload ends any pinned view. Only drop the navigation
             // target when we were actually pinned, so ordinary refreshes leave
@@ -115,6 +139,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
           branchFilter = msg.payload.logData.branches ?? [];
           branchStore.setData(msg.payload.branchData);
           commitStore.setData(msg.payload.logData);
+          pruneInvalidSelection();
           // A full refresh carries a normal (unpinned) graph, so end any
           // pinned view — otherwise the banner would outlive the pin.
           if (uiStore.pinnedHash !== null) {
@@ -137,16 +162,17 @@ import AmendModal from './components/modals/AmendModal.svelte';
           break;
         case 'setShowStats':
           uiStore.showStats = msg.payload.enabled;
-          if (!msg.payload.enabled && uiStore.viewMode === 'stats') uiStore.viewMode = 'graph';
+          // The Stats view is only reachable while enabled; leave it if hidden.
+          if (!uiStore.showStats && uiStore.viewMode === 'stats') uiStore.viewMode = 'graph';
           break;
         case 'setLoadMoreCount':
           uiStore.loadMoreCount = msg.payload.count;
           break;
-        case 'setDefaultCommitTab':
-          uiStore.defaultCommitTab = msg.payload.tab;
-          break;
         case 'setAutoLoadHistory':
           uiStore.autoLoadHistory = msg.payload.enabled;
+          break;
+        case 'setDefaultCommitTab':
+          uiStore.defaultCommitTab = msg.payload.tab;
           break;
         case 'setGraphStyle':
           uiStore.graphStyle = msg.payload.style;
@@ -335,6 +361,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
 
   function handleSearchNavigate(hash: string) {
     searchNavigateHash = hash;
+    searchNavigateNonce++;
   }
 
   // Reflog context menu → "Show in Graph". v1: the commit is already in the
@@ -348,6 +375,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
     if (commit) {
       uiStore.selectSingle(commit.hash);
       searchNavigateHash = commit.hash;
+      searchNavigateNonce++;
     } else {
       vscode.postMessage({ type: 'revealCommitInGraph', payload: { hash } });
     }
@@ -457,6 +485,11 @@ import AmendModal from './components/modals/AmendModal.svelte';
           <button class="banner-btn danger" onclick={() => { showAbortConfirmModal = true; }}>
             <i class="codicon codicon-discard"></i> {t('conflict.abort')}
           </button>
+          {#if conflict.operation === 'rebase' || conflict.operation === 'cherry-pick'}
+            <button class="banner-btn" onclick={() => { vscode.postMessage({ type: 'skipOperation' }); conflict = null; }}>
+              <i class="codicon codicon-debug-step-over"></i> {t('conflict.skip')}
+            </button>
+          {/if}
           <button class="banner-btn success" disabled={conflict.files.some(f => !f.resolved)} onclick={() => { const op = conflict?.operation ?? 'merge'; vscode.postMessage({ type: 'continueOperation' }); conflict = null; vscode.postMessage({ type: 'showNotification', payload: { message: t('conflict.resolveSuccess', { operation: t(`conflict.op.${op}`) }) } }); }}>
             <i class="codicon codicon-check"></i> {t('conflict.banner.resolve')}
           </button>
@@ -500,6 +533,10 @@ import AmendModal from './components/modals/AmendModal.svelte';
           vscode.postMessage({ type: 'continueOperation' });
           rebasePaused = false;
         }}>{t('rebase.pause.continue')}</button>
+        <button class="banner-btn" onclick={() => {
+          vscode.postMessage({ type: 'skipOperation' });
+          rebasePaused = false;
+        }}>{t('rebase.pause.skip')}</button>
         <button class="banner-btn danger" onclick={() => {
           vscode.postMessage({ type: 'abortOperation' });
           rebasePaused = false;
@@ -535,7 +572,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
           <button class="banner-btn pinned-clear" onclick={clearPinnedGraph}>{t('reflog.clearPinned')}</button>
         </div>
       {/if}
-      {#if !bisectMessage && !conflict && !rebasePaused}
+      {#if !bisectMessage}
         <SearchBar
           onResults={handleSearchResults}
           onNavigate={handleSearchNavigate}
@@ -559,7 +596,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
       {/if}
       {#if !uiStore.commitDetailFullscreen}
         <div class="graph-area">
-          <CommitGraph {searchMatchedHashes} {searchNavigateHash} headJumpNonce={headJumpNonce} onHeadOffscreenChange={(v) => headOffscreen = v} bisectActive={bisectMessage !== null} bisectCulpritHash={bisectMessage?.includes('is the first bad commit') ? bisectMessage.match(/^([a-f0-9]{7,40})/)?.[1] ?? null : null} {remoteFilter} />
+          <CommitGraph {searchMatchedHashes} {searchNavigateHash} searchNavigateNonce={searchNavigateNonce} headJumpNonce={headJumpNonce} onHeadOffscreenChange={(v) => headOffscreen = v} bisectActive={bisectMessage !== null} bisectCulpritHash={bisectMessage?.includes('is the first bad commit') ? bisectMessage.match(/^([a-f0-9]{7,40})/)?.[1] ?? null : null} {remoteFilter} />
         </div>
       {/if}
       {#if uiStore.showBottomPanel && (uiStore.selectedCommitHash || uiStore.comparing)}
@@ -581,7 +618,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
       <div class="log-container">
         <Reflog active={uiStore.viewMode === 'log'} onShowInGraph={handleShowInGraph} />
       </div>
-    {:else if uiStore.viewMode === 'stats'}
+    {:else if uiStore.viewMode === 'stats' && uiStore.showStats}
       <div class="stats-container">
         <StatsView />
       </div>

@@ -40,16 +40,6 @@ export function readLoadMoreCommitCount(): number {
 }
 
 /**
- * Reads `gitGraphPlus.lfsLocks` — whether to poll the origin server for Git LFS
- * lock status. Falls back to `true` (the previous behaviour) when unset or
- * non-boolean.
- */
-export function readLfsLocksEnabled(): boolean {
-  const enabled = vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('lfsLocks', true);
-  return typeof enabled === 'boolean' ? enabled : true;
-}
-
-/**
  * Reads `gitGraphPlus.autoLoadHistory` — whether scrolling near the bottom of
  * the graph automatically fetches the next chunk (issue #61). Falls back to
  * false when unset, so the default behaviour keeps the "Load more" button
@@ -59,6 +49,16 @@ export function readAutoLoadHistory(): boolean {
   return vscode.workspace
     .getConfiguration('gitGraphPlus')
     .get<boolean>('autoLoadHistory', DEFAULT_AUTO_LOAD_HISTORY) === true;
+}
+
+/**
+ * Reads `gitGraphPlus.lfsLocks` — whether to poll the origin server for Git LFS
+ * lock status. Falls back to `true` (the previous behaviour) when unset or
+ * non-boolean.
+ */
+export function readLfsLocksEnabled(): boolean {
+  const enabled = vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('lfsLocks', true);
+  return typeof enabled === 'boolean' ? enabled : true;
 }
 
 /**
@@ -97,23 +97,6 @@ export function readShowStashes(): boolean {
   return typeof raw === 'boolean' ? raw : true;
 }
 
-/**
- * Reads `gitGraphPlus.showAvatars` — whether author/committer avatars are
- * shown in the graph, hover cards, commit details, and stats view. Defaults to
- * true; only an explicit `false` disables them.
- */
-export function readShowAvatars(): boolean {
-  return vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('showAvatars', true) !== false;
-}
-
-/**
- * Reads `gitGraphPlus.showStats` — whether the Stats tab is shown in the
- * toolbar. Defaults to true; only an explicit `false` hides the tab.
- */
-export function readShowStats(): boolean {
-  return vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('showStats', true) !== false;
-}
-
 /** Line style used when drawing the commit graph. */
 export type GraphStyle = 'rounded' | 'angular';
 
@@ -134,4 +117,21 @@ export function readGraphStyle(): GraphStyle {
   return normalizeGraphStyle(
     vscode.workspace.getConfiguration('gitGraphPlus').get<string>('graphStyle', DEFAULT_GRAPH_STYLE),
   );
+}
+
+/**
+ * Reads `gitGraphPlus.showAvatars` — whether author/committer avatars are
+ * shown in the graph, hover cards, commit details, and stats view. Defaults to
+ * true; only an explicit `false` disables them.
+ */
+export function readShowAvatars(): boolean {
+  return vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('showAvatars', true) !== false;
+}
+
+/**
+ * Reads `gitGraphPlus.showStats` — whether the Stats view is offered in the
+ * toolbar. Defaults to false; only an explicit `true` enables it.
+ */
+export function readShowStats(): boolean {
+  return vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('showStats', false) === true;
 }

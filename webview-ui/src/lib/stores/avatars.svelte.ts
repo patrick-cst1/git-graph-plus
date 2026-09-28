@@ -44,6 +44,23 @@ class AvatarStore {
     return hit || TRANSPARENT_PIXEL;
   }
 
+  /**
+   * Same request/read behaviour as `url()`, but returns `null` while the avatar
+   * is disabled, still pending, or unavailable. Callers that align text (e.g.
+   * the graph's author column) use this to omit the `<img>` entirely, so a row
+   * with no visible avatar does not reserve empty avatar space.
+   */
+  resolved(email: string, size: number): string | null {
+    if (!this.enabled) return null;
+    const key = this.key(email, size);
+    const hit = this.cache.get(key);
+    if (hit === undefined && !this.requested.has(key)) {
+      this.requested.add(key);
+      getVsCodeApi().postMessage({ type: 'getAvatar', payload: { email, size } });
+    }
+    return hit || null;
+  }
+
   receive(email: string, size: number, dataUri: string | null): void {
     this.cache.set(this.key(email, size), dataUri ?? '');
   }

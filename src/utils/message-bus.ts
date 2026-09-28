@@ -118,9 +118,11 @@ export type WebviewMessage =
   | { type: 'compareCommits'; payload: { ref1: string; ref2: string; mode?: 'direct' | 'ref1' | 'ref2' } }
   | { type: 'getImageAtRef'; payload: { ref: string; path: string } }
   | { type: 'continueOperation' }
+  | { type: 'skipOperation' }
   | { type: 'refreshConflicts' }
   | { type: 'stageFile'; payload: { file: string } }
   | { type: 'abortOperation' }
+  | { type: 'createInitialCommit' }
   | { type: 'openConflictFile'; payload: { file: string } }
   | { type: 'setUpstream'; payload: { branch: string; remote: string; remoteBranch: string; createRemote?: boolean } }
   | { type: 'openWorktreeInNewWindow'; payload: { path: string } }

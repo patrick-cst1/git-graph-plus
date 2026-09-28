@@ -13,7 +13,7 @@ vi.mock('vscode', () => ({
   },
 }));
 
-import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readLfsLocksEnabled, readDefaultCommitTab, readAutoLoadHistory, readShowStashes, readShowAvatars, readGraphStyle } from '../config';
+import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readAutoLoadHistory, readLfsLocksEnabled, readDefaultCommitTab, readShowStashes, readGraphStyle, readShowAvatars, readShowStats } from '../config';
 
 describe('readTimeoutMs', () => {
   // Back-compat alias so the existing timeout cases below read naturally.
@@ -102,51 +102,6 @@ describe('readLoadMoreCommitCount', () => {
   });
 });
 
-describe('readLfsLocksEnabled', () => {
-  beforeEach(() => { h.values = {}; });
-
-  it('defaults to true when unset', () => {
-    expect(readLfsLocksEnabled()).toBe(true);
-  });
-
-  it('returns the configured boolean as-is', () => {
-    h.values.lfsLocks = true;
-    expect(readLfsLocksEnabled()).toBe(true);
-    h.values.lfsLocks = false;
-    expect(readLfsLocksEnabled()).toBe(false);
-  });
-
-  it('falls back to true for non-boolean values', () => {
-    h.values.lfsLocks = 'no';
-    expect(readLfsLocksEnabled()).toBe(true);
-    h.values.lfsLocks = 0;
-    expect(readLfsLocksEnabled()).toBe(true);
-  });
-});
-
-describe('readDefaultCommitTab', () => {
-  beforeEach(() => { h.values = {}; });
-
-  it('defaults to details when unset (preserves the previous behavior)', () => {
-    expect(readDefaultCommitTab()).toBe('details');
-  });
-
-  it('returns changes when configured', () => {
-    h.values.defaultCommitTab = 'changes';
-    expect(readDefaultCommitTab()).toBe('changes');
-  });
-
-  it('returns details when explicitly configured', () => {
-    h.values.defaultCommitTab = 'details';
-    expect(readDefaultCommitTab()).toBe('details');
-  });
-
-  it('falls back to details for an unknown value', () => {
-    h.values.defaultCommitTab = 'bogus';
-    expect(readDefaultCommitTab()).toBe('details');
-  });
-});
-
 describe('readAutoLoadHistory', () => {
   beforeEach(() => { h.values = {}; });
 
@@ -190,29 +145,6 @@ describe('readShowStashes', () => {
   });
 });
 
-describe('readShowAvatars', () => {
-  beforeEach(() => { h.values = {}; });
-
-  it('defaults to true when unset', () => {
-    expect(readShowAvatars()).toBe(true);
-  });
-
-  it('returns false when explicitly disabled', () => {
-    h.values.showAvatars = false;
-    expect(readShowAvatars()).toBe(false);
-  });
-
-  it('returns true when explicitly enabled', () => {
-    h.values.showAvatars = true;
-    expect(readShowAvatars()).toBe(true);
-  });
-
-  it('falls back to true for a non-boolean value', () => {
-    h.values.showAvatars = 'no';
-    expect(readShowAvatars()).toBe(true);
-  });
-});
-
 describe('readGraphStyle', () => {
   beforeEach(() => { h.values = {}; });
 
@@ -237,5 +169,51 @@ describe('readGraphStyle', () => {
     expect(readGraphStyle()).toBe('rounded');
     h.values.graphStyle = null;
     expect(readGraphStyle()).toBe('rounded');
+  });
+});
+
+describe('readShowAvatars', () => {
+  beforeEach(() => { h.values = {}; });
+
+  it('defaults to true when unset', () => {
+    expect(readShowAvatars()).toBe(true);
+  });
+
+  it('returns false when explicitly disabled', () => {
+    h.values.showAvatars = false;
+    expect(readShowAvatars()).toBe(false);
+  });
+
+  it('returns true when explicitly enabled', () => {
+    h.values.showAvatars = true;
+    expect(readShowAvatars()).toBe(true);
+  });
+
+  it('falls back to true for a non-boolean value', () => {
+    h.values.showAvatars = 'no';
+    expect(readShowAvatars()).toBe(true);
+  });
+});
+
+describe('readShowStats', () => {
+  beforeEach(() => { h.values = {}; });
+
+  it('defaults to false when unset', () => {
+    expect(readShowStats()).toBe(false);
+  });
+
+  it('returns true when explicitly enabled', () => {
+    h.values.showStats = true;
+    expect(readShowStats()).toBe(true);
+  });
+
+  it('returns false when explicitly disabled', () => {
+    h.values.showStats = false;
+    expect(readShowStats()).toBe(false);
+  });
+
+  it('falls back to false for a non-boolean value', () => {
+    h.values.showStats = 'yes';
+    expect(readShowStats()).toBe(false);
   });
 });

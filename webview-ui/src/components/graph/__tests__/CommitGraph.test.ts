@@ -29,15 +29,17 @@ function makeGraphData(commits: Commit[]): CommitGraphData {
     graph: commits.map(c => ({ commit: c.hash, column: 0, color: '#63b0f4', parents: [] })),
     paths: [],
     links: [],
-    dots: commits.map((_, i) => ({ center: { x: 0, y: i }, color: 0, type: 'default' as const, localOnly: false, remoteTip: false })),
+    dots: commits.map((_, i) => ({ center: { x: 10, y: i }, color: 0, type: 'default' as const, localOnly: false, remoteTip: false })),
     commitLeftMargin: commits.map(() => 24),
     hasMore: false,
     currentLimit: 1000,
   };
 }
 
-// Multi-lane data: one path that moves right, back left (cubic), then straight,
-// plus one merge link. Exercises every branch of the geometry builder.
+// Multi-lane data: one path that moves from lane 0 (SourceGit x=10) to lane 2
+// (x=12) and back, then straight, plus one merge link. Exercises every branch
+// of the geometry builder. Coordinates use the real SourceGit rail origin of
+// 10, which the component normalises to GRAPH_LEFT_PADDING.
 function makeStyledGraphData(): CommitGraphData {
   const commits = [
     makeCommit('h1', 'first'),
@@ -48,12 +50,12 @@ function makeStyledGraphData(): CommitGraphData {
     commits,
     graph: commits.map((c, i) => ({ commit: c.hash, column: i, color: '#63b0f4', parents: [] })),
     paths: [
-      { points: [{ x: 0, y: 0 }, { x: 2, y: 1 }, { x: 0, y: 2 }, { x: 0, y: 3 }], color: 0 },
+      { points: [{ x: 10, y: 0 }, { x: 12, y: 1 }, { x: 10, y: 2 }, { x: 10, y: 3 }], color: 0 },
     ],
     links: [
-      { start: { x: 0, y: 0 }, control: { x: 1, y: 0 }, end: { x: 1, y: 1 }, color: 0 },
+      { start: { x: 10, y: 0 }, control: { x: 11, y: 0 }, end: { x: 11, y: 1 }, color: 0 },
     ],
-    dots: commits.map((_, i) => ({ center: { x: 0, y: i }, color: 0, type: 'default' as const, localOnly: false, remoteTip: false })),
+    dots: commits.map((_, i) => ({ center: { x: 10, y: i }, color: 0, type: 'default' as const, localOnly: false, remoteTip: false })),
     commitLeftMargin: commits.map(() => 24),
     hasMore: false,
     currentLimit: 1000,
@@ -80,6 +82,7 @@ beforeEach(() => {
   commitStore.hasMore = false;
   commitStore.currentLimit = 0;
   commitStore.notGitRepo = false;
+  commitStore.isEmptyRepo = false;
   branchStore.branches = [];
   branchStore.worktrees = [];
   uiStore.selectedCommitHash = null;
@@ -282,6 +285,40 @@ describe('CommitGraph smoke', () => {
   });
 });
 
+describe('CommitGraph empty repository', () => {
+  const emptyData = (isEmptyRepo = false): CommitGraphData => ({
+    commits: [],
+    graph: [],
+    paths: [],
+    links: [],
+    dots: [],
+    commitLeftMargin: [],
+    hasMore: false,
+    currentLimit: 1000,
+    isEmptyRepo,
+  });
+
+  it('offers "create initial commit" only when HEAD is unborn', async () => {
+    commitStore.setData(emptyData(true));
+    const { container } = render(CommitGraph, {});
+    await tick();
+    const btn = container.querySelector<HTMLButtonElement>('.empty-initial-btn');
+    expect(btn).toBeTruthy();
+    await fireEvent.click(btn!);
+    expect(
+      globalThis.__postedMessages.some(m => (m.data as { type?: string }).type === 'createInitialCommit')
+    ).toBe(true);
+  });
+
+  it('shows the plain empty message when no commit matches (not an unborn HEAD)', async () => {
+    commitStore.setData(emptyData(false));
+    const { container } = render(CommitGraph, {});
+    await tick();
+    expect(container.querySelector('.empty-initial-btn')).toBeFalsy();
+    expect(container.querySelector('.empty')?.textContent).toContain('No commits found');
+  });
+});
+
 describe('CommitGraph graph line style', () => {
   it('renders straight right-angled elbows (L only, no Q/C) when graphStyle is angular', async () => {
     uiStore.graphStyle = 'angular';
@@ -291,9 +328,12 @@ describe('CommitGraph graph line style', () => {
 
     const ds = renderedPathDs(container);
     expect(ds.length).toBeGreaterThan(0);
-    // Path elbows, then the merge link elbow.
-    expect(ds).toContain('M 0 0 L 2.1 0 L 2.1 30 L 0 30 L 0 60 L 0 90');
-    expect(ds).toContain('M 0 0 L 1.05 0 L 1.05 30');
+    // Branch path uses mhutchie's angular kink (diagonal + vertical), then the
+    // merge link keeps its elbow. Git Graph grid geometry: 16px lane pitch,
+    // first lane (SourceGit x=10) centred at x=16; fixture lane 2 (x=12) lands
+    // at 16 + 2*(16/12) = 18.666666666666668. Angular d = 24 * 0.38 = 9.12.
+    expect(ds).toContain('M 16 0 L 18.666666666666668 14.879999999999999 L 18.666666666666668 24 L 18.666666666666668 33.120000000000005 L 16 48 L 16 72');
+    expect(ds).toContain('M 16 0 L 17.333333333333332 14.879999999999999 L 17.333333333333332 24');
     for (const d of ds) {
       expect(d).toContain('L');
       expect(d).not.toContain('Q');
@@ -310,10 +350,10 @@ describe('CommitGraph graph line style', () => {
     await tick();
 
     const ds = renderedPathDs(container);
-    expect(ds).toContain('M 0 0 Q 2.1 0, 2.1 30 C 2.1 49, 0 41, 0 60 L 0 90');
-    expect(ds).toContain('M 0 0 Q 1.05 0, 1.05 30');
-    expect(ds.some((d) => d.includes('Q'))).toBe(true);
+    expect(ds).toContain('M 16 0 C 16 19.200000000000003, 18.666666666666668 4.799999999999997, 18.666666666666668 24 C 18.666666666666668 43.2, 16 28.799999999999997, 16 48 L 16 72');
+    expect(ds).toContain('M 16 0 C 16 19.200000000000003, 17.333333333333332 4.799999999999997, 17.333333333333332 24');
     expect(ds.some((d) => d.includes('C'))).toBe(true);
+    expect(ds.some((d) => d.includes('Q'))).toBe(false);
     for (const p of container.querySelectorAll('.graph-lines path')) {
       // Rounded mode keeps the previous DOM exactly: no explicit linejoin.
       expect(p.getAttribute('stroke-linejoin')).toBeNull();
@@ -327,10 +367,66 @@ describe('CommitGraph graph line style', () => {
     await tick();
 
     const ds = renderedPathDs(container);
-    expect(ds).toContain('M 0 0 Q 2.1 0, 2.1 30 C 2.1 49, 0 41, 0 60 L 0 90');
-    expect(ds).toContain('M 0 0 Q 1.05 0, 1.05 30');
-    expect(ds.some((d) => d.includes('Q'))).toBe(true);
+    expect(ds).toContain('M 16 0 C 16 19.200000000000003, 18.666666666666668 4.799999999999997, 18.666666666666668 24 C 18.666666666666668 43.2, 16 28.799999999999997, 16 48 L 16 72');
+    expect(ds).toContain('M 16 0 C 16 19.200000000000003, 17.333333333333332 4.799999999999997, 17.333333333333332 24');
     expect(ds.some((d) => d.includes('C'))).toBe(true);
+    expect(ds.some((d) => d.includes('Q'))).toBe(false);
+  });
+
+  it('keeps the control offset inside a half-row transition (no overshoot kink)', async () => {
+    // SourceGit routes lane changes through half-row points (y = 0.5), so a
+    // transition can span only 12px. The control offset must scale to that span
+    // (0.8 * 12 = 9.6) instead of the fixed 0.8 * ROW_HEIGHT (19.2), which would
+    // push both controls outside the segment and bow the line into a kink.
+    commitStore.setData({
+      commits: [makeCommit('h1', 'first'), makeCommit('h2', 'second', ['h1'])],
+      graph: [
+        { commit: 'h1', column: 0, color: '#63b0f4', parents: [] },
+        { commit: 'h2', column: 1, color: '#63b0f4', parents: [] },
+      ],
+      paths: [{ points: [{ x: 10, y: 0.5 }, { x: 22, y: 1 }], color: 0 }],
+      links: [],
+      dots: [
+        { center: { x: 10, y: 0.5 }, color: 0, type: 'default', localOnly: false, remoteTip: false },
+        { center: { x: 22, y: 1 }, color: 0, type: 'default', localOnly: false, remoteTip: false },
+      ],
+      commitLeftMargin: [24, 24],
+      hasMore: false,
+      currentLimit: 1000,
+    });
+    const { container } = render(CommitGraph, {});
+    await tick();
+
+    const ds = renderedPathDs(container);
+    // last=(16,12), cur=(32,24), d = 9.6 -> controls at 21.6 and 14.4, both
+    // inside the [12, 24] segment.
+    expect(ds).toContain('M 16 12 C 16 21.6, 32 14.399999999999999, 32 24');
+  });
+
+  it('scales the angular elbow to a half-row transition', async () => {
+    uiStore.graphStyle = 'angular';
+    commitStore.setData({
+      commits: [makeCommit('h1', 'first'), makeCommit('h2', 'second', ['h1'])],
+      graph: [
+        { commit: 'h1', column: 0, color: '#63b0f4', parents: [] },
+        { commit: 'h2', column: 1, color: '#63b0f4', parents: [] },
+      ],
+      paths: [{ points: [{ x: 10, y: 0.5 }, { x: 22, y: 1 }], color: 0 }],
+      links: [],
+      dots: [
+        { center: { x: 10, y: 0.5 }, color: 0, type: 'default', localOnly: false, remoteTip: false },
+        { center: { x: 22, y: 1 }, color: 0, type: 'default', localOnly: false, remoteTip: false },
+      ],
+      commitLeftMargin: [24, 24],
+      hasMore: false,
+      currentLimit: 1000,
+    });
+    const { container } = render(CommitGraph, {});
+    await tick();
+
+    const ds = renderedPathDs(container);
+    // d = 0.38 * 12 = 4.56 -> elbow at y = 24 - 4.56 = 19.44.
+    expect(ds).toContain('M 16 12 L 32 19.439999999999998 L 32 24');
   });
 });
 
@@ -610,6 +706,53 @@ describe('CommitGraph auto-load history (issue #61)', () => {
   });
 });
 
+describe('CommitGraph avatars', () => {
+  afterEach(() => {
+    avatarStore.setEnabled(true);
+  });
+
+  function commitWithEmail(hash: string, email: string): Commit {
+    const commit = makeCommit(hash, 'first');
+    commit.author = { ...commit.author, email };
+    return commit;
+  }
+
+  it('renders the author avatar once it resolves', async () => {
+    avatarStore.receive('avatar-on@x.com', 20, 'data:image/png;base64,SEED');
+    commitStore.setData(makeGraphData([commitWithEmail('h1', 'avatar-on@x.com')]));
+    const { container } = render(CommitGraph, {});
+    await tick();
+    expect(container.querySelector('img.avatar-sm')).toBeTruthy();
+    expect(container.querySelector('.author-name')?.textContent).toBe('A');
+  });
+
+  it('omits the avatar (so the name stays flush-left) while none has resolved', async () => {
+    commitStore.setData(makeGraphData([commitWithEmail('h1', 'avatar-pending@x.com')]));
+    const { container } = render(CommitGraph, {});
+    await tick();
+    // No <img> is emitted, so the author column does not reserve avatar space
+    // and the name lines up with the AUTHOR header.
+    expect(container.querySelector('img.avatar-sm')).toBeFalsy();
+    expect(container.querySelector('.author-name')?.textContent).toBe('A');
+    // The avatar is still requested, so it can appear once it resolves.
+    expect(
+      globalThis.__postedMessages.some(m => (m.data as { type?: string }).type === 'getAvatar')
+    ).toBe(true);
+  });
+
+  it('hides the avatar and still shows the author name when showAvatars is off', async () => {
+    avatarStore.setEnabled(false);
+    commitStore.setData(makeGraphData([commitWithEmail('h1', 'avatar-off@x.com')]));
+    const { container } = render(CommitGraph, {});
+    await tick();
+    expect(container.querySelector('img.avatar-sm')).toBeFalsy();
+    expect(container.querySelector('.author-name')?.textContent).toBe('A');
+    expect(
+      globalThis.__postedMessages.some(m => (m.data as { type?: string }).type === 'getAvatar')
+    ).toBe(false);
+  });
+});
+
 describe('CommitGraph ref badge clicks', () => {
   const settle = () => new Promise((resolve) => setTimeout(resolve, 220));
 
@@ -672,32 +815,6 @@ describe('CommitGraph ref badge clicks', () => {
     await settle();
 
     expect(uiStore.selectedCommitHash).toBe('h1');
-  });
-});
-
-describe('CommitGraph avatars', () => {
-  afterEach(() => {
-    avatarStore.setEnabled(true);
-  });
-
-  it('renders the author avatar by default', async () => {
-    commitStore.setData(makeGraphData([makeCommit('h1', 'first')]));
-    const { container } = render(CommitGraph, {});
-    await tick();
-    expect(container.querySelector('img.avatar-sm')).toBeTruthy();
-    expect(container.querySelector('.author-name')?.textContent).toBe('A');
-  });
-
-  it('hides the avatar and still shows the author name when showAvatars is off', async () => {
-    avatarStore.setEnabled(false);
-    commitStore.setData(makeGraphData([makeCommit('h1', 'first')]));
-    const { container } = render(CommitGraph, {});
-    await tick();
-    expect(container.querySelector('img.avatar-sm')).toBeFalsy();
-    expect(container.querySelector('.author-name')?.textContent).toBe('A');
-    expect(
-      globalThis.__postedMessages.some(m => (m.data as { type?: string }).type === 'getAvatar')
-    ).toBe(false);
   });
 });
 

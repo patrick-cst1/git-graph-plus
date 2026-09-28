@@ -84,6 +84,9 @@ export interface CommitGraphData {
   commitLeftMargin?: number[];
   hasMore?: boolean;
   currentLimit?: number;
+  /** True when the repository has an unborn HEAD (no commits yet), as opposed
+   *  to a filter or search that simply matched nothing. */
+  isEmptyRepo?: boolean;
   /** Full hash the graph is pinned to (reflog "Show in Graph" on a commit
    *  outside the loaded window). Absent on normal log payloads. */
   pinnedHash?: string;

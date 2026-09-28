@@ -562,8 +562,11 @@
     padding: 0 10px;
     height: 26px;
     max-width: 180px;
-    background: var(--button-bg);
-    color: var(--button-fg);
+    /* Theme-independent chip: some themes set button.foreground to the same
+       tone as the toolbar background, which made the branch name invisible. */
+    background: rgba(128, 128, 128, 0.12);
+    border: 1px solid rgba(128, 128, 128, 0.25);
+    color: var(--vscode-foreground, #cccccc);
     border-radius: 6px;
     font-size: inherit;
     font-weight: normal;
@@ -603,8 +606,10 @@
   }
 
   .view-tab.active {
-    background: var(--button-bg);
-    color: var(--button-fg);
+    /* Same reasoning as .current-branch: do not depend on button theme colours. */
+    background: rgba(128, 128, 128, 0.28);
+    color: var(--vscode-foreground, #cccccc);
+    font-weight: 600;
   }
 
   .view-tab:hover:not(.active) {

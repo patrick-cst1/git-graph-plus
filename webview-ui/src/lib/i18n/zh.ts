@@ -116,6 +116,8 @@ export const zh: Record<string, string> = {
   'graph.openLink': '打开链接',
   'graph.loading': '正在加载提交',
   'graph.noCommits': '未找到提交',
+  'graph.emptyRepo': '此仓库还没有提交。',
+  'graph.createInitialCommit': '创建初始提交',
   'graph.notGitRepo': '此文件夹不是 Git 仓库。',
   'graph.noResults': '无匹配提交',
   'graph.loadMore': '加载更多提交',
@@ -548,6 +550,7 @@ export const zh: Record<string, string> = {
   'conflict.abortTitle': '中止操作',
   'conflict.abortConfirm': '中止当前 {operation}？操作将被<span class="modal-emph modal-emph--danger">取消</span>，更改将被<span class="modal-emph modal-emph--danger">还原</span>。',
   'conflict.abort': '中止',
+  'conflict.skip': '跳过',
   'conflict.resolveSuccess': '{operation} 已成功完成。',
   'conflict.banner.resolved': '已解决 {resolved}/{total}',
   'conflict.banner.resolve': '完成解决',
@@ -562,6 +565,7 @@ export const zh: Record<string, string> = {
   'rebase.pause.message': 'Rebase 已暂停 - 请进行更改，然后继续',
   'rebase.pause.continue': '继续',
   'rebase.pause.abort': '中止',
+  'rebase.pause.skip': '跳过',
 
   // Defaults
   'deleteBranch.forceWarning': '即使存在<span class="modal-emph modal-emph--danger">未合并的提交</span>也会强制删除分支。',

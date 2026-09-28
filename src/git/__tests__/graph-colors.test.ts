@@ -28,6 +28,6 @@ describe('resolveGraphColors', () => {
 
   it('default palette is the current 12-color set', () => {
     expect(DEFAULT_GRAPH_COLORS).toHaveLength(12);
-    expect(DEFAULT_GRAPH_COLORS[0]).toBe('#63b0f4');
+    expect(DEFAULT_GRAPH_COLORS[0]).toBe('#0085d9');
   });
 });

@@ -16,6 +16,7 @@ function resetStores() {
   commitStore.commits = [];
   commitStore.loading = false;
   commitStore.notGitRepo = false;
+  commitStore.isEmptyRepo = false;
   branchStore.branches = [];
   branchStore.tags = [];
   branchStore.remotes = [];
@@ -35,6 +36,7 @@ function resetStores() {
   uiStore.defaultCommitTab = 'details';
   uiStore.autoLoadHistory = false;
   uiStore.graphStyle = 'rounded';
+  uiStore.showStats = false;
   uiStore.setError(null);
   // modalStore is a singleton across tests; one stuck open modal will render
   // through every subsequent App mount and break unrelated assertions.
@@ -74,6 +76,19 @@ describe('App — message handling', () => {
     await waitFor(() => {
       expect(commitStore.currentLimit).toBe(100);
     });
+  });
+
+  it('clears a selection whose commit disappears from a refreshed log (issue #74)', async () => {
+    render(App);
+    uiStore.selectCommit('deadbeef');
+    await waitFor(() => expect(uiStore.selectedCommitHash).toBe('deadbeef'));
+
+    // A refresh that no longer contains the selected commit (e.g. after a
+    // rebase/amend) must clear the selection rather than leaving the bottom
+    // panel open and empty.
+    postMsg('logData', { commits: [], graph: [], hasMore: false, currentLimit: 100 });
+
+    await waitFor(() => expect(uiStore.selectedCommitHash).toBeNull());
   });
 
   it('branchData updates branchStore', async () => {
@@ -128,20 +143,20 @@ describe('App — message handling', () => {
     });
   });
 
-  it('setShowAvatars toggles avatarStore.enabled', async () => {
-    render(App);
-    postMsg('setShowAvatars', { enabled: false });
-    await waitFor(() => expect(avatarStore.enabled).toBe(false));
-    postMsg('setShowAvatars', { enabled: true });
-    await waitFor(() => expect(avatarStore.enabled).toBe(true));
-  });
-
   it('setGraphStyle updates uiStore.graphStyle', async () => {
     render(App);
     postMsg('setGraphStyle', { style: 'angular' });
     await waitFor(() => {
       expect(uiStore.graphStyle).toBe('angular');
     });
+  });
+
+  it('setShowAvatars toggles avatarStore.enabled', async () => {
+    render(App);
+    postMsg('setShowAvatars', { enabled: false });
+    await waitFor(() => expect(avatarStore.enabled).toBe(false));
+    postMsg('setShowAvatars', { enabled: true });
+    await waitFor(() => expect(avatarStore.enabled).toBe(true));
   });
 
   it('repoList populates uiStore.repos and activeRepo', async () => {
@@ -223,6 +238,19 @@ describe('App — message handling', () => {
     });
   });
 
+  it('conflict keeps the search bar visible (issue #69)', async () => {
+    const { container } = render(App);
+    await waitFor(() => expect(container.querySelector('.search-input')).not.toBeNull());
+    postMsg('conflictData', {
+      operation: 'rebase',
+      files: [{ path: 'a.ts', resolved: false }],
+    });
+    await waitFor(() => {
+      expect(container.querySelector('.conflict-banner')).not.toBeNull();
+      expect(container.querySelector('.search-input')).not.toBeNull();
+    });
+  });
+
   it('operationPaused with rebase shows the rebase pause banner', async () => {
     const { container } = render(App);
     postMsg('operationPaused', { operation: 'rebase' });
@@ -291,10 +319,17 @@ describe('App — keyboard shortcuts', () => {
     expect(uiStore.viewMode).toBe('log');
   });
 
-  it('Ctrl+3 switches to stats view', async () => {
+  it('Ctrl+3 switches to stats view when Stats is enabled', async () => {
+    uiStore.showStats = true;
     render(App);
     await fireEvent.keyDown(window, { key: '3', ctrlKey: true });
     expect(uiStore.viewMode).toBe('stats');
+  });
+
+  it('Ctrl+3 is ignored while Stats is disabled', async () => {
+    render(App);
+    await fireEvent.keyDown(window, { key: '3', ctrlKey: true });
+    expect(uiStore.viewMode).toBe('graph');
   });
 
   it('Ctrl+R re-requests log and branches', async () => {
@@ -397,6 +432,37 @@ describe('App — conflict banner', () => {
     expect(types).toContain('continueOperation');
   });
 
+  it('shows a Skip action for rebase and cherry-pick conflicts only', async () => {
+    const { container } = render(App);
+    postMsg('conflictData', {
+      operation: 'rebase',
+      files: [{ path: 'a.ts', resolved: false }],
+    });
+    await waitFor(() => container.querySelector('.conflict-banner'));
+    const skip = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('.conflict-actions button')
+    ).find(b => b.textContent?.includes('Skip'));
+    expect(skip).toBeTruthy();
+    globalThis.__postedMessages = [];
+    await fireEvent.click(skip!);
+    expect(globalThis.__postedMessages.some(
+      (m) => (m.data as { type?: string }).type === 'skipOperation'
+    )).toBe(true);
+  });
+
+  it('does not show Skip for a merge conflict', async () => {
+    const { container } = render(App);
+    postMsg('conflictData', {
+      operation: 'merge',
+      files: [{ path: 'a.ts', resolved: false }],
+    });
+    await waitFor(() => container.querySelector('.conflict-banner'));
+    const skip = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('.conflict-actions button')
+    ).find(b => b.textContent?.includes('Skip'));
+    expect(skip).toBeFalsy();
+  });
+
   it('clicking a conflict file opens it via openConflictFile', async () => {
     const { container } = render(App);
     postMsg('conflictData', {
@@ -471,13 +537,25 @@ describe('App — rebase pause banner', () => {
     )).toBe(true);
   });
 
+  it('skip button posts skipOperation', async () => {
+    const { container } = render(App);
+    postMsg('operationPaused', { operation: 'rebase' });
+    await waitFor(() => container.querySelector('.rebase-pause-banner'));
+    globalThis.__postedMessages = [];
+    const btns = container.querySelectorAll<HTMLButtonElement>('.rebase-pause-banner button');
+    await fireEvent.click(btns[1]); // skip
+    expect(globalThis.__postedMessages.some(
+      (m) => (m.data as { type?: string }).type === 'skipOperation'
+    )).toBe(true);
+  });
+
   it('abort button posts abortOperation and hides the banner', async () => {
     const { container } = render(App);
     postMsg('operationPaused', { operation: 'rebase' });
     await waitFor(() => container.querySelector('.rebase-pause-banner'));
     globalThis.__postedMessages = [];
     const btns = container.querySelectorAll<HTMLButtonElement>('.rebase-pause-banner button');
-    await fireEvent.click(btns[1]); // abort
+    await fireEvent.click(btns[2]); // abort
     expect(globalThis.__postedMessages.some(
       (m) => (m.data as { type?: string }).type === 'abortOperation'
     )).toBe(true);
@@ -505,7 +583,8 @@ describe('App — view mode rendering', () => {
     });
   });
 
-  it('viewMode=stats renders StatsView', async () => {
+  it('viewMode=stats renders StatsView when showStats is enabled', async () => {
+    uiStore.showStats = true;
     const { container } = render(App);
     uiStore.viewMode = 'stats';
     await waitFor(() => {

@@ -5,6 +5,7 @@ import { i18n } from '../../../lib/i18n/index.svelte';
 import { commitStore } from '../../../lib/stores/commits.svelte';
 import { uiStore } from '../../../lib/stores/ui.svelte';
 import { modalStore } from '../../../lib/stores/modals.svelte';
+import { commitLinkRulesStore } from '../../../lib/stores/commit-link-rules.svelte';
 import { avatarStore } from '../../../lib/stores/avatars.svelte';
 import type { Commit, DiffData } from '../../../lib/types';
 
@@ -55,6 +56,7 @@ function deliverSignature(hash: string, signature: { status: 'good' | 'none' | '
 beforeEach(() => {
   i18n.setLocale('en');
   globalThis.__postedMessages = [];
+  commitLinkRulesStore.set([]);
   commitStore.commits = [];
   uiStore.selectedCommitHash = null;
   uiStore.commitDetailFullscreen = false;
@@ -718,6 +720,23 @@ describe('CommitDetails — uncommitted (staged/unstaged)', () => {
     }));
   }
 
+  it('compacts deep folder chains in both staged and unstaged trees', async () => {
+    const { container } = render(CommitDetails, { commit: commit({ hash: 'UNCOMMITTED' }) });
+    deliverUncommitted(
+      [{ path: 'src/main/java/App.java', status: 'M' }],
+      [{ path: 'tests/unit/App.test.ts', status: 'A' }],
+    );
+    await waitFor(() => expect(container.querySelector('.file-item')).toBeTruthy());
+    expect(container.querySelector('.dir-name')?.textContent?.replace(/\s+/g, '')).toBe('src/main/java');
+
+    const unstagedTab = Array.from(container.querySelectorAll<HTMLButtonElement>('.top-tab'))
+      .find(t => /unstaged/i.test(t.textContent ?? ''))!;
+    await fireEvent.click(unstagedTab);
+    await waitFor(() => {
+      expect(container.querySelector('.dir-name')?.textContent?.replace(/\s+/g, '')).toBe('tests/unit');
+    });
+  });
+
   it('shows "No staged changes" when staged list is empty', async () => {
     const { container } = render(CommitDetails, { commit: commit({ hash: 'UNCOMMITTED' }) });
     deliverUncommitted([], [{ path: 'a.ts', status: 'M' }]);
@@ -1004,6 +1023,66 @@ describe('CommitDetails — resize handle', () => {
 });
 
 describe('CommitDetails — directory toggle', () => {
+  it('compacts a chain of single-child folders into one visible row', async () => {
+    const { container } = render(CommitDetails, { commit: commit({ hash: 'h1' }) });
+    deliverCommitDiff('h1', [{ path: 'src/main/java/App.java', status: 'M' }]);
+    const changesTab = Array.from(container.querySelectorAll<HTMLButtonElement>('.top-tab'))
+      .find(t => /change/i.test(t.textContent ?? ''))!;
+    await fireEvent.click(changesTab);
+    await waitFor(() => expect(container.querySelector('.file-item')).toBeTruthy());
+
+    const labels = Array.from(container.querySelectorAll('.dir-name'))
+      .map(el => (el.textContent ?? '').replace(/\s+/g, ''));
+    expect(labels).toEqual(['src/main/java']);
+    expect(container.querySelector('.dir-name')?.getAttribute('title')).toBe('src/main/java');
+    expect(container.querySelector('.file-name')?.textContent).toBe('App.java');
+  });
+
+  it('handles a pathological deep folder chain without overflowing the stack', async () => {
+    const { container } = render(CommitDetails, { commit: commit({ hash: 'h1' }) });
+    const deepPath = `${Array.from({ length: 3000 }, (_, i) => `d${i}`).join('/')}/leaf.ts`;
+    deliverCommitDiff('h1', [{ path: deepPath, status: 'M' }]);
+    const changesTab = Array.from(container.querySelectorAll<HTMLButtonElement>('.top-tab'))
+      .find(t => /change/i.test(t.textContent ?? ''))!;
+    await fireEvent.click(changesTab);
+    await waitFor(() => expect(container.querySelector('.file-item')).toBeTruthy());
+
+    expect(container.querySelectorAll('.dir-item')).toHaveLength(1);
+    expect(container.querySelector('.file-name')?.textContent).toBe('leaf.ts');
+  });
+
+  it('stops compacting at a directory branch', async () => {
+    const { container } = render(CommitDetails, { commit: commit({ hash: 'h1' }) });
+    deliverCommitDiff('h1', [
+      { path: 'src/main/java/App.java', status: 'M' },
+      { path: 'src/test/java/AppTest.java', status: 'A' },
+    ]);
+    const changesTab = Array.from(container.querySelectorAll<HTMLButtonElement>('.top-tab'))
+      .find(t => /change/i.test(t.textContent ?? ''))!;
+    await fireEvent.click(changesTab);
+    await waitFor(() => expect(container.querySelectorAll('.file-item')).toHaveLength(2));
+
+    const labels = Array.from(container.querySelectorAll('.dir-name'))
+      .map(el => (el.textContent ?? '').replace(/\s+/g, ''));
+    expect(labels).toEqual(['src', 'main/java', 'test/java']);
+  });
+
+  it('does not compact across a folder that also contains a file', async () => {
+    const { container } = render(CommitDetails, { commit: commit({ hash: 'h1' }) });
+    deliverCommitDiff('h1', [
+      { path: 'src/index.ts', status: 'M' },
+      { path: 'src/lib/a.ts', status: 'M' },
+    ]);
+    const changesTab = Array.from(container.querySelectorAll<HTMLButtonElement>('.top-tab'))
+      .find(t => /change/i.test(t.textContent ?? ''))!;
+    await fireEvent.click(changesTab);
+    await waitFor(() => expect(container.querySelectorAll('.file-item')).toHaveLength(2));
+
+    const labels = Array.from(container.querySelectorAll('.dir-name'))
+      .map(el => (el.textContent ?? '').replace(/\s+/g, ''));
+    expect(labels).toEqual(['src', 'lib']);
+  });
+
   it('clicking a dir toggles its expand state', async () => {
     const { container } = render(CommitDetails, { commit: commit({ hash: 'h1' }) });
     deliverCommitDiff('h1', [
@@ -1295,7 +1374,7 @@ describe('CommitDetails — file context menu actions', () => {
 
   it('folder "Create Patch from folder" posts saveCommitPatch for the folder', async () => {
     const { container } = render(CommitDetails, { commit: commit({ hash: 'h1' }) });
-    deliverCommitDiff('h1', [{ path: 'src/a.ts', status: 'M' }]);
+    deliverCommitDiff('h1', [{ path: 'src/main/java/App.java', status: 'M' }]);
     const changesTab = Array.from(container.querySelectorAll<HTMLButtonElement>('.top-tab'))
       .find(t => /change/i.test(t.textContent ?? ''))!;
     await fireEvent.click(changesTab);
@@ -1309,7 +1388,7 @@ describe('CommitDetails — file context menu actions', () => {
     const req = globalThis.__postedMessages.find((m) => (m.data as { type?: string }).type === 'saveCommitPatch');
     expect((req!.data as { payload: { hash: string; paths: string[] } }).payload).toMatchObject({
       hash: 'h1',
-      paths: ['src'],
+      paths: ['src/main/java'],
     });
   });
 
@@ -1509,6 +1588,25 @@ describe('CommitDetails — markdown toggle', () => {
     expect(container.querySelector('.message-section strong')?.textContent).toBe('bold');
   });
 
+  it('renders inline code with markup characters without exposing HTML entities', () => {
+    const snippet = '<if test="onlyHasVideo==true">';
+    const { container } = render(CommitDetails, {
+      commit: commit({ body: `- \`${snippet}\``, parents: [] }),
+    });
+
+    expect(container.querySelector('.message-section .md-codespan')?.textContent).toBe(snippet);
+    expect(container.querySelector('.message-section if')).toBeNull();
+  });
+
+  it('renders quotes in plain Markdown text without exposing HTML entities', () => {
+    const { container } = render(CommitDetails, {
+      commit: commit({ body: '- getEnumByCode("250")', parents: [] }),
+    });
+
+    expect(container.querySelector('.message-section .md-li')?.textContent?.trim())
+      .toBe('getEnumByCode("250")');
+  });
+
   it('switches to plain text when the Plain toggle is clicked', async () => {
     const { container, getByText } = render(CommitDetails, {
       commit: commit({ subject: '**bold** subject', body: '- one\n- two', parents: [] }),
@@ -1534,6 +1632,73 @@ describe('CommitDetails — markdown toggle', () => {
     expect(container.querySelector('.message-view-toggle')).toBeNull();
     expect(queryByText('Markdown')).toBeNull();
     expect(container.querySelector('.message-subject')?.textContent).toContain('Fix crash on startup');
+  });
+});
+
+describe('CommitDetails — auto-links in the commit message', () => {
+  const rule = { pattern: 'GH-(\\d+)', url: 'https://tickets.example/GH-$1' };
+
+  it('renders an anchor for a reference in a plain-text subject when rules are present', async () => {
+    commitLinkRulesStore.set([rule]);
+    const { container } = render(CommitDetails, {
+      commit: commit({ hash: 'h1', subject: 'fix GH-12 crash', body: '', parents: [] }),
+    });
+    await waitFor(() => expect(container.querySelector('.message-subject a.commit-link')).not.toBeNull());
+    const link = container.querySelector<HTMLAnchorElement>('.message-subject a.commit-link')!;
+    expect(link.textContent).toBe('GH-12');
+    expect(link.getAttribute('href')).toBe('https://tickets.example/GH-12');
+  });
+
+  it('linkifies references in the body as well as the subject', async () => {
+    commitLinkRulesStore.set([rule]);
+    const { container } = render(CommitDetails, {
+      commit: commit({ hash: 'h1', subject: 'chore: cleanup', body: 'closes GH-12', parents: [] }),
+    });
+    await waitFor(() => expect(container.querySelector('.message-body a.commit-link')).not.toBeNull());
+    expect(container.querySelector('.message-body a.commit-link')!.getAttribute('href'))
+      .toBe('https://tickets.example/GH-12');
+  });
+
+  it('produces no anchor when no rules are configured', async () => {
+    commitLinkRulesStore.set([]);
+    const { container } = render(CommitDetails, {
+      commit: commit({ hash: 'h1', subject: 'fix #12, see https://example.com/x', body: '', parents: [] }),
+    });
+    await waitFor(() => expect(container.querySelector('.message-subject')).not.toBeNull());
+    expect(container.querySelector('.message-subject a')).toBeNull();
+    expect(container.querySelector('.message-subject')!.textContent).toContain('fix #12');
+  });
+
+  it('linkifies references inside Markdown-formatted messages', async () => {
+    commitLinkRulesStore.set([rule]);
+    const { container } = render(CommitDetails, {
+      commit: commit({ hash: 'h1', subject: '**fix** GH-12', body: '', parents: [] }),
+    });
+    await waitFor(() => expect(container.querySelector('.message-markdown a.commit-link')).not.toBeNull());
+    expect(container.querySelector('.message-markdown strong')?.textContent).toBe('fix');
+    const link = container.querySelector<HTMLAnchorElement>('.message-markdown a.commit-link')!;
+    expect(link.textContent).toBe('GH-12');
+    expect(link.getAttribute('href')).toBe('https://tickets.example/GH-12');
+  });
+
+  it('keeps the link when a Markdown message is switched to plain text', async () => {
+    commitLinkRulesStore.set([rule]);
+    const { container, getByText } = render(CommitDetails, {
+      commit: commit({ hash: 'h1', subject: '**fix** GH-12', body: '', parents: [] }),
+    });
+    await fireEvent.click(getByText('Plain Text'));
+    await waitFor(() => expect(container.querySelector('.message-subject a.commit-link')).not.toBeNull());
+    expect(container.querySelector('.message-subject a.commit-link')!.getAttribute('href'))
+      .toBe('https://tickets.example/GH-12');
+  });
+
+  it('produces no anchor in a Markdown message when no rules are configured', async () => {
+    commitLinkRulesStore.set([]);
+    const { container } = render(CommitDetails, {
+      commit: commit({ hash: 'h1', subject: '**fix** #12', body: '', parents: [] }),
+    });
+    await waitFor(() => expect(container.querySelector('.message-markdown')).not.toBeNull());
+    expect(container.querySelector('.message-markdown a')).toBeNull();
   });
 });
 

@@ -1183,6 +1183,53 @@ describe('GitService', () => {
     });
   });
 
+  describe('operation skip, initial commit, and unborn HEAD', () => {
+    it('skipOperation runs rebase --skip while rebasing', async () => {
+      const calls: string[][] = [];
+      mockExec(service, async (args) => { calls.push(args); return ''; });
+      vi.spyOn(service, 'getOperationState').mockResolvedValue({ type: 'rebase' });
+
+      await service.skipOperation();
+      expect(calls).toEqual([['rebase', '--skip']]);
+    });
+
+    it('skipOperation runs cherry-pick --skip while cherry-picking', async () => {
+      const calls: string[][] = [];
+      mockExec(service, async (args) => { calls.push(args); return ''; });
+      vi.spyOn(service, 'getOperationState').mockResolvedValue({ type: 'cherry-pick' });
+
+      await service.skipOperation();
+      expect(calls).toEqual([['cherry-pick', '--skip']]);
+    });
+
+    it('skipOperation is a no-op for merge (no skip exists)', async () => {
+      const calls: string[][] = [];
+      mockExec(service, async (args) => { calls.push(args); return ''; });
+      vi.spyOn(service, 'getOperationState').mockResolvedValue({ type: 'merge' });
+
+      await service.skipOperation();
+      expect(calls).toEqual([]);
+    });
+
+    it('createInitialCommit records an (empty) root commit', async () => {
+      const calls: string[][] = [];
+      mockExec(service, async (args) => { calls.push(args); return ''; });
+
+      await service.createInitialCommit();
+      expect(calls).toEqual([['commit', '--allow-empty', '-m', 'Initial commit']]);
+    });
+
+    it('isUnbornHead is true when rev-parse HEAD fails', async () => {
+      mockExec(service, async () => { throw new Error('fatal: Needed a single revision'); });
+      expect(await service.isUnbornHead()).toBe(true);
+    });
+
+    it('isUnbornHead is false when HEAD resolves', async () => {
+      mockExec(service, async () => 'abc123\n');
+      expect(await service.isUnbornHead()).toBe(false);
+    });
+  });
+
   describe('addRemote URL validation', () => {
     it('accepts https URL', async () => {
       const calls: string[][] = [];

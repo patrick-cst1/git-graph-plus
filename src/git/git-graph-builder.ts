@@ -4,9 +4,9 @@
 import type { BranchInfo, Commit, GraphNode, ParentConnection } from './types';
 
 const COLOR_PALETTE = [
-  '#63b0f4', '#73d13d', '#ff7a45', '#b37feb',
-  '#f759ab', '#36cfc9', '#ffc53d', '#ff4d4f',
-  '#597ef7', '#9254de', '#43e8d8', '#faad14',
+  '#0085d9', '#d9008f', '#00d90a', '#d98500',
+  '#a300d9', '#ff0000', '#00d9cc', '#e138e8',
+  '#85d900', '#dc5b23', '#6f24d6', '#ffcc00',
 ];
 
 // ── SourceGit-faithful data structures ──

@@ -38,13 +38,16 @@
 
 
   /**
-   * Build SVG path `d` string from SourceGit Path points.
-   * Rounded (default) exactly mirrors SourceGit's DrawCurves rendering (Q/C
-   * beziers); angular draws straight lines with right-angled elbows.
+   * Build the SVG path `d` for a branch from SourceGit path points using
+   * mhutchie Git Graph's transition geometry: vertical runs are `L`, a lane
+   * change is a cubic transition with control offset `d = row * 0.8` in the
+   * rounded style (default) or a two-segment kink with `d = row * 0.38` in the
+   * angular style.
    */
   function buildPathD(points: Array<{ x: number; y: number }>, style: GraphStyle): string {
     if (points.length < 2) return '';
 
+    const factor = style === 'angular' ? 0.38 : 0.8;
     const parts: string[] = [];
     let last = { x: laneX(points[0].x), y: points[0].y * ROW_HEIGHT };
     parts.push(`M ${last.x} ${last.y}`);
@@ -52,29 +55,29 @@
     for (let i = 1; i < points.length; i++) {
       const cur = { x: laneX(points[i].x), y: points[i].y * ROW_HEIGHT };
 
-      if (style === 'angular') {
-        if (cur.x !== last.x) {
-          // Elbow: horizontal to the target lane, then vertical to the row.
-          parts.push(`L ${cur.x} ${last.y} L ${cur.x} ${cur.y}`);
-        } else {
-          // Same X: straight line
-          parts.push(`L ${cur.x} ${cur.y}`);
-        }
-      } else if (cur.x > last.x) {
-        // Going right: QuadraticBezier with control at (cur.x, last.y)
-        parts.push(`Q ${cur.x} ${last.y}, ${cur.x} ${cur.y}`);
-      } else if (cur.x < last.x) {
-        if (i < points.length - 1) {
-          // Middle: CubicBezier S-curve
-          const midY = (last.y + cur.y) / 2;
-          parts.push(`C ${last.x} ${midY + 4}, ${cur.x} ${midY - 4}, ${cur.x} ${cur.y}`);
-        } else {
-          // Last: QuadraticBezier with control at (last.x, cur.y)
-          parts.push(`Q ${last.x} ${cur.y}, ${cur.x} ${cur.y}`);
-        }
-      } else {
-        // Same X: straight line
+      if (cur.x === last.x) {
+        // Same lane: straight vertical run
         parts.push(`L ${cur.x} ${cur.y}`);
+      } else {
+        // SourceGit routes lane changes through half-row points, so a transition
+        // can span only half a row (12px). Scale the control offset to that
+        // span (mhutchie's 0.8/0.38 of a full row) instead of a fixed
+        // ROW_HEIGHT fraction — otherwise the control points escape the segment
+        // and the cubic overshoots into a visible kink instead of a round curve.
+        const d = Math.abs(cur.y - last.y) * factor;
+
+        if (style === 'angular') {
+          // mhutchie angular: a diagonal to (cur.x, cur.y - d) then vertical when
+          // the line locks to its destination, or vertical then a diagonal to the
+          // destination. We lock to the destination lane when moving right
+          // (fork shape) and to the source lane when moving left.
+          if (cur.x > last.x) parts.push(`L ${cur.x} ${cur.y - d}`);
+          else parts.push(`L ${last.x} ${last.y + d}`);
+          parts.push(`L ${cur.x} ${cur.y}`);
+        } else {
+          // mhutchie rounded: cubic with both control points offset by d
+          parts.push(`C ${last.x} ${last.y + d}, ${cur.x} ${cur.y - d}, ${cur.x} ${cur.y}`);
+        }
       }
 
       last = cur;
@@ -86,6 +89,7 @@
   interface Props {
     searchMatchedHashes?: Set<string> | null;
     searchNavigateHash?: string | null;
+    searchNavigateNonce?: number;
     bisectActive?: boolean;
     bisectCulpritHash?: string | null;
     remoteFilter?: string[];
@@ -93,7 +97,7 @@
     onHeadOffscreenChange?: (offscreen: boolean) => void;
   }
 
-  let { searchMatchedHashes = null, searchNavigateHash = null, bisectActive = false, bisectCulpritHash = null, remoteFilter = [], headJumpNonce = 0, onHeadOffscreenChange = () => {} }: Props = $props();
+  let { searchMatchedHashes = null, searchNavigateHash = null, searchNavigateNonce = 0, bisectActive = false, bisectCulpritHash = null, remoteFilter = [], headJumpNonce = 0, onHeadOffscreenChange = () => {} }: Props = $props();
 
   const vscode = getVsCodeApi();
 
@@ -361,12 +365,22 @@
   let displayLeftMargin = $derived(commitStore.commitLeftMargin);
 
 
-  const ROW_HEIGHT = 30;
+  const ROW_HEIGHT = 24;
+  // Background behind the graph, used by the Git Graph-style line shadows and
+  // dot outlines so lanes read as separate when they cross.
+  const GRAPH_BACKGROUND = 'var(--vscode-editor-background, var(--bg-primary, #1e1e1e))';
   // Rows of breathing room kept between the selection and the viewport edge when
   // stepping with the arrow keys, so context above/below the selection stays visible.
   const KEYBOARD_NAV_SCROLL_MARGIN_ROWS = 3;
-  // SourceGit uses unitWidth=12 for X coordinates, we scale them up for display
-  const X_SCALE = 1.05; // multiply SourceGit X coords by this for pixel positions
+  // SourceGit uses unitWidth=12 for X coordinates. Git Graph's grid uses a
+  // 16px lane pitch with the first lane at x=16 (grid.offsetX), so scale the
+  // SourceGit units to 16px lanes and shift the rails so lane 0 lands on that
+  // padding. SourceGit's first rail sits at x = 4 - UNIT_W/2 + UNIT_W = 10
+  // (see git-graph-builder.ts), not 0, so that origin is subtracted too.
+  const SOURCE_UNIT = 12;
+  const X_SCALE = 16 / SOURCE_UNIT; // multiply SourceGit X coords by this for pixel positions
+  const GRAPH_LEFT_PADDING = 16; // absolute x of the first lane (Git Graph grid.offsetX)
+  const SOURCE_LANE_ORIGIN = 4 + SOURCE_UNIT / 2; // x of SourceGit's first rail (10)
   const BUFFER_ROWS = 20; // Larger buffer to keep lines visible during scroll
 
   let container: HTMLDivElement | undefined = $state();
@@ -406,14 +420,13 @@
     if (next !== null) container.scrollTop = next;
   }
 
-  // Scroll to search result when navigating. Only when the target actually
-  // changes: this effect also re-runs on unrelated changes (the bottom panel
-  // opening resizes the graph, commit-list reloads) and must not snap the view
-  // back to a stale navigation target.
-  let lastSearchNavigateHash: string | null = null;
+  // Scroll once per navigation request (search result / Reflog Show in Graph /
+  // pinned slice). The effect also reads viewportHeight and displayCommits, so
+  // it re-runs on any resize or refresh; the nonce guard keeps those from
+  // re-scrolling an old target and yanking the user away from where they are
+  // (e.g. the bottom panel opening on the first commit click).
+  let lastSearchNavigateNonce = 0;
   $effect(() => {
-    if (searchNavigateHash === lastSearchNavigateHash) return;
-    lastSearchNavigateHash = searchNavigateHash;
     if (searchNavigateHash && container) {
       navPath = [];
       scrollHashIntoView(searchNavigateHash, 'center');
@@ -475,7 +488,7 @@
     if (displayLeftMargin.length === 0) return 30;
     let maxMargin = 0;
     for (const m of displayLeftMargin) if (m > maxMargin) maxMargin = m;
-    return Math.ceil(maxMargin * X_SCALE) + 4;
+    return Math.ceil(GRAPH_LEFT_PADDING + (maxMargin - SOURCE_LANE_ORIGIN) * X_SCALE) + 4;
   });
 
   // Switch to horizontal scrolling only once the graph is wide enough that the
@@ -554,7 +567,7 @@
   let visibleDots = $derived(displayDots.slice(startIndex, endIndex));
 
   function laneX(col: number): number {
-    return col * X_SCALE;
+    return GRAPH_LEFT_PADDING + (col - SOURCE_LANE_ORIGIN) * X_SCALE;
   }
 
   // Same action as the "Load more commits" button, shared so auto-load sends an
@@ -616,7 +629,7 @@
     const t = Math.max(0, Math.min(1, f - i0));
     const m0 = displayLeftMargin[i0] ?? 0;
     const m1 = displayLeftMargin[i1] ?? 0;
-    const messageStartX = (m0 + (m1 - m0) * t) * X_SCALE + 4;
+    const messageStartX = GRAPH_LEFT_PADDING + (m0 + (m1 - m0) * t - SOURCE_LANE_ORIGIN) * X_SCALE + 4;
     const maxLeft = Math.max(0, contentWidth - viewportWidth);
     const target = Math.max(0, Math.min(messageStartX - viewportWidth / 4, maxLeft));
     if (Math.abs(container.scrollLeft - target) > 0.5) container.scrollLeft = target;
@@ -1400,7 +1413,22 @@
   {:else if commitStore.notGitRepo}
     <div class="empty">{t('graph.notGitRepo')}</div>
   {:else if displayCommits.length === 0}
-    <div class="empty">{isSearchActive ? t('graph.noResults') : t('graph.noCommits')}</div>
+    {#if isSearchActive}
+      <div class="empty">{t('graph.noResults')}</div>
+    {:else if commitStore.isEmptyRepo}
+      <div class="empty empty-initial">
+        <p class="empty-initial-text">{t('graph.emptyRepo')}</p>
+        <button
+          class="empty-initial-btn"
+          onclick={() => vscode.postMessage({ type: 'createInitialCommit' })}
+        >
+          <i class="codicon codicon-git-commit"></i>
+          {t('graph.createInitialCommit')}
+        </button>
+      </div>
+    {:else}
+      <div class="empty">{t('graph.noCommits')}</div>
+    {/if}
   {:else}
     {#if false}{/if}
 
@@ -1411,7 +1439,10 @@
         {#if commit.hash !== 'UNCOMMITTED'}
           <span class="author-id" use:tooltip={commit.author.name}>
             {#if avatarStore.enabled}
-              <img class="avatar-sm" src={avatarStore.url(commit.author.email, 20)} alt="" />
+              {@const avatarUrl = avatarStore.resolved(commit.author.email, 20)}
+              {#if avatarUrl}
+                <img class="avatar-sm" src={avatarUrl} alt="" />
+              {/if}
             {/if}
             <span class="author-name truncate">{commit.author.name}</span>
           </span>
@@ -1455,8 +1486,8 @@
         {#each visiblePaths as path}
           {@const pathColor = resolveGraphColor(graphColorsStore.palette, path.color, path.colorOverride)}
           {#if path.d}
-            <path d={path.d} fill="none" stroke={pathColor} stroke-width="5" opacity="0.07" stroke-linecap="round" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined} />
-            <path d={path.d} fill="none" stroke={pathColor} stroke-width="2" opacity="0.85" stroke-linecap="round" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined} />
+            <path d={path.d} fill="none" stroke={GRAPH_BACKGROUND} stroke-width="4" stroke-opacity="0.75" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined} />
+            <path d={path.d} fill="none" stroke={pathColor} stroke-width="2" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined} />
           {/if}
         {/each}
 
@@ -1465,20 +1496,22 @@
           {@const linkColor = resolveGraphColor(graphColorsStore.palette, link.color, link.colorOverride)}
           {@const sx = laneX(link.start.x)}
           {@const sy = link.start.y * ROW_HEIGHT}
-          {@const cx = laneX(link.control.x)}
-          {@const cy = link.control.y * ROW_HEIGHT}
           {@const ex = laneX(link.end.x)}
           {@const ey = link.end.y * ROW_HEIGHT}
+          <!-- Merge connector: same geometry as Git Graph's branch transitions
+               (smooth cubic with vertical tangents; two-segment kink when
+               angular) instead of a quadratic pinned to the elbow corner. -->
+          {@const linkCurve = Math.min(ROW_HEIGHT * (uiStore.graphStyle === 'angular' ? 0.38 : 0.8), Math.abs(ey - sy))}
           {@const linkD = uiStore.graphStyle === 'angular'
-            ? `M ${sx} ${sy} L ${cx} ${cy} L ${ex} ${ey}`
-            : `M ${sx} ${sy} Q ${cx} ${cy}, ${ex} ${ey}`}
+            ? `M ${sx} ${sy} L ${ex} ${ey - linkCurve} L ${ex} ${ey}`
+            : `M ${sx} ${sy} C ${sx} ${sy + linkCurve}, ${ex} ${ey - linkCurve}, ${ex} ${ey}`}
           <path
             d={linkD}
-            fill="none" stroke={linkColor} stroke-width="5" opacity="0.07" stroke-linecap="round" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined}
+            fill="none" stroke={GRAPH_BACKGROUND} stroke-width="4" stroke-opacity="0.75" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined}
           />
           <path
             d={linkD}
-            fill="none" stroke={linkColor} stroke-width="2" opacity="0.85" stroke-linecap="round" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined}
+            fill="none" stroke={linkColor} stroke-width="2" stroke-linejoin={uiStore.graphStyle === 'angular' ? 'miter' : undefined}
           />
         {/each}
 
@@ -1489,14 +1522,11 @@
           {@const dy = dot.center.y * ROW_HEIGHT}
           {@const dotCommit = displayCommits[startIndex + i]}
           {#if dotCommit?.hash === 'UNCOMMITTED'}
-            <circle cx={dx} cy={dy} r={5} fill="none" stroke="#888888" stroke-width="1.5" stroke-dasharray="3 2" />
+            <circle cx={dx} cy={dy} r={4} fill="none" stroke="#888888" stroke-width="1.5" stroke-dasharray="3 2" />
           {:else if dot.type === 'head'}
-            <circle cx={dx} cy={dy} r={5} fill="var(--bg-primary, #1e1e1e)" stroke={dotColor} stroke-width="2" />
-          {:else if dot.type === 'merge'}
-            <circle cx={dx} cy={dy} r={4} fill="var(--bg-primary, #1e1e1e)" stroke={dotColor} stroke-width="1.5" />
-            <circle cx={dx} cy={dy} r={2} fill={dotColor} />
+            <circle cx={dx} cy={dy} r={4} fill={GRAPH_BACKGROUND} stroke={dotColor} stroke-width="2" />
           {:else}
-            <circle cx={dx} cy={dy} r={4} fill={dotColor} />
+            <circle cx={dx} cy={dy} r={4} fill={dotColor} stroke={GRAPH_BACKGROUND} stroke-width="1" stroke-opacity="0.75" />
           {/if}
         {/each}
       </svg>
@@ -1547,7 +1577,7 @@
               }
             }}
           >
-            <div class="col-message" style="padding-left: {(displayLeftMargin[index] ?? 0) * X_SCALE + 4}px;">
+            <div class="col-message" style="padding-left: {GRAPH_LEFT_PADDING + ((displayLeftMargin[index] ?? 0) - SOURCE_LANE_ORIGIN) * X_SCALE + 4}px;">
               {#if currentBranchLocalOnly.has(commit.hash)}
                 <span class="local-dot" use:tooltip={t('graph.notPushed')}></span>
               {:else if currentBranchRemoteAhead.has(commit.hash)}
@@ -1999,6 +2029,36 @@
     height: 100%;
     color: var(--text-secondary);
     font-size: 13px;
+  }
+
+  /* Empty-repository state: stack the message above the "create initial commit"
+     action. Overrides the shared row layout above only for this variant. */
+  .empty-initial {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .empty-initial-text {
+    margin: 0;
+    color: var(--text-secondary);
+  }
+
+  .empty-initial-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 12px;
+    height: 28px;
+    font-size: inherit;
+    border-radius: 5px;
+    background: var(--vscode-button-background, #0e639c);
+    color: var(--vscode-button-foreground, #fff);
+    cursor: pointer;
+  }
+
+  .empty-initial-btn:hover {
+    background: var(--vscode-button-hoverBackground, #1177bb);
   }
 
   /* ---- Load More ---- */

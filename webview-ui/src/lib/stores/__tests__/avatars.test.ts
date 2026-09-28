@@ -49,6 +49,21 @@ describe('avatarStore', () => {
     avatarStore.receive('Fifth@Example.com', 32, 'data:image/png;base64,BBBB');
     expect(avatarStore.url('  fifth@example.com  ', 32)).toBe('data:image/png;base64,BBBB');
   });
+
+  it('resolved() returns null until the avatar resolves, then the data URI', () => {
+    globalThis.__postedMessages = [];
+    expect(avatarStore.resolved('sixth@example.com', 32)).toBeNull();
+    expect(postedTypes()).toContain('getAvatar');
+
+    const dataUri = 'data:image/png;base64,CCCC';
+    avatarStore.receive('sixth@example.com', 32, dataUri);
+    expect(avatarStore.resolved('sixth@example.com', 32)).toBe(dataUri);
+  });
+
+  it('resolved() stays null for a resolved-but-unavailable avatar', () => {
+    avatarStore.receive('seventh@example.com', 32, null);
+    expect(avatarStore.resolved('seventh@example.com', 32)).toBeNull();
+  });
 });
 
 describe('avatarStore — disabled (showAvatars off)', () => {
@@ -60,6 +75,7 @@ describe('avatarStore — disabled (showAvatars off)', () => {
     avatarStore.setEnabled(false);
     globalThis.__postedMessages = [];
     expect(avatarStore.url('hidden@example.com', 32)).toBe(TRANSPARENT_PIXEL);
+    expect(avatarStore.resolved('hidden@example.com', 32)).toBeNull();
     expect(postedTypes()).not.toContain('getAvatar');
     expect(globalThis.__postedMessages.length).toBe(0);
   });
