@@ -9,9 +9,10 @@ export interface GraphPathPoint {
 /** Knobs for the transition geometry / dot anchoring. */
 export interface GraphPathOptions {
   /**
-   * How many rows a lane change may sweep over when a straight run is
-   * available to borrow from. One row gives mhutchie's tight hook; two rows
-   * (48px at the default row height) is the tuned middle.
+   * Optional cap on how many rows a lane change may sweep over. By default
+   * (omitted) the change spreads across the whole straight run, so the line
+   * keeps curving like a parabola; a finite value tightens the bend to at
+   * most that many rows.
    */
   maxTransitionRows?: number;
   /**
@@ -25,7 +26,13 @@ export interface GraphPathOptions {
 /** mhutchie Git Graph control-offset factors (of the transition span). */
 const FACTOR: Record<GraphStyle, number> = { rounded: 0.8, angular: 0.38 };
 
-const DEFAULT_MAX_TRANSITION_ROWS = 2;
+/**
+ * By default a lane change spreads across the whole straight run between its
+ * two surrounding points (usually commits), so the line keeps curving the
+ * whole way like a parabola instead of bending early and then running
+ * straight. A finite `maxTransitionRows` tightens that into at most N rows.
+ */
+const DEFAULT_MAX_TRANSITION_ROWS = Infinity;
 
 /** Rounds to 2 decimals so emitted path data stays compact. */
 function fmt(n: number): string {
@@ -55,9 +62,10 @@ function dedupe(points: GraphPathPoint[]): GraphPathPoint[] {
  * SourceGit's router snaps lane changes to half-row waypoints, so a transition
  * spans half a row at most (and the endY guard can even leave a purely
  * horizontal leg). Drawn as-is, the bend is a tight hook that reads as a
- * right-angled elbow. Fold each lane change into the adjacent vertical run —
- * up to `maxTransitionRows` rows — and collapse collinear runs, so the line
- * sweeps across like a parabola instead of turning a corner.
+ * right-angled elbow. Fold each lane change into the adjacent vertical run and
+ * collapse collinear runs, so the line sweeps across like a parabola instead
+ * of turning a corner. By default the sweep covers the whole run between the
+ * two surrounding points; `maxTransitionRows` can tighten it.
  *
  * A lane change grows into the neighbouring straight run; the straight run is
  * trimmed, never a commit dot. Dots are anchors: the middle point of a merged

@@ -29,10 +29,10 @@ describe('normalizeGraphPoints', () => {
     ]);
   });
 
-  it('defaults to a two-row sweep', () => {
+  it('spreads the lane change across the whole run by default', () => {
+    // No cap: one transition covers the full run to the next point.
     expect(normalizeGraphPoints([{ x: 0, y: 0 }, { x: 100, y: 12 }, { x: 100, y: 200 }], ROW)).toEqual([
       { x: 0, y: 0 },
-      { x: 100, y: 48 },
       { x: 100, y: 200 },
     ]);
   });
@@ -68,8 +68,8 @@ describe('normalizeGraphPoints', () => {
   });
 
   it('never smooths away a commit dot', () => {
-    // The mid dot sits on the rail; the incoming transition must anchor at it
-    // instead of being extended past it.
+    // The mid dot sits on the rail; the outgoing transition must anchor at it
+    // instead of drifting past it, and the incoming one starts from it.
     const dots = [{ x: 48, y: 384 }];
     const pts = normalizeGraphPoints(
       [{ x: 16, y: 0 }, { x: 48, y: 0 }, { x: 48, y: 12 }, { x: 48, y: 384 }, { x: 48, y: 420 }, { x: 16, y: 432 }],
@@ -78,7 +78,6 @@ describe('normalizeGraphPoints', () => {
     );
     expect(pts).toEqual([
       { x: 16, y: 0 },
-      { x: 48, y: 48 },
       { x: 48, y: 384 },
       { x: 16, y: 432 },
     ]);
@@ -141,9 +140,9 @@ describe('buildGraphPathD', () => {
     );
   });
 
-  it('sweeps a short transition across the whole default cap when a long run follows', () => {
+  it('sweeps a short transition across the whole run by default', () => {
     expect(buildGraphPathD([{ x: 0, y: 0 }, { x: 100, y: 12 }, { x: 100, y: 200 }], 'rounded', ROW)).toBe(
-      'M 0 0 C 0 38.4, 100 9.6, 100 48 L 100 200',
+      'M 0 0 C 0 160, 100 40, 100 200',
     );
   });
 
