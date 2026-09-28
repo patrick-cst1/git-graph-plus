@@ -427,6 +427,8 @@
   // (e.g. the bottom panel opening on the first commit click).
   let lastSearchNavigateNonce = 0;
   $effect(() => {
+    if (searchNavigateNonce === lastSearchNavigateNonce) return;
+    lastSearchNavigateNonce = searchNavigateNonce;
     if (searchNavigateHash && container) {
       navPath = [];
       scrollHashIntoView(searchNavigateHash, 'center');
