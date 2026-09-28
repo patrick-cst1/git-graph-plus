@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.22
+
+- Branch focus in the graph header: one-click **Solo** on any branch in the
+  branch dropdown, a **Dim others** mode that keeps the full graph and fades
+  everything outside the focused branches, and **Hide** to drop a branch (and
+  its exclusive commits) from the graph. Hidden branches are listed in the
+  dropdown for unhiding, and the filter button shows the focused branch.
+
 ## 0.7.21
 
 - Draw the default (`rounded`) lines with Git Graph Plus's upstream transition
