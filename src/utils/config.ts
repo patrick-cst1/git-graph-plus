@@ -96,3 +96,12 @@ export function readShowStashes(): boolean {
   const raw = vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('showStashes', true);
   return typeof raw === 'boolean' ? raw : true;
 }
+
+/**
+ * Reads `gitGraphPlus.showAvatars` — whether author/committer avatars are
+ * shown in the graph, hover cards, commit details, and stats view. Defaults to
+ * true; only an explicit `false` disables them.
+ */
+export function readShowAvatars(): boolean {
+  return vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('showAvatars', true) !== false;
+}

@@ -6,6 +6,7 @@ import { commitStore } from '../../../lib/stores/commits.svelte';
 import { branchStore } from '../../../lib/stores/branches.svelte';
 import { uiStore } from '../../../lib/stores/ui.svelte';
 import { modalStore } from '../../../lib/stores/modals.svelte';
+import { avatarStore } from '../../../lib/stores/avatars.svelte';
 import { i18n } from '../../../lib/i18n/index.svelte';
 import type { Commit, CommitGraphData } from '../../../lib/types';
 
@@ -588,5 +589,31 @@ describe('CommitGraph ref badge clicks', () => {
     await settle();
 
     expect(uiStore.selectedCommitHash).toBe('h1');
+  });
+});
+
+describe('CommitGraph avatars', () => {
+  afterEach(() => {
+    avatarStore.setEnabled(true);
+  });
+
+  it('renders the author avatar by default', async () => {
+    commitStore.setData(makeGraphData([makeCommit('h1', 'first')]));
+    const { container } = render(CommitGraph, {});
+    await tick();
+    expect(container.querySelector('img.avatar-sm')).toBeTruthy();
+    expect(container.querySelector('.author-name')?.textContent).toBe('A');
+  });
+
+  it('hides the avatar and still shows the author name when showAvatars is off', async () => {
+    avatarStore.setEnabled(false);
+    commitStore.setData(makeGraphData([makeCommit('h1', 'first')]));
+    const { container } = render(CommitGraph, {});
+    await tick();
+    expect(container.querySelector('img.avatar-sm')).toBeFalsy();
+    expect(container.querySelector('.author-name')?.textContent).toBe('A');
+    expect(
+      globalThis.__postedMessages.some(m => (m.data as { type?: string }).type === 'getAvatar')
+    ).toBe(false);
   });
 });
