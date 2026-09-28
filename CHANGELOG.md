@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.17
+
+- Sweep lane changes over up to three rows (borrowing from the straight run)
+  instead of one, so graph lines flow through the bend like a parabola rather
+  than turning a tight corner.
+- Keep commit dots as curve anchors: a dot is never smoothed away, so the line
+  always passes exactly through its own commits.
+
 ## 0.7.16
 
 - Draw branch transitions over a full row so graph lines bend with wider,
