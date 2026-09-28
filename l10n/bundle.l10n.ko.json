@@ -80,6 +80,7 @@
   "mergedAndPushed": "'{0}'이(가) merge 후 push 되었습니다",
   "rebasedBranchOnto": "{0}을(를) {1} 위로 rebase 했습니다",
   "mergedBranchInto": "{0}을(를) {1}에 merge 했습니다",
+  "mergePreviewUnavailable": "{0}에 대한 merge 미리보기를 만들 수 없습니다",
   "pushAfterMergeFailed": "Merge는 성공했지만 이후 push에 실패했습니다: {0}",
   "deleteSourceAfterMergeFailed": "Merge는 성공했지만 '{0}' 삭제에 실패했습니다: {1}",
   "fastForwarded": "'{0}'을(를) '{1}'로 fast-forward 완료",

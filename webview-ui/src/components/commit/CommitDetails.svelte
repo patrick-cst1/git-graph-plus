@@ -722,7 +722,14 @@
         {#if conflictChecking}
           <span class="compare-conflict-state">{t('compare.checking')}</span>
         {:else if conflictResult?.hasConflict}
-          <ConflictFilesPopover files={conflictResult.files}>
+          <ConflictFilesPopover
+            files={conflictResult.files}
+            onFileClick={(file) => {
+              if (uiStore.compareRef1 && uiStore.compareRef2) {
+                vscode.postMessage({ type: 'previewConflict', payload: { file, ours: uiStore.compareRef1, theirs: uiStore.compareRef2 } });
+              }
+            }}
+          >
             <span class="compare-conflict-state has-conflict">
               <i class="codicon codicon-warning"></i> {t('compare.conflictFiles', { count: String(conflictResult.files.length) })}
             </span>

@@ -281,7 +281,28 @@ export class MainPanel {
 
     this.panel.webview.html = this.getHtmlForWebview(this.panel.webview);
 
-    // Send locale to webview
+    this.postConfig();
+
+    this.panel.webview.onDidReceiveMessage(
+      (message: WebviewMessage) => this.handleMessage(message),
+      null,
+      this.disposables
+    );
+
+    this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
+
+    // Discover repos (including submodules) once on init
+    this.sendRepoList();
+  }
+
+  /**
+   * Sends every user-configurable setting to the webview. Runs when the panel
+   * is created and again whenever the webview asks (requestConfig): a webview
+   * that is reloaded — e.g. re-mounted by VS Code after being moved between
+   * editor groups — starts from its default state and would otherwise show
+   * stale defaults for settings such as showStats/showAvatars.
+   */
+  private postConfig(): void {
     const localeSetting = vscode.workspace.getConfiguration('gitGraphPlus').get<string>('locale', 'auto');
     const locale = localeSetting === 'auto' ? (vscode.env.language || 'en') : localeSetting;
     const homeDir = process.env.HOME || process.env.USERPROFILE || '';
@@ -297,17 +318,6 @@ export class MainPanel {
     this.post({ type: 'setShowAvatars', payload: { enabled: readShowAvatars() } });
     this.post({ type: 'setShowStats', payload: { enabled: readShowStats() } });
     void this.postCommitLinkRules();
-
-    this.panel.webview.onDidReceiveMessage(
-      (message: WebviewMessage) => this.handleMessage(message),
-      null,
-      this.disposables
-    );
-
-    this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
-
-    // Discover repos (including submodules) once on init
-    this.sendRepoList();
   }
 
   public static createOrShow(extensionUri: vscode.Uri, repoPathHint?: string): void {
@@ -616,6 +626,26 @@ export class MainPanel {
             type: 'conflictPrediction',
             payload: { ...result, requestId: message.payload.requestId },
           });
+          break;
+        }
+        case 'requestConfig': {
+          this.postConfig();
+          break;
+        }
+        case 'previewConflict': {
+          const content = await this.gitService.getConflictPreview(
+            message.payload.ours,
+            message.payload.theirs,
+            message.payload.file,
+          );
+          if (content === null) {
+            vscode.window.showWarningMessage(vscode.l10n.t('mergePreviewUnavailable', message.payload.file));
+            break;
+          }
+          const doc = await vscode.workspace.openTextDocument({
+            content: `=== Merge preview: ${message.payload.file} ===\n\n${content}`,
+          });
+          await vscode.window.showTextDocument(doc, { preview: true });
           break;
         }
         case 'checkout': {

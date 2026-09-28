@@ -80,6 +80,7 @@
   "mergedAndPushed": "已合并 '{0}' 并完成 push",
   "rebasedBranchOnto": "已将 {0} 变基到 {1}",
   "mergedBranchInto": "已将 {0} 合并到 {1}",
+  "mergePreviewUnavailable": "无法为 {0} 生成 merge 预览",
   "pushAfterMergeFailed": "合并成功，但后续 push 失败：{0}",
   "deleteSourceAfterMergeFailed": "合并成功，但删除 '{0}' 失败：{1}",
   "fastForwarded": "已将 '{0}' fast-forward 至 '{1}'",

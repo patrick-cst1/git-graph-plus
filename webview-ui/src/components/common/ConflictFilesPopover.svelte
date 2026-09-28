@@ -6,10 +6,12 @@
   interface Props {
     files: string[];
     truncated?: boolean;
+    // When set, each file becomes clickable (e.g. open a merge preview of it).
+    onFileClick?: (file: string) => void;
     children: Snippet;
   }
 
-  let { files, truncated = false, children }: Props = $props();
+  let { files, truncated = false, onFileClick, children }: Props = $props();
 
   let open = $state(false);
   let triggerEl: HTMLSpanElement | undefined = $state();
@@ -89,7 +91,13 @@
     </div>
     <ul class="conflict-files-popover__list">
       {#each files as file (file)}
-        <li class="conflict-files-popover__item" use:tooltip={file}>{file}</li>
+        <li class="conflict-files-popover__item" use:tooltip={file}>
+          {#if onFileClick}
+            <button class="conflict-files-popover__link" onclick={() => { onFileClick(file); open = false; }}>{file}</button>
+          {:else}
+            {file}
+          {/if}
+        </li>
       {/each}
     </ul>
     {#if truncated}
@@ -149,6 +157,26 @@
     line-height: 1.6;
     word-break: break-all;
     color: var(--text-secondary);
+  }
+
+  .conflict-files-popover__link {
+    display: block;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    background: none;
+    border: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    word-break: break-all;
+  }
+
+  .conflict-files-popover__link:hover,
+  .conflict-files-popover__link:focus {
+    color: var(--text-primary);
+    text-decoration: underline;
   }
 
   .conflict-files-popover__truncated {

@@ -253,8 +253,12 @@ import AmendModal from './components/modals/AmendModal.svelte';
 
     window.addEventListener('message', handleMessage);
 
-    // Request initial data
+    // Request initial data. requestConfig re-applies user settings on every
+    // webview load — a reloaded webview (re-mounted by VS Code, e.g. after the
+    // panel moves between editor groups) starts from defaults and would
+    // otherwise miss the config the extension posts at panel creation.
     commitStore.setLoading(true);
+    vscode.postMessage({ type: 'requestConfig' });
     vscode.postMessage({ type: 'getLog', payload: {} });
     vscode.postMessage({ type: 'getBranches' });
     vscode.postMessage({ type: 'checkFlowStatus' });

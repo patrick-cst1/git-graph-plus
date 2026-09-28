@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EventEmitter } from 'events';
-import { GitService } from '../git-service';
+import { GitService, GitError } from '../git-service';
 
 // predictConflicts / predictRebaseConflicts drive `git merge-tree` through a
 // raw spawn (mergeTreeCheck). The happy paths run against real git in the
@@ -172,5 +172,37 @@ describe('predictRebaseConflicts fallbacks', () => {
     expect(result).toEqual({ hasConflict: false, files: [] });
     const mergeTreeCalls = execMock.mock.calls.filter(c => (c[0] as string[])[0] === 'merge-tree');
     expect(mergeTreeCalls).toHaveLength(1);
+  });
+});
+
+describe('getConflictPreview', () => {
+  it('returns the merged text, reading markers from a non-zero merge-file exit', async () => {
+    const service = new GitService('/tmp/repo');
+    const merged = '<<<<<<< ours\nA\n=======\nB\n>>>>>>> theirs\n';
+    const execMock = vi.fn(async (args: string[]) => {
+      if (args[0] === 'merge-base') return 'basehash\n';
+      if (args[0] === 'show') {
+        if (args[1] === 'r1:a.sql') return 'A\n';
+        if (args[1] === 'basehash:a.sql') return 'base\n';
+        return 'B\n';
+      }
+      if (args[0] === 'merge-file') throw new GitError('conflict', 1, args, merged);
+      return '';
+    });
+    (service as never as { exec: (a: string[]) => Promise<string> }).exec = execMock;
+
+    const result = await service.getConflictPreview('r1', 'r2', 'a.sql');
+    expect(result).toBe(merged);
+    const mergeCall = execMock.mock.calls.find(c => (c[0] as string[])[0] === 'merge-file')!;
+    expect(mergeCall[0]).toContain('-p');
+    expect(mergeCall[0]).toContain('--diff3');
+  });
+
+  it('returns null when there is no merge base', async () => {
+    const service = new GitService('/tmp/repo');
+    (service as never as { exec: (a: string[]) => Promise<string> }).exec = vi.fn(async () => {
+      throw new Error('no merge base');
+    });
+    expect(await service.getConflictPreview('r1', 'r2', 'a.sql')).toBeNull();
   });
 });

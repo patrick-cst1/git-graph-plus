@@ -424,6 +424,17 @@ describe('CommitDetails — compare scope (2-dot/3-dot) & conflict check', () =>
     await waitFor(() => {
       expect(container.querySelector('.compare-conflict-state.has-conflict')).not.toBeNull();
     });
+    // Hovering the conflicted-files state lists the files; clicking one asks
+    // the extension for the merged content (conflict preview document).
+    await fireEvent.mouseEnter(container.querySelector('.conflict-files-trigger')!);
+    await waitFor(() => {
+      expect(document.body.querySelector('.conflict-files-popover__link')).not.toBeNull();
+    });
+    await fireEvent.click(document.body.querySelector('.conflict-files-popover__link')!);
+    const preview = postedOfType('previewConflict').pop();
+    expect(preview?.payload?.file).toBe('a.sql');
+    expect(preview?.payload?.ours).toBe(REF1);
+    expect(preview?.payload?.theirs).toBe(REF2);
   });
 
   it('opens per-file diffs against the merge base in 3-dot scope', async () => {

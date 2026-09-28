@@ -80,6 +80,7 @@
   "mergedAndPushed": "Merged '{0}' and pushed",
   "rebasedBranchOnto": "Rebased {0} onto {1}",
   "mergedBranchInto": "Merged {0} into {1}",
+  "mergePreviewUnavailable": "Couldn't build a merge preview for {0}",
   "pushAfterMergeFailed": "Merge succeeded, but the follow-up push failed: {0}",
   "deleteSourceAfterMergeFailed": "Merge succeeded, but deleting '{0}' failed: {1}",
   "fastForwarded": "Fast-forwarded '{0}' to '{1}'",

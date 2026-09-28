@@ -30,8 +30,10 @@ export type WebviewMessage =
   | { type: 'getLog'; payload: { branch?: string; branches?: string[]; limit?: number; skip?: number; remoteFilter?: string[] } }
   | { type: 'getBranches' }
   | { type: 'getRepoList' }
+  | { type: 'requestConfig' }
   | { type: 'checkDirty'; payload?: { requestId?: string } }
   | { type: 'predictConflicts'; payload: { ours: string; theirs: string; mode?: 'rebase'; mergeBase?: string; requestId?: string } }
+  | { type: 'previewConflict'; payload: { file: string; ours: string; theirs: string } }
   | { type: 'checkout'; payload: { ref: string; pullAfter?: boolean; force?: boolean; merge?: boolean; stash?: boolean; stashUntracked?: boolean; clean?: boolean } }
   | { type: 'getCommitDiff'; payload: { hash: string } }
   | { type: 'getFileDiff'; payload: { hash: string; file: string } }

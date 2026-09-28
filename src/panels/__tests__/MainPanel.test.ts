@@ -46,6 +46,7 @@ const H = vi.hoisted(() => {
     diffCommits: vi.fn(async () => []),
     diffFiles: vi.fn(async () => []),
     getMergeBase: vi.fn(async () => 'basesha'),
+    getConflictPreview: vi.fn(async () => 'merged text'),
   };
   return {
     git,
@@ -103,6 +104,7 @@ vi.mock('vscode', () => {
       }),
       getWorkspaceFolder: () => ({ uri: { fsPath: '/repo' } }),
       workspaceFolders: [{ uri: { fsPath: '/repo' } }],
+      openTextDocument: vi.fn(async () => ({})),
       onDidChangeConfiguration: (cb: (e: { affectsConfiguration: (s: string) => boolean }) => void) => {
         H.configChangeHandler = cb;
         H.configListener = cb;
@@ -172,6 +174,7 @@ beforeEach(() => {
   H.git.diffCommits.mockResolvedValue([]);
   H.git.diffFiles.mockResolvedValue([]);
   H.git.getMergeBase.mockResolvedValue('basesha');
+  H.git.getConflictPreview.mockResolvedValue('merged text');
   H.config = {};
   H.configListener = null;
   H.repos = [{ path: '/repo', name: 'repo', type: 'root' }];
@@ -353,6 +356,22 @@ describe('MainPanel message routing', () => {
     H.git.getMergeBase.mockResolvedValue(null);
     await dispatch({ type: 'compareCommits', payload: { ref1: 'r1', ref2: 'r2', mode: 'ref1' } });
     expect(H.git.diffCommits).toHaveBeenCalledWith('4b825dc642cb6eb9a060e54bf8d69288fbee4904', 'r1');
+  });
+
+  it('requestConfig re-posts the whole settings block', async () => {
+    const before = postedOfType('setLocale').length;
+    await dispatch({ type: 'requestConfig' });
+    expect(postedOfType('setLocale').length).toBeGreaterThan(before);
+    expect(postedOfType('setShowStats').length).toBeGreaterThan(0);
+  });
+
+  it('previewConflict opens the merged text with conflict markers', async () => {
+    const vscode = await import('vscode');
+    await dispatch({ type: 'previewConflict', payload: { file: 'a.sql', ours: 'r1', theirs: 'r2' } });
+    expect(H.git.getConflictPreview).toHaveBeenCalledWith('r1', 'r2', 'a.sql');
+    const arg = (vscode.workspace.openTextDocument as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0] as { content: string };
+    expect(arg.content).toContain('a.sql');
+    expect(arg.content).toContain('merged text');
   });
 
   it('merge calls GitService.merge then refreshes the whole view', async () => {

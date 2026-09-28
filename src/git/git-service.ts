@@ -2,6 +2,7 @@ import { spawn } from 'child_process';
 import { existsSync } from 'fs';
 import { writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
+import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 import { bufferStream, BufferOverflowError } from '../utils/buffer-stream';
 import { getGitBinaryPath } from './git-binary';
@@ -1062,6 +1063,60 @@ export class GitService {
       return out || null;
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * Three-way merge preview for one file between two refs: the merged content
+   * with conflict markers, or null when it cannot be built (no merge base or
+   * `git merge-file` failed). Used by the compare panel's conflict list so a
+   * predicted conflict can be inspected without touching the working tree.
+   */
+  async getConflictPreview(ours: string, theirs: string, file: string): Promise<string | null> {
+    this.assertSafeRef(ours, 'merge preview');
+    this.assertSafeRef(theirs, 'merge preview');
+    this.assertSafePath(file, 'merge preview');
+
+    const base = await this.getMergeBase(ours, theirs);
+    if (!base) return null;
+
+    const readBlob = async (ref: string): Promise<string> => {
+      try {
+        return await this.exec(['show', `${ref}:${file}`], { silent: true });
+      } catch {
+        // Missing on that side (add/delete conflicts) — an empty side is the
+        // correct input for the three-way merge.
+        return '';
+      }
+    };
+    const [oursText, baseText, theirsText] = await Promise.all([
+      readBlob(ours),
+      readBlob(base),
+      readBlob(theirs),
+    ]);
+
+    const id = randomUUID();
+    const files = {
+      ours: join(tmpdir(), `ghg-merge-preview-${id}-ours`),
+      base: join(tmpdir(), `ghg-merge-preview-${id}-base`),
+      theirs: join(tmpdir(), `ghg-merge-preview-${id}-theirs`),
+    };
+    try {
+      await Promise.all([
+        writeFile(files.ours, oursText),
+        writeFile(files.base, baseText),
+        writeFile(files.theirs, theirsText),
+      ]);
+      // exit code > 0 is the number of conflicts; stdout still holds the merged
+      // content with markers. exec() rejects on non-zero, so read err.stdout.
+      try {
+        return await this.exec(['merge-file', '-p', '--diff3', files.ours, files.base, files.theirs], { silent: true });
+      } catch (err) {
+        if (err instanceof GitError && err.stdout) return err.stdout;
+        return null;
+      }
+    } finally {
+      await Promise.all(Object.values(files).map(f => unlink(f).catch(() => undefined)));
     }
   }
 
