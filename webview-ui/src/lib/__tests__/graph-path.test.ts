@@ -29,10 +29,10 @@ describe('normalizeGraphPoints', () => {
     ]);
   });
 
-  it('spreads the lane change across the whole run by default', () => {
-    // No cap: one transition covers the full run to the next point.
+  it('caps the sweep at one row by default (mhutchie geometry)', () => {
     expect(normalizeGraphPoints([{ x: 0, y: 0 }, { x: 100, y: 12 }, { x: 100, y: 200 }], ROW)).toEqual([
       { x: 0, y: 0 },
+      { x: 100, y: 24 },
       { x: 100, y: 200 },
     ]);
   });
@@ -78,7 +78,9 @@ describe('normalizeGraphPoints', () => {
     );
     expect(pts).toEqual([
       { x: 16, y: 0 },
+      { x: 48, y: 24 },
       { x: 48, y: 384 },
+      { x: 48, y: 408 },
       { x: 16, y: 432 },
     ]);
   });
@@ -140,9 +142,9 @@ describe('buildGraphPathD', () => {
     );
   });
 
-  it('sweeps a short transition across the whole run by default', () => {
+  it('sweeps a short transition to one row by default', () => {
     expect(buildGraphPathD([{ x: 0, y: 0 }, { x: 100, y: 12 }, { x: 100, y: 200 }], 'rounded', ROW)).toBe(
-      'M 0 0 C 0 160, 100 40, 100 200',
+      'M 0 0 C 0 19.2, 100 4.8, 100 24 L 100 200',
     );
   });
 

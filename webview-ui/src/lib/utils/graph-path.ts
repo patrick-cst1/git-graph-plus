@@ -9,10 +9,8 @@ export interface GraphPathPoint {
 /** Knobs for the transition geometry / dot anchoring. */
 export interface GraphPathOptions {
   /**
-   * Optional cap on how many rows a lane change may sweep over. By default
-   * (omitted) the change spreads across the whole straight run, so the line
-   * keeps curving like a parabola; a finite value tightens the bend to at
-   * most that many rows.
+   * Optional cap on how many rows a lane change may sweep over. Defaults to a
+   * single row (mhutchie Git Graph's geometry); larger values widen the sweep.
    */
   maxTransitionRows?: number;
   /**
@@ -27,12 +25,13 @@ export interface GraphPathOptions {
 const FACTOR: Record<GraphStyle, number> = { rounded: 0.8, angular: 0.38 };
 
 /**
- * By default a lane change spreads across the whole straight run between its
- * two surrounding points (usually commits), so the line keeps curving the
- * whole way like a parabola instead of bending early and then running
- * straight. A finite `maxTransitionRows` tightens that into at most N rows.
+ * mhutchie Git Graph draws one segment per commit row, so a lane change is
+ * always a single-row transition with its fixed 80% (0.8 * row) control
+ * offset. Keep that as the default: the line stays on its lane, connects every
+ * commit dot and never sweeps across the graph. `maxTransitionRows` can widen
+ * the sweep when experimenting.
  */
-const DEFAULT_MAX_TRANSITION_ROWS = Infinity;
+const DEFAULT_MAX_TRANSITION_ROWS = 1;
 
 /** Rounds to 2 decimals so emitted path data stays compact. */
 function fmt(n: number): string {
@@ -63,9 +62,8 @@ function dedupe(points: GraphPathPoint[]): GraphPathPoint[] {
  * spans half a row at most (and the endY guard can even leave a purely
  * horizontal leg). Drawn as-is, the bend is a tight hook that reads as a
  * right-angled elbow. Fold each lane change into the adjacent vertical run and
- * collapse collinear runs, so the line sweeps across like a parabola instead
- * of turning a corner. By default the sweep covers the whole run between the
- * two surrounding points; `maxTransitionRows` can tighten it.
+ * collapse collinear runs, so the bend is a full mhutchie-style row instead of
+ * a half-row hook (or, with a larger `maxTransitionRows`, a wider sweep).
  *
  * A lane change grows into the neighbouring straight run; the straight run is
  * trimmed, never a commit dot. Dots are anchors: the middle point of a merged
