@@ -295,6 +295,7 @@ export class MainPanel {
     this.post({ type: 'setGraphStyle', payload: { style: readGraphStyle() } });
     this.post({ type: 'setInteractiveRebaseMode', payload: { mode: readInteractiveRebaseMode() } });
     this.post({ type: 'setShowAvatars', payload: { enabled: readShowAvatars() } });
+    this.post({ type: 'setShowStats', payload: { enabled: readShowStats() } });
     void this.postCommitLinkRules();
 
     this.panel.webview.onDidReceiveMessage(
