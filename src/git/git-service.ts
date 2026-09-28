@@ -1071,8 +1071,15 @@ export class GitService {
    * with conflict markers, or null when it cannot be built (no merge base or
    * `git merge-file` failed). Used by the compare panel's conflict list so a
    * predicted conflict can be inspected without touching the working tree.
+   * `labels` names the sides in the conflict markers (`-L`) so the output shows
+   * the refs instead of the temp file paths.
    */
-  async getConflictPreview(ours: string, theirs: string, file: string): Promise<string | null> {
+  async getConflictPreview(
+    ours: string,
+    theirs: string,
+    file: string,
+    labels?: { ours?: string; base?: string; theirs?: string },
+  ): Promise<string | null> {
     this.assertSafeRef(ours, 'merge preview');
     this.assertSafeRef(theirs, 'merge preview');
     this.assertSafePath(file, 'merge preview');
@@ -1109,8 +1116,13 @@ export class GitService {
       ]);
       // exit code > 0 is the number of conflicts; stdout still holds the merged
       // content with markers. exec() rejects on non-zero, so read err.stdout.
+      const args = ['merge-file', '-p', '--diff3'];
+      if (labels?.ours) args.push('-L', labels.ours);
+      if (labels?.base) args.push('-L', labels.base);
+      if (labels?.theirs) args.push('-L', labels.theirs);
+      args.push(files.ours, files.base, files.theirs);
       try {
-        return await this.exec(['merge-file', '-p', '--diff3', files.ours, files.base, files.theirs], { silent: true });
+        return await this.exec(args, { silent: true });
       } catch (err) {
         if (err instanceof GitError && err.stdout) return err.stdout;
         return null;

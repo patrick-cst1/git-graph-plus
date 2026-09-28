@@ -726,7 +726,10 @@
             files={conflictResult.files}
             onFileClick={(file) => {
               if (uiStore.compareRef1 && uiStore.compareRef2) {
-                vscode.postMessage({ type: 'previewConflict', payload: { file, ours: uiStore.compareRef1, theirs: uiStore.compareRef2 } });
+                vscode.postMessage({
+                  type: 'previewConflict',
+                  payload: { file, ours: uiStore.compareRef1, theirs: uiStore.compareRef2, oursLabel: compareLabel1, theirsLabel: compareLabel2 },
+                });
               }
             }}
           >

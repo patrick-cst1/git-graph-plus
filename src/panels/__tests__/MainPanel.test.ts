@@ -367,10 +367,15 @@ describe('MainPanel message routing', () => {
 
   it('previewConflict opens the merged text with conflict markers', async () => {
     const vscode = await import('vscode');
-    await dispatch({ type: 'previewConflict', payload: { file: 'a.sql', ours: 'r1', theirs: 'r2' } });
-    expect(H.git.getConflictPreview).toHaveBeenCalledWith('r1', 'r2', 'a.sql');
+    await dispatch({ type: 'previewConflict', payload: { file: 'a.sql', ours: 'r1', theirs: 'r2', oursLabel: 'feature/x', theirsLabel: 'origin/Environment/SIT' } });
+    expect(H.git.getConflictPreview).toHaveBeenCalledWith('r1', 'r2', 'a.sql', {
+      ours: 'feature/x',
+      base: 'merge-base',
+      theirs: 'origin/Environment/SIT',
+    });
     const arg = (vscode.workspace.openTextDocument as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0] as { content: string };
     expect(arg.content).toContain('a.sql');
+    expect(arg.content).toContain('feature/x');
     expect(arg.content).toContain('merged text');
   });
 

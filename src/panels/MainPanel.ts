@@ -633,17 +633,20 @@ export class MainPanel {
           break;
         }
         case 'previewConflict': {
+          const oursLabel = message.payload.oursLabel ?? message.payload.ours.substring(0, 7);
+          const theirsLabel = message.payload.theirsLabel ?? message.payload.theirs.substring(0, 7);
           const content = await this.gitService.getConflictPreview(
             message.payload.ours,
             message.payload.theirs,
             message.payload.file,
+            { ours: oursLabel, base: 'merge-base', theirs: theirsLabel },
           );
           if (content === null) {
             vscode.window.showWarningMessage(vscode.l10n.t('mergePreviewUnavailable', message.payload.file));
             break;
           }
           const doc = await vscode.workspace.openTextDocument({
-            content: `=== Merge preview: ${message.payload.file} ===\n\n${content}`,
+            content: `=== Merge preview: ${message.payload.file} ===\nours: ${oursLabel}   theirs: ${theirsLabel}   base: merge-base\n\n${content}`,
           });
           await vscode.window.showTextDocument(doc, { preview: true });
           break;

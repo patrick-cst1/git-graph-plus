@@ -435,6 +435,8 @@ describe('CommitDetails — compare scope (2-dot/3-dot) & conflict check', () =>
     expect(preview?.payload?.file).toBe('a.sql');
     expect(preview?.payload?.ours).toBe(REF1);
     expect(preview?.payload?.theirs).toBe(REF2);
+    expect(preview?.payload?.oursLabel).toBe('aaaaaaa');
+    expect(preview?.payload?.theirsLabel).toBe('bbbbbbb');
   });
 
   it('opens per-file diffs against the merge base in 3-dot scope', async () => {

@@ -191,11 +191,20 @@ describe('getConflictPreview', () => {
     });
     (service as never as { exec: (a: string[]) => Promise<string> }).exec = execMock;
 
-    const result = await service.getConflictPreview('r1', 'r2', 'a.sql');
+    const result = await service.getConflictPreview('r1', 'r2', 'a.sql', {
+      ours: 'feature/x',
+      base: 'merge-base',
+      theirs: 'origin/Environment/SIT',
+    });
     expect(result).toBe(merged);
     const mergeCall = execMock.mock.calls.find(c => (c[0] as string[])[0] === 'merge-file')!;
-    expect(mergeCall[0]).toContain('-p');
-    expect(mergeCall[0]).toContain('--diff3');
+    const argv = mergeCall[0] as string[];
+    expect(argv).toContain('-p');
+    expect(argv).toContain('--diff3');
+    // The conflict markers name the refs, not the temp file paths.
+    expect(argv).toContain('feature/x');
+    expect(argv).toContain('origin/Environment/SIT');
+    expect(argv.filter(a => a === '-L')).toHaveLength(3);
   });
 
   it('returns null when there is no merge base', async () => {
