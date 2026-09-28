@@ -18,24 +18,35 @@ describe('normalizeGraphPoints', () => {
   });
 
   it('sweeps a short transition to the cap by trimming a long straight run', () => {
-    // cap = 3 rows: the transition grows to span 72px by trimming the straight
-    // run that follows, leaving the rest of the run vertical.
-    expect(normalizeGraphPoints([{ x: 0, y: 0 }, { x: 100, y: 12 }, { x: 100, y: 200 }], ROW)).toEqual([
+    // Explicit three-row cap: the transition grows to span 72px by trimming
+    // the straight run that follows, leaving the rest of the run vertical.
+    expect(
+      normalizeGraphPoints([{ x: 0, y: 0 }, { x: 100, y: 12 }, { x: 100, y: 200 }], ROW, { maxTransitionRows: 3 }),
+    ).toEqual([
       { x: 0, y: 0 },
       { x: 100, y: 72 },
       { x: 100, y: 200 },
     ]);
   });
 
-  it('merges a chain into one transition when it fits the cap', () => {
-    expect(normalizeGraphPoints([{ x: 0, y: 0 }, { x: 100, y: 12 }, { x: 100, y: 60 }], ROW)).toEqual([
+  it('defaults to a two-row sweep', () => {
+    expect(normalizeGraphPoints([{ x: 0, y: 0 }, { x: 100, y: 12 }, { x: 100, y: 200 }], ROW)).toEqual([
       { x: 0, y: 0 },
-      { x: 100, y: 60 },
+      { x: 100, y: 48 },
+      { x: 100, y: 200 },
     ]);
   });
 
+  it('merges a chain into one transition when it fits the cap', () => {
+    expect(
+      normalizeGraphPoints([{ x: 0, y: 0 }, { x: 100, y: 12 }, { x: 100, y: 60 }], ROW, { maxTransitionRows: 3 }),
+    ).toEqual([{ x: 0, y: 0 }, { x: 100, y: 60 }]);
+  });
+
   it('extends a stub-then-lane-change by trimming the stub', () => {
-    expect(normalizeGraphPoints([{ x: 0, y: 0 }, { x: 0, y: 200 }, { x: 100, y: 212 }], ROW)).toEqual([
+    expect(
+      normalizeGraphPoints([{ x: 0, y: 0 }, { x: 0, y: 200 }, { x: 100, y: 212 }], ROW, { maxTransitionRows: 3 }),
+    ).toEqual([
       { x: 0, y: 0 },
       { x: 0, y: 140 },
       { x: 100, y: 212 },
@@ -67,7 +78,7 @@ describe('normalizeGraphPoints', () => {
     );
     expect(pts).toEqual([
       { x: 16, y: 0 },
-      { x: 48, y: 72 },
+      { x: 48, y: 48 },
       { x: 48, y: 384 },
       { x: 16, y: 432 },
     ]);
@@ -130,9 +141,9 @@ describe('buildGraphPathD', () => {
     );
   });
 
-  it('sweeps a short transition across the whole cap when a long run follows', () => {
+  it('sweeps a short transition across the whole default cap when a long run follows', () => {
     expect(buildGraphPathD([{ x: 0, y: 0 }, { x: 100, y: 12 }, { x: 100, y: 200 }], 'rounded', ROW)).toBe(
-      'M 0 0 C 0 57.6, 100 14.4, 100 72 L 100 200',
+      'M 0 0 C 0 38.4, 100 9.6, 100 48 L 100 200',
     );
   });
 

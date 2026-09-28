@@ -10,8 +10,8 @@ export interface GraphPathPoint {
 export interface GraphPathOptions {
   /**
    * How many rows a lane change may sweep over when a straight run is
-   * available to borrow from. One row gives mhutchie's tight hook; three rows
-   * (72px at the default row height) reads as a gentle parabola.
+   * available to borrow from. One row gives mhutchie's tight hook; two rows
+   * (48px at the default row height) is the tuned middle.
    */
   maxTransitionRows?: number;
   /**
@@ -25,7 +25,7 @@ export interface GraphPathOptions {
 /** mhutchie Git Graph control-offset factors (of the transition span). */
 const FACTOR: Record<GraphStyle, number> = { rounded: 0.8, angular: 0.38 };
 
-const DEFAULT_MAX_TRANSITION_ROWS = 3;
+const DEFAULT_MAX_TRANSITION_ROWS = 2;
 
 /** Rounds to 2 decimals so emitted path data stays compact. */
 function fmt(n: number): string {
