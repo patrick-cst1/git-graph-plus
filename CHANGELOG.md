@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.16
+
+- Draw branch transitions over a full row so graph lines bend with wider,
+  rounder curves (mhutchie Git Graph geometry) instead of tightening into
+  right-angled elbows; SourceGit half-row waypoints and straight horizontal
+  stubs are folded into a single transition.
+- Emit path coordinates rounded to 2 decimals (smaller DOM, no visual change).
+
 ## 0.7.15
 
 - Merge the remote fork line into this fork: the two-commit compare feature
