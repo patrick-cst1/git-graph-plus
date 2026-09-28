@@ -345,14 +345,15 @@ describe('CommitGraph graph line style', () => {
     }
   });
 
-  it('renders rounded Q/C beziers by default', async () => {
+  it('renders rounded beziers by default (Q links, Q/C paths)', async () => {
     commitStore.setData(makeStyledGraphData());
     const { container } = render(CommitGraph, {});
     await tick();
 
     const ds = renderedPathDs(container);
     expect(ds).toContain('M 16 0 Q 18.67 0, 18.67 24 C 18.67 40, 16 32, 16 48 L 16 72');
-    expect(ds).toContain('M 16 0 C 16 19.200000000000003, 17.333333333333332 4.799999999999997, 17.333333333333332 24');
+    // Merge link: upstream Git Graph Plus corner-hugging quadratic.
+    expect(ds).toContain('M 16 0 Q 17.333333333333332 0, 17.333333333333332 24');
     expect(ds.some((d) => d.includes('C'))).toBe(true);
     expect(ds.some((d) => d.includes('Q'))).toBe(true);
     for (const p of container.querySelectorAll('.graph-lines path')) {
@@ -361,7 +362,7 @@ describe('CommitGraph graph line style', () => {
     }
   });
 
-  it('renders rounded Q/C beziers when graphStyle is explicitly rounded', async () => {
+  it('renders rounded beziers when graphStyle is explicitly rounded', async () => {
     uiStore.graphStyle = 'rounded';
     commitStore.setData(makeStyledGraphData());
     const { container } = render(CommitGraph, {});
@@ -369,7 +370,7 @@ describe('CommitGraph graph line style', () => {
 
     const ds = renderedPathDs(container);
     expect(ds).toContain('M 16 0 Q 18.67 0, 18.67 24 C 18.67 40, 16 32, 16 48 L 16 72');
-    expect(ds).toContain('M 16 0 C 16 19.200000000000003, 17.333333333333332 4.799999999999997, 17.333333333333332 24');
+    expect(ds).toContain('M 16 0 Q 17.333333333333332 0, 17.333333333333332 24');
     expect(ds.some((d) => d.includes('C'))).toBe(true);
     expect(ds.some((d) => d.includes('Q'))).toBe(true);
   });
