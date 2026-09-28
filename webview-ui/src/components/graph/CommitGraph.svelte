@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { commitStore } from '../../lib/stores/commits.svelte';
   import { branchStore } from '../../lib/stores/branches.svelte';
   import { uiStore } from '../../lib/stores/ui.svelte';
@@ -346,10 +346,25 @@
   let navPath = $state<string[]>([]);
   let viewportWidth = $state(800);
 
-  // Right-side columns (author + sha + date) and the minimum width we always
-  // reserve for the commit message. These mirror the fixed column widths in the
-  // CSS below.
-  const RIGHT_COLS_WIDTH = 120 + 75 + 150;
+  // Right-side columns (author + sha + date): resizable via the header, each
+  // one hideable via the header context menu, persisted per webview.
+  type ColKey = 'author' | 'hash' | 'date';
+  const COLUMN_PREFS_KEY = 'gitGraphPlus.columnPrefs';
+  const COL_MIN_WIDTH = 60;
+  const COL_MAX_WIDTH = 400;
+  const DEFAULT_COLUMN_WIDTHS: Record<ColKey, number> = { author: 120, hash: 75, date: 150 };
+  const COL_KEYS: ColKey[] = ['author', 'hash', 'date'];
+  let columnPrefs = $state({
+    widths: { ...DEFAULT_COLUMN_WIDTHS },
+    visible: { author: true, hash: true, date: true },
+  });
+  const columnWidths = $derived(columnPrefs.widths);
+  const columnVisible = $derived(columnPrefs.visible);
+  const rightColsWidth = $derived(
+    (columnVisible.author ? columnWidths.author : 0) +
+    (columnVisible.hash ? columnWidths.hash : 0) +
+    (columnVisible.date ? columnWidths.date : 0)
+  );
   const MIN_MESSAGE_WIDTH = 120;
 
   // In huge repos (e.g. nixpkgs) hundreds of concurrent branches make the graph
@@ -357,7 +372,7 @@
   // screen and break column alignment. Cap the graph at whatever space is left
   // after the message + right columns; lanes beyond the cap are clipped.
   let maxGraphWidth = $derived(
-    Math.max(120, viewportWidth - RIGHT_COLS_WIDTH - MIN_MESSAGE_WIDTH)
+    Math.max(120, viewportWidth - rightColsWidth - MIN_MESSAGE_WIDTH)
   );
 
   // Bring a row into view when it is off-screen. 'edge' (keyboard stepping)
@@ -462,7 +477,7 @@
   // scrollbar. Never narrower than the viewport, so rows always fill the width and
   // the pinned meta stays flush right. 0 means "let the normal flex/100% layout decide".
   let contentWidth = $derived(
-    horizontalScroll ? Math.max(graphWidth + MIN_MESSAGE_WIDTH + RIGHT_COLS_WIDTH, viewportWidth) : 0
+    horizontalScroll ? Math.max(graphWidth + MIN_MESSAGE_WIDTH + rightColsWidth, viewportWidth) : 0
   );
 
   let startIndex = $derived(Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - BUFFER_ROWS));
@@ -752,6 +767,7 @@
   // tip; open the editor with the held base so getRebaseCommits(base)→base..HEAD
   // resolves correctly.
   onMount(() => {
+    loadColumnPrefs();
     function handleCheckoutForRebase(event: MessageEvent) {
       const msg = event.data;
       if (!pendingRebaseBase) { return; }
@@ -773,6 +789,84 @@
       window.removeEventListener('message', handleCheckoutForRebase);
       if (scrollRaf !== null) cancelAnimationFrame(scrollRaf);
     };
+  });
+
+  // ── Column layout (resize + visibility) ──────────────────────────────
+  function loadColumnPrefs() {
+    try {
+      const raw = localStorage.getItem(COLUMN_PREFS_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { widths?: Partial<Record<ColKey, number>>; visible?: Partial<Record<ColKey, boolean>> };
+      const widths = { ...DEFAULT_COLUMN_WIDTHS };
+      for (const key of COL_KEYS) {
+        const w = parsed.widths?.[key];
+        if (typeof w === 'number' && Number.isFinite(w)) {
+          widths[key] = Math.min(COL_MAX_WIDTH, Math.max(COL_MIN_WIDTH, Math.round(w)));
+        }
+      }
+      columnPrefs = {
+        widths,
+        visible: {
+          author: parsed.visible?.author !== false,
+          hash: parsed.visible?.hash !== false,
+          date: parsed.visible?.date !== false,
+        },
+      };
+    } catch {
+      // Ignore malformed/corrupt prefs and keep the defaults.
+    }
+  }
+
+  function saveColumnPrefs() {
+    try {
+      localStorage.setItem(COLUMN_PREFS_KEY, JSON.stringify(columnPrefs));
+    } catch {
+      // Persisting is best-effort; the layout still applies for this session.
+    }
+  }
+
+  let columnResize: { key: ColKey; startX: number; startW: number } | null = null;
+
+  function onColumnResizeMove(e: MouseEvent) {
+    if (!columnResize) return;
+    // Dragging the column's left edge: moving right narrows the column.
+    const next = Math.min(COL_MAX_WIDTH, Math.max(COL_MIN_WIDTH, columnResize.startW - (e.clientX - columnResize.startX)));
+    columnPrefs = { ...columnPrefs, widths: { ...columnPrefs.widths, [columnResize.key]: next } };
+  }
+
+  function stopColumnResize() {
+    columnResize = null;
+    window.removeEventListener('mousemove', onColumnResizeMove);
+    window.removeEventListener('mouseup', stopColumnResize);
+    document.body.style.cursor = '';
+    saveColumnPrefs();
+  }
+
+  function startColumnResize(e: MouseEvent, key: ColKey) {
+    e.preventDefault();
+    e.stopPropagation();
+    columnResize = { key, startX: e.clientX, startW: columnWidths[key] };
+    document.body.style.cursor = 'col-resize';
+    window.addEventListener('mousemove', onColumnResizeMove);
+    window.addEventListener('mouseup', stopColumnResize);
+  }
+
+  function onHeaderContextMenu(e: MouseEvent) {
+    e.preventDefault();
+    const items = COL_KEYS.map(key => ({
+      label: t(key === 'hash' ? 'graph.sha' : `graph.${key}`),
+      icon: columnVisible[key] ? 'check' : undefined,
+      action: () => {
+        columnPrefs = { ...columnPrefs, visible: { ...columnPrefs.visible, [key]: !columnPrefs.visible[key] } };
+        saveColumnPrefs();
+      },
+    }));
+    contextMenu = { x: e.clientX, y: e.clientY, items };
+  }
+
+  onDestroy(() => {
+    window.removeEventListener('mousemove', onColumnResizeMove);
+    window.removeEventListener('mouseup', stopColumnResize);
   });
 
   function onCommitContextMenu(e: MouseEvent, commit: Commit) {
@@ -1393,38 +1487,70 @@
     {#if false}{/if}
 
     <!-- Author / hash / date cells, shared by the in-row meta (normal mode) and the
-         pinned overlay (horizontal-scroll mode). -->
+         pinned overlay (horizontal-scroll mode). Widths and visibility come from
+         the user-adjustable column layout (header drag / context menu). -->
     {#snippet metaCells(commit: typeof displayCommits[0])}
-      <div class="col-author">
-        {#if commit.hash !== 'UNCOMMITTED'}
-          <span class="author-id" use:tooltip={commit.author.name}>
-            {#if avatarStore.enabled}
-              {@const avatarUrl = avatarStore.resolved(commit.author.email, 20)}
-              {#if avatarUrl}
-                <img class="avatar-sm" src={avatarUrl} alt="" />
+      {#if columnVisible.author}
+        <div class="col-author" style="width: {columnWidths.author}px">
+          {#if commit.hash !== 'UNCOMMITTED'}
+            <span class="author-id" use:tooltip={commit.author.name}>
+              {#if avatarStore.enabled}
+                {@const avatarUrl = avatarStore.resolved(commit.author.email, 20)}
+                {#if avatarUrl}
+                  <img class="avatar-sm" src={avatarUrl} alt="" />
+                {/if}
               {/if}
+              <span class="author-name truncate">{commit.author.name}</span>
+            </span>
+            {#if commit.signatureStatus && commit.signatureStatus !== 'none'}
+              <i
+                class="codicon codicon-{commit.signatureStatus === 'good' ? 'pass' : 'question'} sig-icon sig-icon-{commit.signatureStatus}"
+                use:tooltip={commit.signatureStatus === 'good' ? t('signature.verified') : t('signature.unverified')}
+              ></i>
             {/if}
-            <span class="author-name truncate">{commit.author.name}</span>
-          </span>
-          {#if commit.signatureStatus && commit.signatureStatus !== 'none'}
-            <i
-              class="codicon codicon-{commit.signatureStatus === 'good' ? 'pass' : 'question'} sig-icon sig-icon-{commit.signatureStatus}"
-              use:tooltip={commit.signatureStatus === 'good' ? t('signature.verified') : t('signature.unverified')}
-            ></i>
           {/if}
-        {/if}
-      </div>
-      <div class="col-hash" use:tooltip={commit.hash !== 'UNCOMMITTED' ? commit.hash : ''}>{commit.hash !== 'UNCOMMITTED' ? commit.abbreviatedHash : ''}</div>
-      <div class="col-date" use:tooltip={commit.hash !== 'UNCOMMITTED' ? new Date(commit.author.date).toLocaleString() : ''}>{commit.hash !== 'UNCOMMITTED' ? formatDate(commit.author.date) : ''}</div>
+        </div>
+      {/if}
+      {#if columnVisible.hash}
+        <div class="col-hash" style="width: {columnWidths.hash}px" use:tooltip={commit.hash !== 'UNCOMMITTED' ? commit.hash : ''}>{commit.hash !== 'UNCOMMITTED' ? commit.abbreviatedHash : ''}</div>
+      {/if}
+      {#if columnVisible.date}
+        <div class="col-date" style="width: {columnWidths.date}px" use:tooltip={commit.hash !== 'UNCOMMITTED' ? new Date(commit.author.date).toLocaleString() : ''}>{commit.hash !== 'UNCOMMITTED' ? formatDate(commit.author.date) : ''}</div>
+      {/if}
     {/snippet}
 
-    <!-- Column headers -->
-    <div class="graph-header" style={contentWidth ? `width: ${contentWidth}px;` : ''}>
+    <!-- Column headers. Drag a column border to resize it; right-click to choose
+         which columns are shown. -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+      class="graph-header"
+      style={contentWidth ? `width: ${contentWidth}px;` : ''}
+      oncontextmenu={onHeaderContextMenu}
+      use:tooltip={t('graph.headerMenuTooltip')}
+    >
       <div class="col-message">{t('graph.description')}</div>
       <div class="col-meta">
-        <div class="col-author">{t('graph.author')}</div>
-        <div class="col-hash">{t('graph.sha')}</div>
-        <div class="col-date">{t('graph.date')}</div>
+        {#if columnVisible.author}
+          <div class="col-author" style="width: {columnWidths.author}px">
+            {t('graph.author')}
+            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+            <span class="col-resize" role="separator" aria-label={t('graph.author')} onmousedown={(e) => startColumnResize(e, 'author')}></span>
+          </div>
+        {/if}
+        {#if columnVisible.hash}
+          <div class="col-hash" style="width: {columnWidths.hash}px">
+            {t('graph.sha')}
+            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+            <span class="col-resize" role="separator" aria-label={t('graph.sha')} onmousedown={(e) => startColumnResize(e, 'hash')}></span>
+          </div>
+        {/if}
+        {#if columnVisible.date}
+          <div class="col-date" style="width: {columnWidths.date}px">
+            {t('graph.date')}
+            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+            <span class="col-resize" role="separator" aria-label={t('graph.date')} onmousedown={(e) => startColumnResize(e, 'date')}></span>
+          </div>
+        {/if}
       </div>
     </div>
 
@@ -1698,7 +1824,7 @@
             </div>
               {#if horizontalScroll}
                 <!-- Space is reserved here; the visible meta is the pinned overlay below. -->
-                <div class="col-meta-spacer" style="width: {RIGHT_COLS_WIDTH}px;"></div>
+                <div class="col-meta-spacer" style="width: {rightColsWidth}px;"></div>
               {:else}
                 <div class="col-meta">{@render metaCells(commit)}</div>
               {/if}
@@ -1712,7 +1838,7 @@
       {#if horizontalScroll}
         <div
           class="meta-overlay"
-          style="height: {totalHeight}px; width: {RIGHT_COLS_WIDTH}px;"
+          style="height: {totalHeight}px; width: {rightColsWidth}px;"
         >
           {#each visibleCommits as { commit, index } (commit.hash)}
             <div
@@ -2306,6 +2432,28 @@
     flex-shrink: 0;
     background: var(--text-secondary, #888);
     opacity: 0.8;
+  }
+
+  /* ── Column resize handles (header) ── */
+  .graph-header .col-author,
+  .graph-header .col-hash,
+  .graph-header .col-date {
+    position: relative;
+  }
+
+  .col-resize {
+    position: absolute;
+    left: -3px;
+    top: 0;
+    bottom: 0;
+    width: 7px;
+    cursor: col-resize;
+    z-index: 12;
+  }
+
+  .col-resize:hover {
+    background: var(--vscode-focusBorder, #007fd4);
+    opacity: 0.6;
   }
 
   .col-author {

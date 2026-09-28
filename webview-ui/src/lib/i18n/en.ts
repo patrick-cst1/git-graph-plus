@@ -123,6 +123,7 @@ export const en: Record<string, string> = {
   'graph.loadMore': 'Load more commits',
   'graph.searchResults': 'Showing {count} search result{plural}',
   'graph.description': 'Description',
+  'graph.headerMenuTooltip': 'Drag a column border to resize; right-click to show or hide columns',
   'graph.author': 'Author',
   'graph.date': 'Date',
   'graph.sha': 'SHA',

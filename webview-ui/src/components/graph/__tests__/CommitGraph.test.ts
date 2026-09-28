@@ -802,6 +802,55 @@ describe('CommitGraph branch focus dimming', () => {
   });
 });
 
+describe('CommitGraph column layout', () => {
+  beforeEach(() => { localStorage.removeItem('gitGraphPlus.columnPrefs'); });
+  afterEach(() => { localStorage.removeItem('gitGraphPlus.columnPrefs'); });
+
+  it('hides a column via the header context menu and persists the choice', async () => {
+    commitStore.setData(makeGraphData([makeCommit('h1', 'first')]));
+    const { container } = render(CommitGraph, {});
+    await tick();
+    expect(container.querySelector('.graph-header .col-hash')).toBeTruthy();
+
+    await fireEvent.contextMenu(container.querySelector('.graph-header')!);
+    await tick();
+    const item = Array.from(container.querySelectorAll('.menu-item')).find(el => el.textContent?.trim() === 'SHA');
+    expect(item).toBeTruthy();
+    await fireEvent.click(item!.closest('button')!);
+    await tick();
+
+    expect(container.querySelector('.graph-header .col-hash')).toBeNull();
+    const prefs = JSON.parse(localStorage.getItem('gitGraphPlus.columnPrefs')!);
+    expect(prefs.visible.hash).toBe(false);
+  });
+
+  it('restores saved column prefs on mount', async () => {
+    localStorage.setItem('gitGraphPlus.columnPrefs', JSON.stringify({
+      widths: { author: 200, hash: 80, date: 150 },
+      visible: { author: true, hash: false, date: true },
+    }));
+    commitStore.setData(makeGraphData([makeCommit('h1', 'first')]));
+    const { container } = render(CommitGraph, {});
+    await tick();
+    expect((container.querySelector('.graph-header .col-author') as HTMLElement).style.width).toBe('200px');
+    expect(container.querySelector('.graph-header .col-hash')).toBeNull();
+  });
+
+  it('resizes a column by dragging its header handle', async () => {
+    commitStore.setData(makeGraphData([makeCommit('h1', 'first')]));
+    const { container } = render(CommitGraph, {});
+    await tick();
+    const handle = container.querySelectorAll('.graph-header .col-resize')[0]; // author handle
+    await fireEvent.mouseDown(handle, { clientX: 500 });
+    await fireEvent.mouseMove(window, { clientX: 460 });
+    await fireEvent.mouseUp(window);
+    await tick();
+    expect((container.querySelector('.graph-header .col-author') as HTMLElement).style.width).toBe('160px');
+    const prefs = JSON.parse(localStorage.getItem('gitGraphPlus.columnPrefs')!);
+    expect(prefs.widths.author).toBe(160);
+  });
+});
+
 describe('CommitGraph ref badge clicks', () => {
   const settle = () => new Promise((resolve) => setTimeout(resolve, 220));
 

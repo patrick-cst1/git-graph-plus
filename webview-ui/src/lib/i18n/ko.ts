@@ -123,6 +123,7 @@ export const ko: Record<string, string> = {
   'graph.loadMore': 'Commit 더 불러오기',
   'graph.searchResults': '검색 결과 {count}개{plural}',
   'graph.description': '설명',
+  'graph.headerMenuTooltip': '열 경계를 드래그해 너비 조절, 오른쪽 클릭으로 열 표시/숨기기',
   'graph.author': '작성자',
   'graph.date': '날짜',
   'graph.sha': 'SHA',

@@ -123,6 +123,7 @@ export const zh: Record<string, string> = {
   'graph.loadMore': '加载更多提交',
   'graph.searchResults': '显示 {count} 条搜索结果',
   'graph.description': '描述',
+  'graph.headerMenuTooltip': '拖动列边框可调整宽度；右键显示或隐藏列',
   'graph.author': '作者',
   'graph.date': '日期',
   'graph.sha': 'SHA',
