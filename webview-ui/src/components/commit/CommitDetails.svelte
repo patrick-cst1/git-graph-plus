@@ -719,6 +719,9 @@
         </button>
       </div>
       <div class="compare-conflict">
+        <span class="compare-merge-label" use:tooltip={t('compare.mergePreviewHint')}>
+          {t('compare.mergePreview', { a: compareLabel1, b: compareLabel2 })}
+        </span>
         {#if conflictChecking}
           <span class="compare-conflict-state">{t('compare.checking')}</span>
         {:else if conflictResult?.hasConflict}
@@ -1444,6 +1447,14 @@
     align-items: center;
     gap: 6px;
     font-size: 0.85em;
+  }
+
+  .compare-merge-label {
+    color: var(--text-secondary);
+    max-width: 340px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .compare-conflict-state {

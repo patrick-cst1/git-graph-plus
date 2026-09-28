@@ -396,9 +396,10 @@ describe('CommitDetails — compare scope (2-dot/3-dot) & conflict check', () =>
       commit({ hash: REF1, refs: [{ type: 'branch', name: 'feature/x' }] }),
       commit({ hash: REF2, refs: [{ type: 'remote-branch', name: 'Environment/SIT', remote: 'origin' }] }),
     ];
-    const { findByText } = renderCompare();
+    const { container, findByText } = renderCompare();
     expect(await findByText('Only feature/x (3-dot)')).toBeTruthy();
     expect(await findByText('Only origin/Environment/SIT (3-dot)')).toBeTruthy();
+    expect(container.textContent).toContain('Merge preview: feature/x ↔ origin/Environment/SIT');
   });
 
   it('checks merge-tree conflicts automatically for the selected pair', async () => {

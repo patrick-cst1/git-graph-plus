@@ -284,6 +284,8 @@ export const ko: Record<string, string> = {
   'compare.onlyRef': '{ref} 변경만 (3-dot)',
   'compare.onlyRefHint': 'merge base 이후 {ref} 자체 변경만 표시 — PR의 Files changed와 동일',
   'compare.checking': '확인 중…',
+  'compare.mergePreview': 'Merge 미리보기: {a} ↔ {b}',
+  'compare.mergePreviewHint': '비교 중인 두 ref의 merge를 미리 실행합니다 (git merge-tree). 어느 쪽이 source여도 충돌 파일은 동일하므로 양방향 모두 PR 결과에 해당합니다.',
   'compare.noConflicts': '충돌 없음',
   'compare.conflictFiles': '충돌 파일 {count}개',
 

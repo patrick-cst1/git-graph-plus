@@ -284,6 +284,8 @@ export const en: Record<string, string> = {
   'compare.onlyRef': 'Only {ref} (3-dot)',
   'compare.onlyRefHint': "Only {ref}'s own changes since the merge base — the same view a PR's Files changed shows",
   'compare.checking': 'Checking…',
+  'compare.mergePreview': 'Merge preview: {a} ↔ {b}',
+  'compare.mergePreviewHint': 'Dry-run of merging the two compared refs (git merge-tree). The conflicted files are the same whichever ref is the source, so this is the PR result in either direction.',
   'compare.noConflicts': 'No conflicts',
   'compare.conflictFiles': '{count} conflicted file(s)',
 

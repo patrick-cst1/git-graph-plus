@@ -284,6 +284,8 @@ export const zh: Record<string, string> = {
   'compare.onlyRef': '只看 {ref}（3-dot）',
   'compare.onlyRefHint': '仅显示 {ref} 自 merge base 以来的自身改动 — 与 PR 的 Files changed 相同',
   'compare.checking': '检查中…',
+  'compare.mergePreview': '合并预览：{a} ↔ {b}',
+  'compare.mergePreviewHint': '模拟合并所比较的两个 ref（git merge-tree）。无论哪个是 source，冲突文件都相同，所以两个方向都对应 PR 的结果。',
   'compare.noConflicts': '无冲突',
   'compare.conflictFiles': '{count} 个冲突文件',
 
