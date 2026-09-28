@@ -387,7 +387,7 @@ describe('CommitDetails — compare scope (2-dot/3-dot) & conflict check', () =>
     expect(container.querySelectorAll('.compare-mode-btn').length).toBe(3);
     await fireEvent.click(await findByText('bbbbbbb → aaaaaaa (3-dot)'));
     expect(uiStore.compareMode).toBe('ref2');
-    await fireEvent.click(await findByText('aaaaaaa ↔ bbbbbbb (2-dot)'));
+    await fireEvent.click(await findByText('All differences (2-dot)'));
     expect(uiStore.compareMode).toBe('direct');
   });
 
@@ -397,10 +397,16 @@ describe('CommitDetails — compare scope (2-dot/3-dot) & conflict check', () =>
       commit({ hash: REF2, refs: [{ type: 'remote-branch', name: 'Environment/SIT', remote: 'origin' }] }),
     ];
     const { container, findByText } = renderCompare();
-    expect(await findByText('feature/x ↔ origin/Environment/SIT (2-dot)')).toBeTruthy();
+    expect(await findByText('All differences (2-dot)')).toBeTruthy();
+    const intoFeature = await findByText('origin/Environment/SIT → feature/x (3-dot)');
     expect(await findByText('feature/x → origin/Environment/SIT (3-dot)')).toBeTruthy();
-    expect(await findByText('origin/Environment/SIT → feature/x (3-dot)')).toBeTruthy();
     expect(container.querySelectorAll('.compare-mode-btn').length).toBe(3);
+    // Hovering a scope button shows the full label (the button itself may ellipsize).
+    await fireEvent.mouseEnter(intoFeature);
+    await waitFor(() => {
+      expect(document.body.querySelector('.vsg-tooltip')?.textContent)
+        .toBe('origin/Environment/SIT → feature/x (3-dot)');
+    });
   });
 
   it('checks merge-tree conflicts automatically for the selected pair', async () => {

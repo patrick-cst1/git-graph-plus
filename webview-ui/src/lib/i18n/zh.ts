@@ -279,10 +279,9 @@ export const zh: Record<string, string> = {
   'details.restore': '恢复面板',
 
   // Compare scope bar
-  'compare.direct': '{a} ↔ {b}（2-dot）',
+  'compare.direct': '全部差异（2-dot）',
   'compare.directHint': '两个 ref 之间的全部差异（两边改动合计）',
   'compare.mergeInto': '{source} → {target}（3-dot）',
-  'compare.mergeIntoHint': '{source} merge 进 {target} 时会带入的改动 — 即它自 merge base 以来的自身 changes（与 PR 的 Files changed 相同）',
   'compare.checking': '检查中…',
   'compare.conflictHint': '对所比较的两个 ref 做 merge-tree 预演。无论哪个是 source，冲突文件都相同，所以两个方向都对应 PR 的结果。',
   'compare.noConflicts': '无冲突',

@@ -279,10 +279,9 @@ export const en: Record<string, string> = {
   'details.restore': 'Restore panel',
 
   // Compare scope bar
-  'compare.direct': '{a} ↔ {b} (2-dot)',
+  'compare.direct': 'All differences (2-dot)',
   'compare.directHint': 'All differences between the two refs (both sides combined)',
   'compare.mergeInto': '{source} → {target} (3-dot)',
-  'compare.mergeIntoHint': "What {source} would bring into {target} — its own changes since the merge base (the same view a PR's Files changed shows)",
   'compare.checking': 'Checking…',
   'compare.conflictHint': 'Merge-tree dry run of the two compared refs. The conflicted files are the same in either direction, so this is the PR result whichever branch is the source.',
   'compare.noConflicts': 'No conflicts',

@@ -699,12 +699,12 @@
           use:tooltip={t('compare.directHint')}
           onclick={() => { uiStore.compareMode = 'direct'; }}
         >
-          {t('compare.direct', { a: compareLabel1, b: compareLabel2 })}
+          {t('compare.direct')}
         </button>
         <button
           class="compare-mode-btn"
           class:active={uiStore.compareMode === 'ref1'}
-          use:tooltip={t('compare.mergeIntoHint', { source: compareLabel1, target: compareLabel2 })}
+          use:tooltip={t('compare.mergeInto', { source: compareLabel1, target: compareLabel2 })}
           onclick={() => { uiStore.compareMode = 'ref1'; }}
         >
           {t('compare.mergeInto', { source: compareLabel1, target: compareLabel2 })}
@@ -712,7 +712,7 @@
         <button
           class="compare-mode-btn"
           class:active={uiStore.compareMode === 'ref2'}
-          use:tooltip={t('compare.mergeIntoHint', { source: compareLabel2, target: compareLabel1 })}
+          use:tooltip={t('compare.mergeInto', { source: compareLabel2, target: compareLabel1 })}
           onclick={() => { uiStore.compareMode = 'ref2'; }}
         >
           {t('compare.mergeInto', { source: compareLabel2, target: compareLabel1 })}
