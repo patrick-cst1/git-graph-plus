@@ -67,8 +67,22 @@
   let conflictChecking = $state(false);
   let conflictResult = $state<{ hasConflict: boolean; files: string[] } | null>(null);
   let conflictRequestId = '';
-  const compareShort1 = $derived(uiStore.compareRef1 ? shortenRef(uiStore.compareRef1) : '');
-  const compareShort2 = $derived(uiStore.compareRef2 ? shortenRef(uiStore.compareRef2) : '');
+  // Human label for a compared ref: the branch/tag name when the commit is a
+  // ref tip (that's how the user picked it), otherwise the short hash.
+  function compareRefLabel(hash: string): string {
+    const c = commitStore.getCommit(hash);
+    if (c) {
+      const ref = c.refs.find(r => r.type === 'head')
+        ?? c.refs.find(r => r.type === 'branch')
+        ?? c.refs.find(r => r.type === 'tag');
+      if (ref) return ref.name;
+      const remote = c.refs.find(r => r.type === 'remote-branch' && r.name !== 'HEAD');
+      if (remote) return `${remote.remote}/${remote.name}`;
+    }
+    return shortenRef(hash);
+  }
+  const compareLabel1 = $derived(uiStore.compareRef1 ? compareRefLabel(uiStore.compareRef1) : '');
+  const compareLabel2 = $derived(uiStore.compareRef2 ? compareRefLabel(uiStore.compareRef2) : '');
 
   // Build a "Name <email>" display for the *verified* signer. git's %GS varies
   // by format: GPG often yields "Name <email>", SSH yields just the principal
@@ -312,6 +326,9 @@
       compareBase = null;
       conflictChecking = false;
       conflictResult = null;
+      // A new pair checks its merge conflicts straight away — the check is a
+      // merge-tree dry run and costs nothing on the working tree.
+      if (r1 && r2 && uiStore.selectedCommitHashes.length === 2) checkConflicts();
     }
   });
 
@@ -687,34 +704,30 @@
         <button
           class="compare-mode-btn"
           class:active={uiStore.compareMode === 'ref1'}
-          use:tooltip={t('compare.onlyRefHint', { ref: compareShort1 })}
+          use:tooltip={t('compare.onlyRefHint', { ref: compareLabel1 })}
           onclick={() => { uiStore.compareMode = 'ref1'; }}
         >
-          {t('compare.onlyRef', { ref: compareShort1 })}
+          {t('compare.onlyRef', { ref: compareLabel1 })}
         </button>
         <button
           class="compare-mode-btn"
           class:active={uiStore.compareMode === 'ref2'}
-          use:tooltip={t('compare.onlyRefHint', { ref: compareShort2 })}
+          use:tooltip={t('compare.onlyRefHint', { ref: compareLabel2 })}
           onclick={() => { uiStore.compareMode = 'ref2'; }}
         >
-          {t('compare.onlyRef', { ref: compareShort2 })}
+          {t('compare.onlyRef', { ref: compareLabel2 })}
         </button>
       </div>
       <div class="compare-conflict">
         {#if conflictChecking}
           <span class="compare-conflict-state">{t('compare.checking')}</span>
-        {:else if conflictResult === null}
-          <button class="compare-check-btn" onclick={checkConflicts}>
-            <i class="codicon codicon-checklist"></i> {t('compare.checkConflicts')}
-          </button>
-        {:else if conflictResult.hasConflict}
+        {:else if conflictResult?.hasConflict}
           <ConflictFilesPopover files={conflictResult.files}>
             <span class="compare-conflict-state has-conflict">
               <i class="codicon codicon-warning"></i> {t('compare.conflictFiles', { count: String(conflictResult.files.length) })}
             </span>
           </ConflictFilesPopover>
-        {:else}
+        {:else if conflictResult}
           <span class="compare-conflict-state no-conflict">
             <i class="codicon codicon-pass"></i> {t('compare.noConflicts')}
           </span>
@@ -1409,6 +1422,9 @@
     border-radius: 10px;
     cursor: pointer;
     white-space: nowrap;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .compare-mode-btn:hover {
@@ -1428,24 +1444,6 @@
     align-items: center;
     gap: 6px;
     font-size: 0.85em;
-  }
-
-  .compare-check-btn {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    padding: 3px 9px;
-    font-size: 0.9em;
-    background: transparent;
-    color: var(--text-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 3px;
-    cursor: pointer;
-  }
-
-  .compare-check-btn:hover {
-    color: var(--text-primary);
-    border-color: var(--vscode-focusBorder, #007fd4);
   }
 
   .compare-conflict-state {

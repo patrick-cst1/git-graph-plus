@@ -391,15 +391,27 @@ describe('CommitDetails — compare scope (2-dot/3-dot) & conflict check', () =>
     expect(uiStore.compareMode).toBe('direct');
   });
 
-  it('checks conflicts through merge-tree and shows the conflicted files', async () => {
-    const { container, findByText } = renderCompare();
-    await fireEvent.click(await findByText('Check conflicts'));
-    const req = postedOfType('predictConflicts').pop();
-    expect(req?.payload?.ours).toBe(REF1);
-    expect(req?.payload?.theirs).toBe(REF2);
+  it('labels each side with its branch name when the commit is a ref tip', async () => {
+    commitStore.commits = [
+      commit({ hash: REF1, refs: [{ type: 'branch', name: 'feature/x' }] }),
+      commit({ hash: REF2, refs: [{ type: 'remote-branch', name: 'Environment/SIT', remote: 'origin' }] }),
+    ];
+    const { findByText } = renderCompare();
+    expect(await findByText('Only feature/x (3-dot)')).toBeTruthy();
+    expect(await findByText('Only origin/Environment/SIT (3-dot)')).toBeTruthy();
+  });
+
+  it('checks merge-tree conflicts automatically for the selected pair', async () => {
+    const { container } = renderCompare();
+    await waitFor(() => {
+      expect(postedOfType('predictConflicts').length).toBe(1);
+    });
+    const req = postedOfType('predictConflicts')[0];
+    expect(req.payload?.ours).toBe(REF1);
+    expect(req.payload?.theirs).toBe(REF2);
     window.dispatchEvent(new MessageEvent('message', { data: {
       type: 'conflictPrediction',
-      payload: { hasConflict: true, files: ['a.sql'], requestId: req?.payload?.requestId },
+      payload: { hasConflict: true, files: ['a.sql'], requestId: req.payload?.requestId },
     }}));
     await waitFor(() => {
       expect(container.querySelector('.compare-conflict-state.has-conflict')).not.toBeNull();

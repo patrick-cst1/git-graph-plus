@@ -283,7 +283,6 @@ export const ko: Record<string, string> = {
   'compare.directHint': '두 ref 사이의 모든 차이 (양쪽 변경 합계)',
   'compare.onlyRef': '{ref} 변경만 (3-dot)',
   'compare.onlyRefHint': 'merge base 이후 {ref} 자체 변경만 표시 — PR의 Files changed와 동일',
-  'compare.checkConflicts': '충돌 확인',
   'compare.checking': '확인 중…',
   'compare.noConflicts': '충돌 없음',
   'compare.conflictFiles': '충돌 파일 {count}개',

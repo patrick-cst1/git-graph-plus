@@ -283,7 +283,6 @@ export const en: Record<string, string> = {
   'compare.directHint': 'All differences between the two refs (both sides combined)',
   'compare.onlyRef': 'Only {ref} (3-dot)',
   'compare.onlyRefHint': "Only {ref}'s own changes since the merge base — the same view a PR's Files changed shows",
-  'compare.checkConflicts': 'Check conflicts',
   'compare.checking': 'Checking…',
   'compare.noConflicts': 'No conflicts',
   'compare.conflictFiles': '{count} conflicted file(s)',
