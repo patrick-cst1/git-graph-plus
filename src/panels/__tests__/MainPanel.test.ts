@@ -39,15 +39,20 @@ const H = vi.hoisted(() => {
     lfsLock: vi.fn(async () => ''),
     lfsUnlock: vi.fn(async () => ''),
     isLfsLocksVerifyEnabled: vi.fn(async () => true),
+    searchCommits: vi.fn(async () => []),
+    searchByFile: vi.fn(async () => []),
   };
   return {
     git,
+    // Values returned by workspace.getConfiguration('gitGraphPlus').get(key, def);
+    // an absent key falls back to the caller-supplied default.
     config: {} as Record<string, unknown>,
+    configValues: {} as Record<string, unknown>,
+    configListener: null as null | ((e: { affectsConfiguration: (s: string) => boolean }) => void),
     configChangeHandler: null as null | ((e: { affectsConfiguration: (s: string) => boolean }) => void),
     messageHandler: null as null | ((m: unknown) => unknown),
     panel: null as null | { webview: { postMessage: ReturnType<typeof vi.fn> } },
     repos: [] as Array<{ path: string; name: string; type: string }>,
-    configValues: {} as Record<string, unknown>,
   };
 });
 
@@ -86,6 +91,7 @@ vi.mock('vscode', () => {
         get: (k: string, d?: unknown) => {
           const key = section ? `${section}.${k}` : k;
           if (key in H.configValues) return H.configValues[key];
+          if (k in H.configValues) return H.configValues[k];
           if (k in H.config) return H.config[k];
           return d;
         },
@@ -94,6 +100,7 @@ vi.mock('vscode', () => {
       workspaceFolders: [{ uri: { fsPath: '/repo' } }],
       onDidChangeConfiguration: (cb: (e: { affectsConfiguration: (s: string) => boolean }) => void) => {
         H.configChangeHandler = cb;
+        H.configListener = cb;
         return { dispose() {} };
       },
       fs: { writeFile: vi.fn(async () => {}) },
@@ -153,7 +160,10 @@ beforeEach(() => {
   H.git.lfsLsFiles.mockResolvedValue([]);
   H.git.lfsLocks.mockResolvedValue([]);
   H.git.isLfsLocksVerifyEnabled.mockResolvedValue(true);
+  H.git.searchCommits.mockResolvedValue([]);
+  H.git.searchByFile.mockResolvedValue([]);
   H.config = {};
+  H.configListener = null;
   H.repos = [{ path: '/repo', name: 'repo', type: 'root' }];
   H.configValues = {};
   (MainPanel as unknown as { currentPanel: unknown }).currentPanel = undefined;
@@ -608,5 +618,45 @@ describe('MainPanel orchestration logic', () => {
       M.savedRemoteFilter = prevRemote;
       M.savedBranchFilter = prevBranch;
     }
+  });
+});
+
+describe('MainPanel showStashes setting', () => {
+  const lastLogArgs = () => H.git.log.mock.calls.at(-1)![0] as { includeStashes?: unknown };
+
+  it('getLog keeps stashes by default', async () => {
+    await dispatch({ type: 'getLog', payload: {} });
+    expect(lastLogArgs().includeStashes).toBe(true);
+  });
+
+  it('getLog omits stashes when gitGraphPlus.showStashes is false', async () => {
+    H.configValues.showStashes = false;
+    await dispatch({ type: 'getLog', payload: {} });
+    expect(lastLogArgs().includeStashes).toBe(false);
+  });
+
+  it('refreshAll omits stashes when gitGraphPlus.showStashes is false', async () => {
+    H.configValues.showStashes = false;
+    await (MainPanel.currentPanel as unknown as { refreshAll(): Promise<void> }).refreshAll();
+    expect(lastLogArgs().includeStashes).toBe(false);
+  });
+
+  it('search handlers follow the setting', async () => {
+    H.configValues.showStashes = false;
+    await dispatch({ type: 'searchCommits', payload: { query: 'x' } });
+    expect(H.git.searchCommits).toHaveBeenCalledWith('x', expect.objectContaining({ includeStashes: false }));
+
+    await dispatch({ type: 'searchByFile', payload: { file: 'a.ts' } });
+    const call = H.git.searchByFile.mock.calls.at(-1)!;
+    expect(call[0]).toBe('a.ts');
+    expect(call[2]).toEqual({ includeStashes: false });
+  });
+
+  it('refreshes the graph when gitGraphPlus.showStashes changes', async () => {
+    expect(H.git.log).not.toHaveBeenCalled();
+    H.configValues.showStashes = false;
+    H.configListener!({ affectsConfiguration: (k: string) => k === 'gitGraphPlus.showStashes' });
+    await vi.waitFor(() => expect(H.git.log).toHaveBeenCalled());
+    expect(lastLogArgs().includeStashes).toBe(false);
   });
 });
