@@ -102,7 +102,6 @@ describe('readLoadMoreCommitCount', () => {
   });
 });
 
-<<<<<<< HEAD
 describe('readLfsLocksEnabled', () => {
   beforeEach(() => { h.values = {}; });
 
