@@ -135,6 +135,10 @@ import AmendModal from './components/modals/AmendModal.svelte';
         case 'setShowAvatars':
           avatarStore.setEnabled(msg.payload.enabled);
           break;
+        case 'setShowStats':
+          uiStore.showStats = msg.payload.enabled;
+          if (!msg.payload.enabled && uiStore.viewMode === 'stats') uiStore.viewMode = 'graph';
+          break;
         case 'setLoadMoreCount':
           uiStore.loadMoreCount = msg.payload.count;
           break;
@@ -279,7 +283,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
 
     if (ctrl && e.key === '1') { e.preventDefault(); uiStore.viewMode = 'graph'; }
     if (ctrl && e.key === '2') { e.preventDefault(); uiStore.viewMode = 'log'; }
-    if (ctrl && e.key === '3') { e.preventDefault(); uiStore.viewMode = 'stats'; }
+    if (ctrl && e.key === '3' && uiStore.showStats) { e.preventDefault(); uiStore.viewMode = 'stats'; }
 
     if (ctrl && e.key === 'f' && uiStore.viewMode === 'graph') {
       e.preventDefault();

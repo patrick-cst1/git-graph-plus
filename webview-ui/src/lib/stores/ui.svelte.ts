@@ -32,6 +32,9 @@ class UiStore {
   // next chunk automatically. Off by default so "Load more" stays manual.
   autoLoadHistory = $state(false);
   graphStyle = $state<GraphStyle>('rounded');
+  // `gitGraphPlus.showStats`: when false, the Stats tab and its Ctrl/Cmd+3
+  // shortcut are hidden while Graph and Reflog stay available.
+  showStats = $state(true);
   interactiveRebaseMode = $state<InteractiveRebaseMode>('ui');
   // Which tab the commit-details panel opens on when a commit is selected
   // (`gitGraphPlus.defaultCommitTab`). The uncommitted view ignores this and

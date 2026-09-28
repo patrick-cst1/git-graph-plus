@@ -106,6 +106,14 @@ export function readShowAvatars(): boolean {
   return vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('showAvatars', true) !== false;
 }
 
+/**
+ * Reads `gitGraphPlus.showStats` — whether the Stats tab is shown in the
+ * toolbar. Defaults to true; only an explicit `false` hides the tab.
+ */
+export function readShowStats(): boolean {
+  return vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('showStats', true) !== false;
+}
+
 /** Line style used when drawing the commit graph. */
 export type GraphStyle = 'rounded' | 'angular';
 

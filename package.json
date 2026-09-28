@@ -482,6 +482,11 @@
           "default": true,
           "markdownDescription": "Show stash entries in the commit graph and commit search results. Turn this off to hide stashes from the graph and search while keeping them available in the **Stashes** sidebar view."
         },
+        "gitGraphPlus.showStats": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show the **Stats** tab in the toolbar. Turn this off to hide the Stats view (and the `Ctrl/Cmd+3` shortcut) while keeping the Graph and Reflog tabs available."
+        },
         "gitGraphPlus.branchBadgeBarThickness": {
           "type": "string",
           "enum": [
