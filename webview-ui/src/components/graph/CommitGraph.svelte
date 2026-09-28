@@ -406,8 +406,14 @@
     if (next !== null) container.scrollTop = next;
   }
 
-  // Scroll to search result when navigating
+  // Scroll to search result when navigating. Only when the target actually
+  // changes: this effect also re-runs on unrelated changes (the bottom panel
+  // opening resizes the graph, commit-list reloads) and must not snap the view
+  // back to a stale navigation target.
+  let lastSearchNavigateHash: string | null = null;
   $effect(() => {
+    if (searchNavigateHash === lastSearchNavigateHash) return;
+    lastSearchNavigateHash = searchNavigateHash;
     if (searchNavigateHash && container) {
       navPath = [];
       scrollHashIntoView(searchNavigateHash, 'center');
