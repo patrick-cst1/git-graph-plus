@@ -13,6 +13,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# Fresh machines can default to older TLS; GitHub requires 1.2+.
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $headers = @{ 'User-Agent' = 'commit-timeline-updater' }
 
 Write-Host "Checking $Repo for the latest release ..."
