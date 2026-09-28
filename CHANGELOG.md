@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.21
+
+- Draw the default (`rounded`) lines with Git Graph Plus's upstream transition
+  geometry: a corner-hugging quadratic for right moves, a gentle cubic
+  mid-path, and a flat entry on the final left move. Each bend is a single
+  sweeping curve into the next commit, with no extra hook at its ends.
+
 ## 0.7.20
 
 - Align the graph lines with mhutchie Git Graph's geometry again: a lane change
