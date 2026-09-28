@@ -385,21 +385,22 @@ describe('CommitDetails — compare scope (2-dot/3-dot) & conflict check', () =>
   it('shows the scope bar and switches the diff mode', async () => {
     const { container, findByText } = renderCompare();
     expect(container.querySelectorAll('.compare-mode-btn').length).toBe(3);
-    await fireEvent.click(await findByText('Only bbbbbbb (3-dot)'));
+    await fireEvent.click(await findByText('bbbbbbb → aaaaaaa (3-dot)'));
     expect(uiStore.compareMode).toBe('ref2');
-    await fireEvent.click(await findByText('A↔B (2-dot)'));
+    await fireEvent.click(await findByText('aaaaaaa ↔ bbbbbbb (2-dot)'));
     expect(uiStore.compareMode).toBe('direct');
   });
 
-  it('labels each side with its branch name when the commit is a ref tip', async () => {
+  it('labels each mode with the branch names and merge direction', async () => {
     commitStore.commits = [
       commit({ hash: REF1, refs: [{ type: 'branch', name: 'feature/x' }] }),
       commit({ hash: REF2, refs: [{ type: 'remote-branch', name: 'Environment/SIT', remote: 'origin' }] }),
     ];
     const { container, findByText } = renderCompare();
-    expect(await findByText('Only feature/x (3-dot)')).toBeTruthy();
-    expect(await findByText('Only origin/Environment/SIT (3-dot)')).toBeTruthy();
-    expect(container.textContent).toContain('Merge preview: feature/x ↔ origin/Environment/SIT');
+    expect(await findByText('feature/x ↔ origin/Environment/SIT (2-dot)')).toBeTruthy();
+    expect(await findByText('feature/x → origin/Environment/SIT (3-dot)')).toBeTruthy();
+    expect(await findByText('origin/Environment/SIT → feature/x (3-dot)')).toBeTruthy();
+    expect(container.querySelectorAll('.compare-mode-btn').length).toBe(3);
   });
 
   it('checks merge-tree conflicts automatically for the selected pair', async () => {

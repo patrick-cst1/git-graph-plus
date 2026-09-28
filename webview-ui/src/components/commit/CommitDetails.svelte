@@ -699,29 +699,26 @@
           use:tooltip={t('compare.directHint')}
           onclick={() => { uiStore.compareMode = 'direct'; }}
         >
-          {t('compare.direct')}
+          {t('compare.direct', { a: compareLabel1, b: compareLabel2 })}
         </button>
         <button
           class="compare-mode-btn"
           class:active={uiStore.compareMode === 'ref1'}
-          use:tooltip={t('compare.onlyRefHint', { ref: compareLabel1 })}
+          use:tooltip={t('compare.mergeIntoHint', { source: compareLabel1, target: compareLabel2 })}
           onclick={() => { uiStore.compareMode = 'ref1'; }}
         >
-          {t('compare.onlyRef', { ref: compareLabel1 })}
+          {t('compare.mergeInto', { source: compareLabel1, target: compareLabel2 })}
         </button>
         <button
           class="compare-mode-btn"
           class:active={uiStore.compareMode === 'ref2'}
-          use:tooltip={t('compare.onlyRefHint', { ref: compareLabel2 })}
+          use:tooltip={t('compare.mergeIntoHint', { source: compareLabel2, target: compareLabel1 })}
           onclick={() => { uiStore.compareMode = 'ref2'; }}
         >
-          {t('compare.onlyRef', { ref: compareLabel2 })}
+          {t('compare.mergeInto', { source: compareLabel2, target: compareLabel1 })}
         </button>
       </div>
-      <div class="compare-conflict">
-        <span class="compare-merge-label" use:tooltip={t('compare.mergePreviewHint')}>
-          {t('compare.mergePreview', { a: compareLabel1, b: compareLabel2 })}
-        </span>
+      <div class="compare-conflict" use:tooltip={t('compare.conflictHint')}>
         {#if conflictChecking}
           <span class="compare-conflict-state">{t('compare.checking')}</span>
         {:else if conflictResult?.hasConflict}
@@ -1407,13 +1404,15 @@
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 
   .compare-modes {
     display: flex;
     align-items: center;
     gap: 4px;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .compare-mode-btn {
@@ -1425,7 +1424,9 @@
     border-radius: 10px;
     cursor: pointer;
     white-space: nowrap;
-    max-width: 260px;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 300px;
     overflow: hidden;
     text-overflow: ellipsis;
   }
@@ -1447,14 +1448,7 @@
     align-items: center;
     gap: 6px;
     font-size: 0.85em;
-  }
-
-  .compare-merge-label {
-    color: var(--text-secondary);
-    max-width: 340px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .compare-conflict-state {

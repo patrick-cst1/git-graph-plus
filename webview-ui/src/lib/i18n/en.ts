@@ -279,13 +279,12 @@ export const en: Record<string, string> = {
   'details.restore': 'Restore panel',
 
   // Compare scope bar
-  'compare.direct': 'A↔B (2-dot)',
+  'compare.direct': '{a} ↔ {b} (2-dot)',
   'compare.directHint': 'All differences between the two refs (both sides combined)',
-  'compare.onlyRef': 'Only {ref} (3-dot)',
-  'compare.onlyRefHint': "Only {ref}'s own changes since the merge base — the same view a PR's Files changed shows",
+  'compare.mergeInto': '{source} → {target} (3-dot)',
+  'compare.mergeIntoHint': "What {source} would bring into {target} — its own changes since the merge base (the same view a PR's Files changed shows)",
   'compare.checking': 'Checking…',
-  'compare.mergePreview': 'Merge preview: {a} ↔ {b}',
-  'compare.mergePreviewHint': 'Dry-run of merging the two compared refs (git merge-tree). The conflicted files are the same whichever ref is the source, so this is the PR result in either direction.',
+  'compare.conflictHint': 'Merge-tree dry run of the two compared refs. The conflicted files are the same in either direction, so this is the PR result whichever branch is the source.',
   'compare.noConflicts': 'No conflicts',
   'compare.conflictFiles': '{count} conflicted file(s)',
 
