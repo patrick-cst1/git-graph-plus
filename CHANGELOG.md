@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.19
+
+- Spread each lane change across the whole run between the two surrounding
+  commits: the line now drifts gradually (parabola-like) the whole way into the
+  next commit instead of bending early and then running straight.
+
 ## 0.7.18
 
 - Tune the transition sweep to two rows (48px): three rows felt too swoopy and
