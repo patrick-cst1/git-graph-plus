@@ -9,13 +9,20 @@
       ? commitStore.getCommit(uiStore.selectedCommitHash)
       : undefined
   );
+  // A commit peeked from the compare panel's Ahead/Behind/All lists: rendered
+  // with the normal commit details while compare stays active underneath.
+  let peekCommit = $derived(
+    uiStore.comparing && uiStore.comparePeekHash
+      ? commitStore.getCommit(uiStore.comparePeekHash)
+      : undefined
+  );
   // Armed but fewer than 2 picked yet → prompt the user to select more.
   let armedHint = $derived(uiStore.multiSelectArmed && uiStore.selectedCommitHashes.length < 2);
 </script>
 
 <div class="bottom-panel">
   {#if uiStore.comparing}
-    <CommitDetails />
+    <CommitDetails commit={peekCommit} />
   {:else if commit}
     <CommitDetails {commit} />
   {:else if armedHint}

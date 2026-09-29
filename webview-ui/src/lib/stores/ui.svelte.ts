@@ -19,6 +19,9 @@ class UiStore {
   // What the compare panel shows: the file list ('files') or the Ahead /
   // Behind / All commit lists (GitLens-style compare tabs).
   compareView = $state<'files' | 'ahead' | 'behind' | 'all'>('files');
+  // While comparing, a commit clicked in an Ahead/Behind/All list is peeked in
+  // the panel (details + changes + a Back button) instead of leaving compare.
+  comparePeekHash = $state<string | null>(null);
   viewMode = $state<'graph' | 'log' | 'stats'>('graph');
   // Non-null while the graph shows a pinned slice fetched from a reflog entry
   // outside the loaded window. Cleared by any normal logData payload or by the
@@ -64,6 +67,16 @@ class UiStore {
     this.clearCommitFileSelectionSignal++;
   }
 
+  /** Show a commit from an Ahead/Behind/All list without leaving compare mode. */
+  peekCompareCommit(hash: string) {
+    this.comparePeekHash = hash;
+  }
+
+  /** Return from a compare peek to the compare lists. */
+  closeComparePeek() {
+    this.comparePeekHash = null;
+  }
+
   selectCommit(hash: string | null) {
     this.multiSelectArmed = false;
     this.selectedCommitHash = hash;
@@ -73,6 +86,7 @@ class UiStore {
     this.compareRef1 = null;
     this.compareRef2 = null;
     this.compareView = 'files';
+    this.comparePeekHash = null;
     if (hash) {
       this.showBottomPanel = true;
     }
@@ -90,6 +104,7 @@ class UiStore {
     this.compareRef1 = null;
     this.compareRef2 = null;
     this.compareView = 'files';
+    this.comparePeekHash = null;
     const arr = [...this.selectedCommitHashes];
     const i = arr.indexOf(hash);
     const removed = i >= 0;
@@ -121,6 +136,7 @@ class UiStore {
     this.compareRef1 = null;
     this.compareRef2 = null;
     this.compareView = 'files';
+    this.comparePeekHash = null;
     this.selectedCommitHashes = orderedHashes.slice(lo, hi + 1);
     // In armed multi-select mode, selectedCommitHash is always null.
     this.selectedCommitHash = null;
@@ -151,6 +167,7 @@ class UiStore {
       this.compareRef1 = null;
       this.compareRef2 = null;
     this.compareView = 'files';
+    this.comparePeekHash = null;
     }
     if (opts.range) {
       this.selectRange(hash, opts.orderedHashes);
@@ -169,6 +186,7 @@ class UiStore {
     this.compareRef1 = null;
     this.compareRef2 = null;
     this.compareView = 'files';
+    this.comparePeekHash = null;
     this.showBottomPanel = true;
   }
 
@@ -182,6 +200,7 @@ class UiStore {
     this.compareRef1 = null;
     this.compareRef2 = null;
     this.compareView = 'files';
+    this.comparePeekHash = null;
   }
 
   setViewMode(mode: 'graph' | 'log' | 'stats') {

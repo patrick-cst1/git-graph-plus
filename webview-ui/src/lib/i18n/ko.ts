@@ -302,6 +302,8 @@ export const ko: Record<string, string> = {
     'compare.noCommits': '이 방향에 커밋이 없습니다',
     'compare.listLoading': '커밋 불러오는 중…',
     'compare.openCommitHint': '클릭하여 이 커밋 열기',
+    'compare.back': '비교로 돌아가기',
+    'compare.backHint': '앞서감 / 뒤처짐 / 전체 목록으로 돌아갑니다',
 
   // Search bar
   'search.placeholder': 'Commit 검색 (메시지, 작성자, 해시, 브랜치, 태그)',

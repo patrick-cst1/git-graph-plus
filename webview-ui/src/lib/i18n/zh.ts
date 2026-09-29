@@ -302,6 +302,8 @@ export const zh: Record<string, string> = {
     'compare.noCommits': '此方向没有提交',
     'compare.listLoading': '加载提交中…',
     'compare.openCommitHint': '点击打开该提交',
+    'compare.back': '返回比较',
+    'compare.backHint': '返回领先 / 落后 / 全部列表',
 
   // Search bar
   'search.placeholder': '搜索提交（消息、作者、哈希、分支、标签）',

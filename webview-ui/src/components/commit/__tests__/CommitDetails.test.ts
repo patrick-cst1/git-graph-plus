@@ -68,6 +68,7 @@ beforeEach(() => {
   uiStore.compareRef2 = null;
   uiStore.compareMode = 'direct';
   uiStore.compareView = 'files';
+  uiStore.comparePeekHash = null;
   uiStore.selectedCommitHashes = [];
   uiStore.multiSelectArmed = false;
 });
@@ -538,7 +539,7 @@ describe('CommitDetails — compare Ahead / Behind tabs', () => {
     expect(await findByText('changed.sql')).toBeTruthy();
   });
 
-  it('opens a commit from an Ahead / Behind row', async () => {
+  it('peeks a commit from an Ahead / Behind row without leaving compare mode', async () => {
     const { findByText } = renderCompare();
     await waitFor(() => expect(postedOfType('compareCommitList').length).toBe(1));
     const req = postedOfType('compareCommitList')[0];
@@ -552,7 +553,42 @@ describe('CommitDetails — compare Ahead / Behind tabs', () => {
     }}));
     await fireEvent.click(await findByText('Ahead 1'));
     await fireEvent.click(await findByText('ahead one'));
-    expect(uiStore.selectedCommitHash).toBe(AHEAD);
+    expect(uiStore.comparePeekHash).toBe(AHEAD);
+    expect(uiStore.comparing).toBe(true);
+    expect(uiStore.selectedCommitHash).toBeNull();
+  });
+
+  it('requests a peeked commit that is not part of the loaded graph', async () => {
+    const { findByText } = renderCompare();
+    await waitFor(() => expect(postedOfType('compareCommitList').length).toBe(1));
+    const req = postedOfType('compareCommitList')[0];
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      type: 'compareCommitListData',
+      payload: {
+        ref1: REF1, ref2: REF2, requestId: req.payload?.requestId,
+        ahead: [commit({ hash: AHEAD, subject: 'ahead one' })],
+        behind: [],
+      },
+    }}));
+    await fireEvent.click(await findByText('Ahead 1'));
+    await fireEvent.click(await findByText('ahead one'));
+    // commitStore has no such commit → the panel asks the extension for it.
+    await waitFor(() => expect(postedOfType('getCommitData').length).toBe(1));
+    expect(postedOfType('getCommitData')[0].payload?.hash).toBe(AHEAD);
+  });
+
+  it('shows a Back button on a peeked commit and returns to the list', async () => {
+    uiStore.comparing = true;
+    uiStore.compareRef1 = REF1;
+    uiStore.compareRef2 = REF2;
+    uiStore.selectedCommitHashes = [REF1, REF2];
+    uiStore.comparePeekHash = AHEAD;
+    // BottomPanel resolves the peeked commit from the store (or the fetched
+    // extra commits) and passes it down as the normal commit prop.
+    const { findByText } = render(CommitDetails, { commit: commit({ hash: AHEAD, subject: 'ahead one' }) });
+    const back = await findByText('Back to comparison');
+    await fireEvent.click(back);
+    expect(uiStore.comparePeekHash).toBeNull();
   });
 });
 

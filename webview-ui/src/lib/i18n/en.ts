@@ -302,6 +302,8 @@ export const en: Record<string, string> = {
   'compare.noCommits': 'No commits in this direction',
   'compare.listLoading': 'Loading commits…',
   'compare.openCommitHint': 'Click to open this commit',
+  'compare.back': 'Back to comparison',
+  'compare.backHint': 'Return to the Ahead / Behind / All list',
 
   // Search bar
   'search.placeholder': 'Search commits (message, author, hash, branch, tag)',

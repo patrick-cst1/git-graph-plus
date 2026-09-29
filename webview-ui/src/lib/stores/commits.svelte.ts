@@ -32,6 +32,11 @@ class CommitStore {
     return m;
   });
 
+  // Commits fetched on demand that are not part of the loaded graph (e.g. the
+  // compare panel's Ahead/Behind lists). They are resolved by getCommit() so
+  // the details panel can render them, but never rendered as graph rows.
+  private extraCommits = $state(new Map<string, Commit>());
+
   setData(data: CommitGraphData) {
     this.commits = data.commits;
     this.graphNodes = data.graph;
@@ -56,7 +61,15 @@ class CommitStore {
   }
 
   getCommit(hash: string): Commit | undefined {
-    return this.commitByHash.get(hash);
+    return this.commitByHash.get(hash) ?? this.extraCommits.get(hash);
+  }
+
+  /** Remember a commit fetched outside the graph log (no-op when known). */
+  rememberCommit(commit: Commit): void {
+    if (this.commitByHash.has(commit.hash) || this.extraCommits.has(commit.hash)) return;
+    const next = new Map(this.extraCommits);
+    next.set(commit.hash, commit);
+    this.extraCommits = next;
   }
 
   // Read-only hash→Commit map for callers that need bulk lookups (e.g. squash

@@ -57,6 +57,23 @@ describe('commitStore.setData', () => {
   });
 });
 
+describe('commitStore.rememberCommit', () => {
+  it('resolves commits fetched outside the graph without adding rows', () => {
+    commitStore.rememberCommit(makeCommit('extra1'));
+    expect(commitStore.getCommit('extra1')?.hash).toBe('extra1');
+    // Never part of the rendered graph.
+    expect(commitStore.commits.some((c) => c.hash === 'extra1')).toBe(false);
+    expect(commitStore.headHash).toBeNull();
+  });
+
+  it('prefers the graph log copy and ignores duplicates', () => {
+    const loaded = makeCommit('h1');
+    commitStore.setData({ commits: [loaded], graph: [makeNode('h1')] });
+    commitStore.rememberCommit(makeCommit('h1'));
+    expect(commitStore.getCommit('h1')).toEqual(loaded);
+  });
+});
+
 describe('commitStore lookups', () => {
   beforeEach(() => {
     commitStore.setData({

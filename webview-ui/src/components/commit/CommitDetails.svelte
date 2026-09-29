@@ -319,6 +319,10 @@
         vscode.postMessage({ type: 'getCommitDiff', payload: { hash } });
         vscode.postMessage({ type: 'getLfsFiles' });
         vscode.postMessage({ type: 'getCommitSignature', payload: { hash } });
+      } else if (uiStore.comparing) {
+        // Compare peek closed → back to the compare lists, which live on the
+        // Changes tab.
+        activeTab = 'changes';
       }
     }
   });
@@ -327,37 +331,56 @@
   // hash-based reset above never fires when the user switches compare target.
   // Clear the stale file list/diffs the moment the compare refs change, so the
   // panel doesn't show the previous comparison's files until the new data lands.
+  // Keyed on the pair: peeking a commit (or closing the peek) must not reset
+  // the compare lists, only a new pair should.
+  let lastComparePair = '';
   $effect(() => {
     // Track the compare target; only meaningful while comparing with no commit.
     const r1 = uiStore.compareRef1;
     const r2 = uiStore.compareRef2;
-    if (!commit && uiStore.comparing) {
-      // Read r1/r2 above so this effect re-runs whenever they change.
-      void r1; void r2;
-      files = [];
-      diffs = [];
-      sections = [];
-      selectedFile = null;
-      selectedPatchFiles = new Set();
-      compareBase = null;
-      conflictChecking = false;
-      conflictResult = null;
-      compareAhead = [];
-      compareBehind = [];
-      compareListLoading = false;
-      uiStore.compareView = 'files';
-      // A new pair checks its merge conflicts straight away — the check is a
-      // merge-tree dry run and costs nothing on the working tree.
-      if (r1 && r2 && uiStore.selectedCommitHashes.length === 2) {
-        checkConflicts();
-        compareListRequestId = `cl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        compareListLoading = true;
-        vscode.postMessage({
-          type: 'compareCommitList',
-          payload: { ref1: r1, ref2: r2, requestId: compareListRequestId },
-        });
-      }
+    if (!uiStore.comparing) {
+      lastComparePair = '';
+      return;
     }
+    if (commit) return; // peeking a commit: leave the compare state untouched
+    const key = `${r1 ?? ''}|${r2 ?? ''}`;
+    if (key === lastComparePair) return;
+    lastComparePair = key;
+    files = [];
+    diffs = [];
+    sections = [];
+    selectedFile = null;
+    selectedPatchFiles = new Set();
+    compareBase = null;
+    conflictChecking = false;
+    conflictResult = null;
+    compareAhead = [];
+    compareBehind = [];
+    compareListLoading = false;
+    uiStore.compareView = 'files';
+    // A new pair checks its merge conflicts straight away — the check is a
+    // merge-tree dry run and costs nothing on the working tree.
+    if (r1 && r2 && uiStore.selectedCommitHashes.length === 2) {
+      checkConflicts();
+      compareListRequestId = `cl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      compareListLoading = true;
+      vscode.postMessage({
+        type: 'compareCommitList',
+        payload: { ref1: r1, ref2: r2, requestId: compareListRequestId },
+      });
+    }
+  });
+
+  // A peeked compare commit may not be part of the loaded graph (Ahead/Behind
+  // commits usually aren't); fetch it once so the panel can render its details.
+  let peekRequestedHash = '';
+  $effect(() => {
+    const hash = uiStore.comparePeekHash;
+    if (!hash || !uiStore.comparing) return;
+    if (commitStore.getCommit(hash)) return;
+    if (peekRequestedHash === hash) return;
+    peekRequestedHash = hash;
+    vscode.postMessage({ type: 'getCommitData', payload: { hash } });
   });
 
   $effect(() => {
@@ -450,6 +473,9 @@
       if (msg.type === 'commitData') {
         const c = msg.payload.commit;
         previewCacheSet(c.hash, c);
+        // A commit peeked from the compare lists may live outside the loaded
+        // graph; remember it so BottomPanel can render it reactively.
+        if (c.hash === uiStore.comparePeekHash) commitStore.rememberCommit(c);
         // Warm the cached avatar (resolved by the extension host).
         avatarStore.url(c.author.email, 32);
 
@@ -749,6 +775,17 @@
   <!-- Compare scope + conflict check (two-ref compare only) -->
   {#if uiStore.comparing && uiStore.selectedCommitHashes.length === 2 && uiStore.compareRef1 && uiStore.compareRef2}
     <div class="compare-bar">
+      {#if uiStore.comparePeekHash}
+        <button
+          class="compare-back-btn"
+          use:tooltip={t('compare.backHint')}
+          onclick={() => uiStore.closeComparePeek()}
+        >
+          <i class="codicon codicon-arrow-left"></i>
+          {t('compare.back')}
+        </button>
+        <span class="compare-back-context">{compareLabel1} ↔ {compareLabel2}</span>
+      {:else}
       <div class="compare-modes">
         <button
           class="compare-mode-btn"
@@ -809,6 +846,7 @@
           {t('compare.viewAll', { count: String(compareAhead.length + compareBehind.length) })}
         </button>
       </div>
+      {/if}
       <div class="compare-conflict" use:tooltip={t('compare.conflictHint')}>
         {#if conflictChecking}
           <span class="compare-conflict-state">{t('compare.checking')}</span>
@@ -1013,7 +1051,7 @@
   <!-- Changes tab -->
   {:else if activeTab === 'changes'}
     <div class="changes-tab-content">
-      {#if uiStore.comparing && uiStore.compareView !== 'files' && uiStore.compareRef1 && uiStore.compareRef2}
+      {#if uiStore.comparing && !commit && uiStore.compareView !== 'files' && uiStore.compareRef1 && uiStore.compareRef2}
         <div class="compare-commits-content">
           {#if compareListLoading}
             <div class="empty-state-text">{t('compare.listLoading')}</div>
@@ -1023,8 +1061,9 @@
             {#each compareListCommits as c (c.hash)}
               <button
                 class="compare-commit-item"
+                class:selected={uiStore.comparePeekHash === c.hash}
                 use:tooltip={t('compare.openCommitHint')}
-                onclick={() => uiStore.selectCommit(c.hash)}
+                onclick={() => uiStore.peekCompareCommit(c.hash)}
               >
                 <i class="codicon codicon-git-commit"></i>
                 <span class="cc-subject truncate">{c.subject}</span>
@@ -1578,6 +1617,39 @@
     overflow: hidden;
     padding-left: 8px;
     border-left: 1px solid var(--border-color);
+  }
+
+  /* Shown instead of the scope/view groups while a listed commit is peeked. */
+  .compare-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    font-size: 0.85em;
+    background: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--vscode-focusBorder, #007fd4);
+    border-radius: 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .compare-back-btn:hover {
+    background: rgba(0, 127, 212, 0.12);
+  }
+
+  .compare-back-context {
+    color: var(--text-secondary);
+    font-size: 0.85em;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .compare-commit-item.selected {
+    background: var(--vscode-list-activeSelectionBackground, rgba(0, 127, 212, 0.18));
   }
 
   .compare-commits-content {

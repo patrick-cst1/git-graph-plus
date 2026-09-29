@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render } from '@testing-library/svelte';
+import { render, waitFor } from '@testing-library/svelte';
 import BottomPanel from '../BottomPanel.svelte';
 import { i18n } from '../../../lib/i18n/index.svelte';
 import { uiStore } from '../../../lib/stores/ui.svelte';
@@ -25,6 +25,10 @@ beforeEach(() => {
   uiStore.selectedCommitHash = null;
   uiStore.selectedCommitHashes = [];
   uiStore.comparing = false;
+  uiStore.compareRef1 = null;
+  uiStore.compareRef2 = null;
+  uiStore.compareView = 'files';
+  uiStore.comparePeekHash = null;
   uiStore.multiSelectArmed = false;
   commitStore.commits = [];
 });
@@ -47,6 +51,20 @@ describe('BottomPanel', () => {
     uiStore.comparing = true;
     const { container } = render(BottomPanel);
     expect(container.querySelector('.commit-details')).toBeTruthy();
+  });
+
+  it('renders a peeked compare commit from the store, with a back button', async () => {
+    uiStore.comparing = true;
+    uiStore.compareRef1 = 'r1';
+    uiStore.compareRef2 = 'r2';
+    uiStore.selectedCommitHashes = ['r1', 'r2'];
+    uiStore.comparePeekHash = 'peekhash';
+    commitStore.rememberCommit(commit({ hash: 'peekhash', subject: 'peeked subject' }));
+    const { container } = render(BottomPanel);
+    await waitFor(() => {
+      expect(container.textContent).toContain('peeked subject');
+      expect(container.textContent).toContain('Back to comparison');
+    });
   });
 
   it('prompts to select more when armed with fewer than 2 commits', () => {

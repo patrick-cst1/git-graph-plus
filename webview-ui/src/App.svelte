@@ -366,6 +366,13 @@ import AmendModal from './components/modals/AmendModal.svelte';
       return;
     }
 
+    // A peeked compare commit: the first Esc returns to the compare lists.
+    if (e.key === 'Escape' && !modalStore.anyOpen && uiStore.showBottomPanel && uiStore.comparing && uiStore.comparePeekHash) {
+      e.preventDefault();
+      uiStore.closeComparePeek();
+      return;
+    }
+
     // Multi-select Esc is handled in CommitGraph (1st Esc closes the panel, 2nd clears the selection).
     if (e.key === 'Escape' && !modalStore.anyOpen && !uiStore.multiSelectArmed && uiStore.showBottomPanel && (uiStore.selectedCommitHash || uiStore.comparing)) {
       e.preventDefault();
