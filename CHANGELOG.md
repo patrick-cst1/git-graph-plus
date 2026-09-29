@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.35
+
+- Branch focus now covers only the branch's **own commits**, from its fork point
+  to its tip — in **filter** mode the log is scoped to that range (the fork
+  point itself is kept as the boundary), and in **dim** mode everything outside
+  it is faded. The base branch's earlier history is no longer shown or
+  highlighted. The fork point is the merge base with the repository's default
+  branch; focusing several branches, or a branch with no commits of its own,
+  keeps the full history.
+- **Load more** now carries the branch / remote / focus scope, so paging no
+  longer drops an active filter.
+
 ## 0.7.34
 
 - Returning from a commit peek in the compare panel now lands you back where
