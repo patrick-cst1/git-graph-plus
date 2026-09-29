@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.39
+
+- Focus scope: the fallback explanation (the yellow note in the focus popover)
+  now stays visible when **every** focused branch has no fork point. It used to
+  disappear exactly in that case, because the control had switched its display
+  to Full history — so focusing a single un-scopable branch showed Full history
+  with no explanation while adding a second branch brought the note back.
+
 ## 0.7.38
 
 - Focus scope polish: when **every** focused branch has no fork point (so Own
