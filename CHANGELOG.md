@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.40
+
+- **Push/pull any branch without checking it out**: a local branch's right-click
+  menu in the graph (and the Branches sidebar) now offers **Push** and **Pull**.
+  Push targets the branch's upstream, or — when it has none — the single remote
+  that already has a same-named branch (published with `-u`), so feature
+  branches living on a fork are no longer sent to `origin`; only with no match
+  does it fall back to the default remote.
+- **Pull fast-forwards a non-current branch in place**: the remote branch is
+  fetched first (so the graph shows the remote move even when the update is
+  refused), then the local branch is updated with a fast-forward-only refspec —
+  diverged commits are never clobbered. A diverged branch offers **Checkout &
+  Pull** (with a switch-back button); a branch checked out in another worktree
+  is reported instead. Pull on the current branch opens the existing dialog.
+- **Remote branch menus** gain **Fetch into '<local>'** when a same-named local
+  branch exists and is not current; the Remotes sidebar menu matches.
+
 ## 0.7.39
 
 - Focus scope: the fallback explanation (the yellow note in the focus popover)
