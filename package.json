@@ -2,7 +2,7 @@
   "name": "commit-timeline",
   "displayName": "Commit Timeline",
   "description": "View commit history and branches.",
-  "version": "0.7.32",
+  "version": "0.7.33",
   "publisher": "patrick-local",
   "license": "Apache-2.0",
   "icon": "resources/icon-marketplace.png",

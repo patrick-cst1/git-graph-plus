@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.33
+
+- Clicking a commit in the compare panel's **Ahead / Behind / All** lists now
+  peeks it in the panel (details + changes) instead of leaving compare mode,
+  with a **Back to comparison** button (and Esc) returning to the list. The
+  graph keeps the compare pair selected, and a peeked commit that is not part of
+  the loaded graph is fetched on demand.
+
 ## 0.7.32
 
 - Opening a folder that is not a git repository now offers an **Initialise
