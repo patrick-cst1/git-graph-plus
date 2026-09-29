@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.28
+
+- **File History** view in the Source Control sidebar: the commits that touched
+  the active editor's file (rename-aware, paged with **Load more**). Right-click
+  a commit to open the file at that revision, compare it with the previous
+  revision, or copy its SHA; click it to open it in Commit Timeline.
+- **Show Line History**: select lines in the editor and run it from the editor
+  context menu to see only the commits that changed them (clear the filter from
+  the view title).
+- **Revision navigator**: `Open File Revision…` picks any revision of the
+  current file; `Go to Older/Newer Revision` steps through them read-only.
+- **Show File History Chart**: a chart of the file's commits over time, stacked
+  by author.
+
 ## 0.7.27
 
 - File annotations for the active editor, toggled from the editor title bar:
