@@ -187,6 +187,68 @@
       "title": "%command.toggleHeatmap%",
       "category": "Commit Timeline",
       "icon": "$(flame)"
+    },
+    {
+      "command": "gitGraphPlus.showLineHistory",
+      "title": "%command.showLineHistory%",
+      "category": "Commit Timeline",
+      "icon": "$(list-selection)"
+    },
+    {
+      "command": "gitGraphPlus.openFileRevision",
+      "title": "%command.openFileRevision%",
+      "category": "Commit Timeline",
+      "icon": "$(history)"
+    },
+    {
+      "command": "gitGraphPlus.previousRevision",
+      "title": "%command.previousRevision%",
+      "category": "Commit Timeline"
+    },
+    {
+      "command": "gitGraphPlus.nextRevision",
+      "title": "%command.nextRevision%",
+      "category": "Commit Timeline"
+    },
+    {
+      "command": "gitGraphPlus.showFileVisualHistory",
+      "title": "%command.showFileVisualHistory%",
+      "category": "Commit Timeline",
+      "icon": "$(graph)"
+    },
+    {
+      "command": "gitGraphPlus.fileHistory.refresh",
+      "title": "%command.fileHistoryRefresh%",
+      "category": "Commit Timeline",
+      "icon": "$(refresh)"
+    },
+    {
+      "command": "gitGraphPlus.fileHistory.clearLineFilter",
+      "title": "%command.fileHistoryClearLineFilter%",
+      "category": "Commit Timeline",
+      "icon": "$(close)"
+    },
+    {
+      "command": "gitGraphPlus.fileHistory.loadMore",
+      "title": "%command.fileHistoryLoadMore%",
+      "category": "Commit Timeline"
+    },
+    {
+      "command": "gitGraphPlus.fileHistory.openRevision",
+      "title": "%command.fileHistoryOpenRevision%",
+      "category": "Commit Timeline",
+      "icon": "$(go-to-file)"
+    },
+    {
+      "command": "gitGraphPlus.fileHistory.compareWithPrevious",
+      "title": "%command.fileHistoryComparePrevious%",
+      "category": "Commit Timeline",
+      "icon": "$(diff)"
+    },
+    {
+      "command": "gitGraphPlus.fileHistory.copySha",
+      "title": "%command.fileHistoryCopySha%",
+      "category": "Commit Timeline"
     }
   ],
     "views": {
@@ -216,6 +278,11 @@
           "id": "gitGraphPlus.worktrees",
           "name": "Worktrees",
           "icon": "$(worktree)"
+        },
+        {
+          "id": "gitGraphPlus.fileHistory",
+          "name": "File History",
+          "icon": "$(history)"
         }
       ]
     },
@@ -223,6 +290,10 @@
       {
         "view": "gitGraphPlus.branches",
         "contents": "No git repository found.\n[Open Folder](command:vscode.openFolder)"
+      },
+      {
+        "view": "gitGraphPlus.fileHistory",
+        "contents": "Open a file in a git repository to see its history.\n[Show in Commit Timeline](command:gitGraphPlus.open)"
       }
     ],
     "menus": {
@@ -263,6 +334,10 @@
     "commandPalette": [
       {
         "command": "gitGraphPlus.showCommit",
+        "when": "false"
+      },
+      {
+        "command": "gitGraphPlus.fileHistory.loadMore",
         "when": "false"
       }
     ],
@@ -333,6 +408,21 @@
           "command": "gitGraphPlus.pruneWorktrees",
           "when": "view == gitGraphPlus.worktrees",
           "group": "navigation@4"
+        },
+        {
+          "command": "gitGraphPlus.fileHistory.refresh",
+          "when": "view == gitGraphPlus.fileHistory",
+          "group": "navigation@1"
+        },
+        {
+          "command": "gitGraphPlus.fileHistory.clearLineFilter",
+          "when": "view == gitGraphPlus.fileHistory && gitGraphPlus.fileHistory.lineMode",
+          "group": "navigation@2"
+        },
+        {
+          "command": "gitGraphPlus.showFileVisualHistory",
+          "when": "view == gitGraphPlus.fileHistory",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
@@ -415,6 +505,43 @@
           "command": "gitGraphPlus.removeWorktree",
           "when": "view == gitGraphPlus.worktrees && viewItem == worktree",
           "group": "2_danger@1"
+        },
+        {
+          "command": "gitGraphPlus.fileHistory.openRevision",
+          "when": "view == gitGraphPlus.fileHistory && viewItem == fileHistoryCommit",
+          "group": "inline@1"
+        },
+        {
+          "command": "gitGraphPlus.fileHistory.compareWithPrevious",
+          "when": "view == gitGraphPlus.fileHistory && viewItem == fileHistoryCommit",
+          "group": "inline@2"
+        },
+        {
+          "command": "gitGraphPlus.fileHistory.copySha",
+          "when": "view == gitGraphPlus.fileHistory && viewItem == fileHistoryCommit",
+          "group": "1_history@1"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "gitGraphPlus.showLineHistory",
+          "when": "resourceScheme == file && editorHasSelection",
+          "group": "navigation@9"
+        },
+        {
+          "command": "gitGraphPlus.openFileRevision",
+          "when": "resourceScheme == file",
+          "group": "navigation@10"
+        },
+        {
+          "command": "gitGraphPlus.previousRevision",
+          "when": "resourceScheme == file",
+          "group": "navigation@11"
+        },
+        {
+          "command": "gitGraphPlus.nextRevision",
+          "when": "resourceScheme == file",
+          "group": "navigation@12"
         }
       ]
     },

@@ -2261,6 +2261,54 @@ export class GitService {
   }
 
   /**
+   * History of a single file on the current branch, newest first, following
+   * renames (`--follow`). Used by the File History view and the revision
+   * navigator. `skip` pages backwards through older commits.
+   */
+  async fileHistory(filePath: string, options?: { limit?: number; skip?: number }): Promise<Commit[]> {
+    this.assertSafePath(filePath, 'log');
+    const limit = Math.max(1, options?.limit ?? 100);
+    const skip = Math.max(0, options?.skip ?? 0);
+    const args = [
+      'log',
+      `--format=${GitService.BASE_LOG_FORMAT}`,
+      '--follow',
+      `--max-count=${limit}`,
+    ];
+    if (skip > 0) args.push(`--skip=${skip}`);
+    args.push('--', filePath);
+    const [raw, remoteNames] = await Promise.all([this.exec(args), this.getRemoteNames()]);
+    return parseLog(raw, remoteNames);
+  }
+
+  /**
+   * Commits that changed a 1-based inclusive line range of a file
+   * (`git log -L`), newest first. The per-commit patch text is appended to the
+   * commit body by git and is intentionally not shown by the Line History view.
+   * Returns an empty list when the range or file cannot be traced (e.g. a file
+   * that no longer exists at HEAD).
+   */
+  async lineHistory(filePath: string, startLine: number, endLine: number, limit: number = 50): Promise<Commit[]> {
+    this.assertSafePath(filePath, 'log');
+    if (!Number.isInteger(startLine) || !Number.isInteger(endLine) || startLine < 1 || endLine < startLine) {
+      throw new GitError(`Invalid line range: ${startLine},${endLine}`, null, []);
+    }
+    try {
+      const args = [
+        'log',
+        `--format=${GitService.BASE_LOG_FORMAT}`,
+        `--max-count=${Math.max(1, limit)}`,
+        '-L',
+        `${startLine},${endLine}:${filePath}`,
+      ];
+      const [raw, remoteNames] = await Promise.all([this.exec(args), this.getRemoteNames()]);
+      return parseLog(raw, remoteNames);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Blame a file (working-tree version, so uncommitted edits show as
    * "not committed yet"). Pass a 1-based inclusive `range` to blame only a
    * slice of a large file; otherwise the whole file is blamed.

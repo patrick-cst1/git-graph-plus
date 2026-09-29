@@ -56,6 +56,9 @@ vi.mock('vscode', () => ({
   ViewColumn: { One: 1 },
   ThemeColor: class {},
   MarkdownString: class { appendMarkdown() {} },
+  TreeItem: class { constructor(public label: string, public collapsibleState: number) {} },
+  ThemeIcon: class { constructor(public id: string) {} },
+  TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
   Hover: class {},
   Range: class {},
   CodeLens: class {},
@@ -158,6 +161,13 @@ describe('activate', () => {
     expect(H.registeredCommands).toContain('gitGraphPlus.toggleBlameAnnotations');
     expect(H.registeredCommands).toContain('gitGraphPlus.toggleChangesAnnotations');
     expect(H.registeredCommands).toContain('gitGraphPlus.toggleHeatmap');
+    // File history / revision navigation.
+    expect(H.registeredCommands).toContain('gitGraphPlus.fileHistory.refresh');
+    expect(H.registeredCommands).toContain('gitGraphPlus.showLineHistory');
+    expect(H.registeredCommands).toContain('gitGraphPlus.showFileVisualHistory');
+    expect(H.registeredCommands).toContain('gitGraphPlus.openFileRevision');
+    expect(H.registeredCommands).toContain('gitGraphPlus.previousRevision');
+    expect(H.registeredCommands).toContain('gitGraphPlus.nextRevision');
     expect(H.registeredCommands.length).toBeGreaterThan(15);
     expect(H.treeViewsCreated).toEqual([
       'gitGraphPlus.branches',
@@ -165,6 +175,7 @@ describe('activate', () => {
       'gitGraphPlus.tags',
       'gitGraphPlus.stashes',
       'gitGraphPlus.worktrees',
+      'gitGraphPlus.fileHistory',
     ]);
   });
 

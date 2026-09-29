@@ -14,6 +14,10 @@ import { StatusBarManager } from './views/status-bar';
 import { BlameService } from './services/blame-service';
 import { registerEditorBlame } from './features/editor-blame';
 import { registerEditorAnnotations } from './features/editor-annotations';
+import { registerRevisionNavigator } from './features/revision-navigator';
+import { FileHistoryViewProvider, type FileHistoryViewState } from './views/file-history-view';
+import { FileVisualHistoryPanel } from './panels/FileVisualHistoryPanel';
+import { toGitUri } from './utils/git-uri';
 import { getRepoRootForFile } from './services/repo-resolver';
 import { RepoDiscoveryService } from './services/repo-discovery';
 import { samePath } from './utils/path';
@@ -255,6 +259,8 @@ export function activate(context: vscode.ExtensionContext) {
   let sidebarRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   let sidebarRefreshing = false;
   let sidebarRefreshQueued = false;
+  /** Extra sidebar refreshes registered after refreshAll is defined (File History). */
+  let sidebarExtras: (() => void) | undefined;
   context.subscriptions.push({
     dispose: () => {
       if (sidebarRefreshTimer) {
@@ -297,6 +303,7 @@ export function activate(context: vscode.ExtensionContext) {
     // HEAD may have moved (commit, checkout, rebase, …): drop cached blame so
     // the next editor update reflects it.
     blameService.invalidateAll();
+    sidebarExtras?.();
     if (sidebarRefreshTimer) { clearTimeout(sidebarRefreshTimer); }
     sidebarRefreshTimer = setTimeout(() => {
       sidebarRefreshTimer = null;
@@ -366,6 +373,126 @@ export function activate(context: vscode.ExtensionContext) {
       return root ? gitServiceForRepo(root) : undefined;
     },
     showCommit: showCommitInTimeline,
+  });
+
+  // --- File History view (SCM sidebar) + revision navigator + history chart ---
+  const fileHistoryProvider = new FileHistoryViewProvider({
+    getGitServiceForFile: (fsPath) => {
+      const root = getRepoRootForFile(fsPath);
+      return root ? gitServiceForRepo(root) : undefined;
+    },
+  });
+  const fileHistoryView = vscode.window.createTreeView('gitGraphPlus.fileHistory', {
+    treeDataProvider: fileHistoryProvider,
+  });
+
+  const updateFileHistoryView = (state: FileHistoryViewState): void => {
+    if (!state.relativePath) {
+      fileHistoryView.description = undefined;
+      fileHistoryView.message = undefined;
+      return;
+    }
+    fileHistoryView.description = state.relativePath;
+    if (state.error) {
+      fileHistoryView.message = state.error;
+    } else if (state.loading && state.count === 0) {
+      fileHistoryView.message = 'Loading…';
+    } else if (state.lineRange) {
+      fileHistoryView.message = `Lines ${state.lineRange.start}-${state.lineRange.end}` +
+        (state.count === 0 ? ' — no changes found' : '');
+    } else if (state.count === 0) {
+      fileHistoryView.message = 'No committed history for this file yet.';
+    } else {
+      fileHistoryView.message = undefined;
+    }
+  };
+  updateFileHistoryView({
+    relativePath: undefined, loading: false, count: 0, hasMore: false,
+  });
+
+  const fileServiceFor = (fsPath: string): { root: string; service: GitService; rel: string } | undefined => {
+    const root = getRepoRootForFile(fsPath);
+    if (!root) return undefined;
+    return { root, service: gitServiceForRepo(root), rel: path.relative(root, fsPath).split(path.sep).join('/') };
+  };
+
+  const openFileAtRevision = async (hash: string): Promise<void> => {
+    const fsPath = fileHistoryProvider.getFilePath();
+    if (!fsPath) return;
+    await vscode.window.showTextDocument(toGitUri(fsPath, hash), { preview: true });
+  };
+
+  const compareWithPreviousRevision = async (hash: string): Promise<void> => {
+    const fsPath = fileHistoryProvider.getFilePath();
+    if (!fsPath) return;
+    const found = fileServiceFor(fsPath);
+    if (!found) return;
+    const base = await found.service.resolveDiffBaseRef(hash);
+    const baseRef = (await found.service.fileExistsAtRef(base, found.rel))
+      ? base
+      : await found.service.getEmptyTreeRef();
+    await vscode.commands.executeCommand(
+      'vscode.diff',
+      toGitUri(fsPath, baseRef),
+      toGitUri(fsPath, hash),
+      `${found.rel} (${hash.slice(0, 7)})`,
+    );
+  };
+
+  context.subscriptions.push(
+    fileHistoryProvider,
+    fileHistoryView,
+    fileHistoryProvider.onDidChangeState(updateFileHistoryView),
+    vscode.window.onDidChangeActiveTextEditor((editor) => fileHistoryProvider.setActiveEditor(editor)),
+    vscode.workspace.onDidSaveTextDocument((doc) => {
+      if (doc.uri.scheme === 'file') fileHistoryProvider.schedule(400);
+    }),
+    vscode.commands.registerCommand('gitGraphPlus.fileHistory.loadMore', () => fileHistoryProvider.loadMore()),
+    vscode.commands.registerCommand('gitGraphPlus.fileHistory.refresh', () => fileHistoryProvider.refresh()),
+    vscode.commands.registerCommand('gitGraphPlus.fileHistory.clearLineFilter', () => fileHistoryProvider.clearLineRange()),
+    vscode.commands.registerCommand('gitGraphPlus.fileHistory.openRevision', (item: { commit?: { hash?: string } } | undefined) => {
+      const hash = item?.commit?.hash;
+      if (hash) void openFileAtRevision(hash);
+    }),
+    vscode.commands.registerCommand('gitGraphPlus.fileHistory.compareWithPrevious', (item: { commit?: { hash?: string } } | undefined) => {
+      const hash = item?.commit?.hash;
+      if (hash) void compareWithPreviousRevision(hash);
+    }),
+    vscode.commands.registerCommand('gitGraphPlus.fileHistory.copySha', (item: { commit?: { hash?: string } } | undefined) => {
+      const hash = item?.commit?.hash;
+      if (hash) void vscode.env.clipboard.writeText(hash);
+    }),
+    vscode.commands.registerCommand('gitGraphPlus.showLineHistory', async () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor || editor.document.uri.scheme !== 'file') return;
+      const selection = editor.selection;
+      const start = (selection.isEmpty ? selection.active.line : selection.start.line) + 1;
+      const end = (selection.isEmpty ? selection.active.line : selection.end.line) + 1;
+      fileHistoryProvider.showLineRange(editor, start, end);
+      await vscode.commands.executeCommand('gitGraphPlus.fileHistory.focus');
+    }),
+    vscode.commands.registerCommand('gitGraphPlus.showFileVisualHistory', () => {
+      const editor = vscode.window.activeTextEditor;
+      const fsPath = editor && editor.document.uri.scheme === 'file' ? editor.document.uri.fsPath : undefined;
+      if (!fsPath) {
+        vscode.window.showInformationMessage('Commit Timeline: open a file first.');
+        return;
+      }
+      const found = fileServiceFor(fsPath);
+      if (!found) {
+        vscode.window.showInformationMessage('Commit Timeline: the file is not inside a git repository.');
+        return;
+      }
+      FileVisualHistoryPanel.createOrShow(fsPath, found.rel, found.service);
+    }),
+  );
+  sidebarExtras = () => fileHistoryProvider.schedule(600);
+  fileHistoryProvider.setActiveEditor(vscode.window.activeTextEditor);
+  registerRevisionNavigator(context, {
+    getGitServiceForFile: (fsPath) => {
+      const root = getRepoRootForFile(fsPath);
+      return root ? gitServiceForRepo(root) : undefined;
+    },
   });
 
   function getWorktreeUri(wtItem: { worktree?: { path?: string } } | undefined): vscode.Uri | undefined {

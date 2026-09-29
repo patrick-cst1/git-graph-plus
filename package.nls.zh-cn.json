@@ -28,5 +28,16 @@
   "command.showCommit": "在 Commit Timeline 中打开提交",
   "command.toggleBlameAnnotations": "切换 Blame 注解",
   "command.toggleChangesAnnotations": "切换变更注解",
-  "command.toggleHeatmap": "切换热力图"
+  "command.toggleHeatmap": "切换热力图",
+  "command.showLineHistory": "显示行历史",
+  "command.openFileRevision": "打开文件修订…",
+  "command.previousRevision": "转到较新修订",
+  "command.nextRevision": "转到较旧修订",
+  "command.showFileVisualHistory": "显示文件历史图表",
+  "command.fileHistoryRefresh": "刷新文件历史",
+  "command.fileHistoryClearLineFilter": "清除行筛选",
+  "command.fileHistoryLoadMore": "加载更多文件历史",
+  "command.fileHistoryOpenRevision": "打开此修订的文件",
+  "command.fileHistoryComparePrevious": "与上一修订比较",
+  "command.fileHistoryCopySha": "复制 SHA"
 }

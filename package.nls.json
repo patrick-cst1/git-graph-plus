@@ -28,5 +28,16 @@
   "command.showCommit": "Open Commit in Commit Timeline",
   "command.toggleBlameAnnotations": "Toggle Blame Annotations",
   "command.toggleChangesAnnotations": "Toggle Changes Annotations",
-  "command.toggleHeatmap": "Toggle Heatmap"
+  "command.toggleHeatmap": "Toggle Heatmap",
+  "command.showLineHistory": "Show Line History",
+  "command.openFileRevision": "Open File Revision…",
+  "command.previousRevision": "Go to Newer Revision",
+  "command.nextRevision": "Go to Older Revision",
+  "command.showFileVisualHistory": "Show File History Chart",
+  "command.fileHistoryRefresh": "Refresh File History",
+  "command.fileHistoryClearLineFilter": "Clear Line Filter",
+  "command.fileHistoryLoadMore": "Load More File History",
+  "command.fileHistoryOpenRevision": "Open File at This Revision",
+  "command.fileHistoryComparePrevious": "Compare with Previous Revision",
+  "command.fileHistoryCopySha": "Copy SHA"
 }
