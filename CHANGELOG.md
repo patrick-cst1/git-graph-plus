@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.34
+
+- Returning from a commit peek in the compare panel now lands you back where
+  you left off: the row you opened stays highlighted and the list scrolls back
+  to it, instead of jumping to the top.
+
 ## 0.7.33
 
 - Clicking a commit in the compare panel's **Ahead / Behind / All** lists now
