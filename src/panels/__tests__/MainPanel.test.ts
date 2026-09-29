@@ -49,6 +49,7 @@ const H = vi.hoisted(() => {
     getMergeBase: vi.fn(async () => 'basesha'),
     getConflictPreview: vi.fn(async () => 'merged text'),
     isUnbornHead: vi.fn(async () => false),
+    focusBase: vi.fn(async () => 'basesha'),
     skipOperation: vi.fn(async () => {}),
     createInitialCommit: vi.fn(async () => {}),
     initRepo: vi.fn(async () => ({ committed: true })),
@@ -370,6 +371,19 @@ describe('MainPanel message routing', () => {
     expect(data.payload!.requestId).toBe('rid-1');
     expect((data.payload!.ahead as Array<{ hash: string }>).map((c) => c.hash)).toEqual(['aheadhash']);
     expect((data.payload!.behind as Array<{ hash: string }>).map((c) => c.hash)).toEqual(['behindhash']);
+  });
+
+  it('branchFocusBase resolves the fork point and echoes the request id', async () => {
+    await dispatch({ type: 'branchFocusBase', payload: { branch: 'feature', requestId: 'fb-1' } });
+    expect(H.git.focusBase).toHaveBeenCalledWith('feature');
+    const data = postedOfType('branchFocusBaseData').at(-1)!;
+    expect(data.payload!.base).toBe('basesha');
+    expect(data.payload!.requestId).toBe('fb-1');
+  });
+
+  it('getLog forwards focusUnique to GitService', async () => {
+    await dispatch({ type: 'getLog', payload: { branches: ['feature'], focusUnique: true } });
+    expect(H.git.log).toHaveBeenCalledWith(expect.objectContaining({ focusUnique: true, branches: ['feature'] }));
   });
 
   it('compareCommits diffs one side against the merge base in 3-dot mode', async () => {

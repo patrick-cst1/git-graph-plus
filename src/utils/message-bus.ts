@@ -27,7 +27,8 @@ export interface ModalDefaults {
 
 // Messages from Webview → Extension
 export type WebviewMessage =
-  | { type: 'getLog'; payload: { branch?: string; branches?: string[]; limit?: number; skip?: number; remoteFilter?: string[] } }
+  | { type: 'getLog'; payload: { branch?: string; branches?: string[]; limit?: number; skip?: number; remoteFilter?: string[]; focusUnique?: boolean } }
+  | { type: 'branchFocusBase'; payload: { branch: string; requestId: string } }
   | { type: 'setSimplify'; payload: { enabled: boolean } }
   | { type: 'getBranches' }
   | { type: 'getRepoList' }
@@ -141,6 +142,7 @@ export type WebviewMessage =
 // Messages from Extension → Webview
 export type ExtensionMessage =
   | { type: 'logData'; payload: CommitGraphData }
+  | { type: 'branchFocusBaseData'; payload: { branch: string; base: string | null; requestId: string } }
   | { type: 'branchData'; payload: BranchData }
   | { type: 'fullRefresh'; payload: { logData: CommitGraphData; branchData: BranchData } }
   | { type: 'commitDiffData'; payload: { hash?: string; diffs?: DiffData[]; files: Array<{ path: string; status: string }>; base?: string } }

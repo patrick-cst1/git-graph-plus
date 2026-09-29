@@ -546,9 +546,23 @@ export class GitService {
     ];
 
     if (options?.branches && options.branches.length > 0) {
-      for (const branch of options.branches) {
+      if (options.focusUnique && options.branches.length === 1) {
+        // Branch focus: scope the log to the branch's own commits — from its
+        // fork point (included as the boundary commit) to its tip — instead of
+        // its full ancestry, which would also show the base branch's history.
+        const branch = options.branches[0];
         this.assertSafeRef(branch, 'log');
-        args.push(branch);
+        const range = await this.uniqueRangeFor(branch);
+        if (range) {
+          args.push('--boundary', range);
+        } else {
+          args.push(branch);
+        }
+      } else {
+        for (const branch of options.branches) {
+          this.assertSafeRef(branch, 'log');
+          args.push(branch);
+        }
       }
     } else if (!options?.remoteFilter || options.remoteFilter.length === 0) {
       // Include HEAD itself as a start point: in a detached HEAD the current
@@ -1069,6 +1083,35 @@ export class GitService {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * The commit a branch was created from, approximated by the merge base with
+   * the repository's default branch. Null when it cannot be determined (no
+   * default branch, unrelated histories, the branch IS the default branch, or
+   * the branch is fully merged — no commits of its own). Used by branch focus
+   * to scope the graph to the branch's own commits.
+   */
+  async focusBase(branch: string): Promise<string | null> {
+    this.assertSafeRef(branch, 'merge-base');
+    try {
+      const defaultBranch = await this.defaultBranch();
+      if (!defaultBranch || defaultBranch === branch) return null;
+      const base = await this.getMergeBase(defaultBranch, branch);
+      if (!base) return null;
+      const tip = (await this.exec(['rev-parse', '--verify', '--quiet', `${branch}^{commit}`], { silent: true })).trim();
+      // No commits unique to the branch (same tip as the fork point).
+      if (!tip || tip === base) return null;
+      return base;
+    } catch {
+      return null;
+    }
+  }
+
+  /** `base..branch` when the branch has its own commits, else null. */
+  private async uniqueRangeFor(branch: string): Promise<string | null> {
+    const base = await this.focusBase(branch);
+    return base ? `${base}..${branch}` : null;
   }
 
   /**

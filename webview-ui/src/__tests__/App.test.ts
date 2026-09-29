@@ -1632,6 +1632,31 @@ describe('App — filter change handlers', () => {
     expect((lastGetLog()!.branches as string[])).toContain('feature');
   });
 
+  it('a single-branch focus scopes the log and resolves the fork point', async () => {
+    const { container } = render(App);
+    postMsg('branchData', {
+      branches: [
+        { name: 'main', current: true, ahead: 0, behind: 0, hash: 'h1' },
+        { name: 'feature', current: false, ahead: 0, behind: 0, hash: 'h2' },
+      ],
+      tags: [], remotes: [], stashes: [], worktrees: [],
+    });
+    await waitFor(() => container.querySelectorAll('.filter-btn').length >= 2);
+    globalThis.__postedMessages = [];
+    await fireEvent.click(container.querySelectorAll<HTMLButtonElement>('.filter-btn')[1]);
+    const item = Array.from(container.querySelectorAll<HTMLButtonElement>('.dd-item'))
+      .find(el => el.textContent?.includes('feature'))!;
+    await fireEvent.click(item);
+    await waitFor(() => lastGetLog() !== null);
+    // The log is scoped to the branch's own commits…
+    expect(lastGetLog()!.focusUnique).toBe(true);
+    // …and the extension is asked for its fork point.
+    const baseRequest = globalThis.__postedMessages
+      .map((m) => m.data as { type?: string; payload?: { branch?: string } })
+      .find((m) => m.type === 'branchFocusBase');
+    expect(baseRequest?.payload?.branch).toBe('feature');
+  });
+
   it('selecting a remote in the source filter posts getLog with that remoteFilter', async () => {
     const { container } = render(App);
     postMsg('branchData', {

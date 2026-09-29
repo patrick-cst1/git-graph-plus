@@ -1453,6 +1453,18 @@ export class MainPanel {
           await this.refreshAll();
           break;
         }
+        // --- Branch focus ---
+        case 'branchFocusBase': {
+          // The commit a branch was created from (merge base with the default
+          // branch) so the webview can scope the dim/filter focus to the
+          // branch's own commits. Null when it cannot be determined.
+          const base = await this.gitService.focusBase(message.payload.branch);
+          this.post({
+            type: 'branchFocusBaseData',
+            payload: { branch: message.payload.branch, base, requestId: message.payload.requestId },
+          });
+          break;
+        }
         // --- Statistics ---
         case 'getStats': {
           const [byAuthor, byWeekdayHour] = await Promise.all([

@@ -49,6 +49,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
   import { tooltip } from './lib/actions/tooltip';
   import DirtyActionModal from './components/modals/DirtyActionModal.svelte';
   import { dragRebaseMessage, dragMergeMessage } from './lib/utils/dragDrop';
+  import { collectFocusHashes } from './lib/utils/focus-set';
 
   const vscode = getVsCodeApi();
 
@@ -67,6 +68,12 @@ import AmendModal from './components/modals/AmendModal.svelte';
   // Branch focus: 'filter' removes unselected branches from the query, while
   // 'dim' keeps the full graph and fades everything outside the selection.
   let focusMode = $state<'filter' | 'dim'>('filter');
+  // Fork point of the single focused branch (merge base with the default
+  // branch), resolved by the extension. When set, both focus modes cover only
+  // the branch's own commits — from that commit to its tip — instead of the
+  // branch's full ancestry (which would include the base branch's history).
+  let focusBaseHash = $state<string | null>(null);
+  let focusBaseRequestId = '';
   // Branches hidden from the graph for this webview session (excluded from the
   // log query; session-only, not persisted).
   let hiddenBranches = $state<string[]>([]);
@@ -224,6 +231,11 @@ import AmendModal from './components/modals/AmendModal.svelte';
           uiStore.repos = msg.payload.repos;
           uiStore.activeRepo = msg.payload.active;
           commitStore.notGitRepo = false;
+          break;
+        case 'branchFocusBaseData':
+          // Stale responses (the user switched focus while it was resolving).
+          if (msg.payload.requestId !== focusBaseRequestId) break;
+          focusBaseHash = msg.payload.base;
           break;
         case 'tagDetailsData':
           tagDetails = msg.payload;
@@ -437,11 +449,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
     commitStore.setLoading(true);
     vscode.postMessage({
       type: 'getLog',
-      payload: {
-        limit: commitStore.currentLimit || undefined,
-        branches: effectiveLogBranches(),
-        remoteFilter: filter.length > 0 ? [...filter] : undefined,
-      },
+      payload: { limit: commitStore.currentLimit || undefined, ...filterQueryExtras() },
     });
   }
 
@@ -462,12 +470,19 @@ import AmendModal from './components/modals/AmendModal.svelte';
     commitStore.setLoading(true);
     vscode.postMessage({
       type: 'getLog',
-      payload: {
-        limit: commitStore.currentLimit || undefined,
-        branches: effectiveLogBranches(),
-        remoteFilter: remoteFilter.length > 0 ? [...remoteFilter] : undefined,
-      },
+      payload: { limit: commitStore.currentLimit || undefined, ...filterQueryExtras() },
     });
+  }
+
+  // The filter scope of every log query. The graph's "Load more" uses the same
+  // extras so paging never drops the branch/remote/focus scope (the initial and
+  // filter queries share them through this helper).
+  function filterQueryExtras(): { branches?: string[]; remoteFilter?: string[]; focusUnique?: boolean } {
+    return {
+      branches: effectiveLogBranches(),
+      remoteFilter: remoteFilter.length > 0 ? [...remoteFilter] : undefined,
+      focusUnique: focusMode === 'filter' && branchFilter.length === 1 ? true : undefined,
+    };
   }
 
   function handleBranchFilterChange(branches: string[]) {
@@ -505,29 +520,33 @@ import AmendModal from './components/modals/AmendModal.svelte';
     vscode.postMessage({ type: 'setSimplify', payload: { enabled } });
   }
 
-  // Commits reachable from the focused branches ('dim' mode): everything else
-  // is faded. Null = no dimming (not in dim mode, or nothing selected).
+  // Branch focus (single branch): ask the extension for the commit the branch
+  // was created from, so both focus modes cover only the branch's own commits.
+  $effect(() => {
+    const single = branchFilter.length === 1 ? branchFilter[0] : null;
+    if (!single) {
+      focusBaseHash = null;
+      return;
+    }
+    const requestId = `fb-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    focusBaseRequestId = requestId;
+    focusBaseHash = null;
+    vscode.postMessage({ type: 'branchFocusBase', payload: { branch: single, requestId } });
+  });
+
+  // Commits covered by the focused branches ('dim' mode): everything else is
+  // faded. Stops at the fork point when the base is known, so the base branch's
+  // earlier history is not highlighted as part of the focused branch.
+  // Null = no dimming (not in dim mode, or nothing selected).
   const dimFocusHashes = $derived.by<Set<string> | null>(() => {
     if (focusMode !== 'dim' || branchFilter.length === 0) return null;
     const focus = new Set(branchFilter);
-    const byHash = new Map(commitStore.commits.map(c => [c.hash, c]));
-    const stack: string[] = [];
-    for (const c of commitStore.commits) {
-      if (c.refs.some(r => (r.type === 'branch' || r.type === 'head' || r.type === 'remote-branch')
-        && (focus.has(r.name) || (r.type === 'remote-branch' && r.remote && focus.has(`${r.remote}/${r.name}`))))) {
-        stack.push(c.hash);
-      }
-    }
-    if (stack.length === 0) return null;
-    const seen = new Set<string>();
-    while (stack.length > 0) {
-      const h = stack.pop()!;
-      if (seen.has(h)) continue;
-      seen.add(h);
-      const c = byHash.get(h);
-      if (c) for (const p of c.parents) if (!seen.has(p)) stack.push(p);
-    }
-    return seen;
+    return collectFocusHashes(
+      commitStore.commits,
+      (c) => c.refs.some(r => (r.type === 'branch' || r.type === 'head' || r.type === 'remote-branch')
+        && (focus.has(r.name) || (r.type === 'remote-branch' && r.remote && focus.has(`${r.remote}/${r.name}`)))),
+      focusBaseHash,
+    );
   });
 
   // Draggable resize handle - track active listeners for cleanup
@@ -699,7 +718,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
       {/if}
       {#if !uiStore.commitDetailFullscreen}
         <div class="graph-area">
-          <CommitGraph {searchMatchedHashes} {searchNavigateHash} searchNavigateNonce={searchNavigateNonce} headJumpNonce={headJumpNonce} onHeadOffscreenChange={(v) => headOffscreen = v} bisectActive={bisectMessage !== null} bisectCulpritHash={bisectMessage?.includes('is the first bad commit') ? bisectMessage.match(/^([a-f0-9]{7,40})/)?.[1] ?? null : null} {remoteFilter} {dimFocusHashes} />
+          <CommitGraph {searchMatchedHashes} {searchNavigateHash} searchNavigateNonce={searchNavigateNonce} headJumpNonce={headJumpNonce} onHeadOffscreenChange={(v) => headOffscreen = v} bisectActive={bisectMessage !== null} bisectCulpritHash={bisectMessage?.includes('is the first bad commit') ? bisectMessage.match(/^([a-f0-9]{7,40})/)?.[1] ?? null : null} {remoteFilter} {dimFocusHashes} logQueryExtras={filterQueryExtras} />
         </div>
       {/if}
       {#if uiStore.showBottomPanel && (uiStore.selectedCommitHash || uiStore.comparing)}

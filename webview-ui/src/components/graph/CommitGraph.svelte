@@ -48,9 +48,12 @@
     dimFocusHashes?: Set<string> | null;
     headJumpNonce?: number;
     onHeadOffscreenChange?: (offscreen: boolean) => void;
+    /** Filter scope (branches / remote / focus) sent with every log query so
+     *  "Load more" pages the same scoped log instead of dropping the filters. */
+    logQueryExtras?: () => { branches?: string[]; remoteFilter?: string[]; focusUnique?: boolean };
   }
 
-  let { searchMatchedHashes = null, searchNavigateHash = null, searchNavigateNonce = 0, bisectActive = false, bisectCulpritHash = null, remoteFilter = [], dimFocusHashes = null, headJumpNonce = 0, onHeadOffscreenChange = () => {} }: Props = $props();
+  let { searchMatchedHashes = null, searchNavigateHash = null, searchNavigateNonce = 0, bisectActive = false, bisectCulpritHash = null, remoteFilter = [], dimFocusHashes = null, headJumpNonce = 0, onHeadOffscreenChange = () => {}, logQueryExtras = () => ({}) }: Props = $props();
 
   const vscode = getVsCodeApi();
 
@@ -557,7 +560,10 @@
   function loadMore() {
     if (!commitStore.hasMore || commitStore.loadingMore) return;
     commitStore.setLoadingMore(true);
-    vscode.postMessage({ type: 'getLog', payload: { limit: commitStore.currentLimit + uiStore.loadMoreCount } });
+    vscode.postMessage({
+      type: 'getLog',
+      payload: { limit: commitStore.currentLimit + uiStore.loadMoreCount, ...logQueryExtras() },
+    });
   }
 
   // Issue #61: with the opt-in setting on, fetch the next chunk as soon as the

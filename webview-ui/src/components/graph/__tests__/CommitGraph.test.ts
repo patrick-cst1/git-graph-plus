@@ -688,6 +688,25 @@ describe('CommitGraph auto-load history (issue #61)', () => {
     expect(commitStore.loadingMore).toBe(true);
   });
 
+  it('carries the filter scope extras on Load more', async () => {
+    commitStore.setData(graphDataWithMore());
+    const { container } = render(CommitGraph, {
+      logQueryExtras: () => ({ branches: ['feature'], remoteFilter: ['local'], focusUnique: true }),
+    });
+    await tick();
+
+    const more = Array.from(container.querySelectorAll('button'))
+      .find((b) => b.textContent?.toLowerCase().includes('load more'))!;
+    expect(more).toBeTruthy();
+    await fireEvent.click(more);
+
+    const payload = getLogMessages()[0].payload as unknown as Record<string, unknown>;
+    expect(payload.limit).toBe(150);
+    expect(payload.branches).toEqual(['feature']);
+    expect(payload.remoteFilter).toEqual(['local']);
+    expect(payload.focusUnique).toBe(true);
+  });
+
   it('does nothing on scroll when the setting is disabled', async () => {
     commitStore.setData(graphDataWithMore());
     uiStore.autoLoadHistory = false;

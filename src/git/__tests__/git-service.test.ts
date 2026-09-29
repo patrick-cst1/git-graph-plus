@@ -267,6 +267,70 @@ describe('GitService', () => {
     });
   });
 
+  describe('branch focus (focusBase / focusUnique)', () => {
+    let calls: string[][];
+
+    beforeEach(() => {
+      calls = [];
+      (service as any).cachedRemoteNames = [];
+      (service as any).remoteNamesCacheTime = Date.now();
+      mockExec(service, async (args) => { calls.push(args); return ''; });
+    });
+
+    it('focusBase resolves the fork point when the branch has its own commits', async () => {
+      vi.spyOn(service, 'defaultBranch').mockResolvedValue('main');
+      vi.spyOn(service, 'getMergeBase').mockResolvedValue('base1');
+      mockExec(service, async (args) => {
+        if (args[0] === 'rev-parse') return 'tip1\n';
+        return '';
+      });
+
+      expect(await service.focusBase('feature')).toBe('base1');
+    });
+
+    it('focusBase returns null for the default branch, merged branches and failures', async () => {
+      vi.spyOn(service, 'defaultBranch').mockResolvedValue('main');
+      expect(await service.focusBase('main')).toBeNull();
+
+      vi.spyOn(service, 'getMergeBase').mockResolvedValue('base1');
+      mockExec(service, async (args) => {
+        if (args[0] === 'rev-parse') return 'base1\n'; // tip === base: fully merged
+        return '';
+      });
+      expect(await service.focusBase('merged')).toBeNull();
+
+      mockExec(service, async () => { throw new Error('boom'); });
+      expect(await service.focusBase('nope')).toBeNull();
+    });
+
+    it('log with focusUnique scopes a single branch to its own range', async () => {
+      vi.spyOn(service as any, 'uniqueRangeFor').mockResolvedValue('base1..feature');
+      await service.log({ branches: ['feature'], focusUnique: true, includeStashes: false });
+
+      const logCall = calls.find(c => c[0] === 'log')!;
+      expect(logCall).toContain('--boundary');
+      expect(logCall).toContain('base1..feature');
+    });
+
+    it('log with focusUnique falls back to the plain branch without a range', async () => {
+      vi.spyOn(service as any, 'uniqueRangeFor').mockResolvedValue(null);
+      await service.log({ branches: ['main'], focusUnique: true, includeStashes: false });
+
+      const logCall = calls.find(c => c[0] === 'log')!;
+      expect(logCall).toContain('main');
+      expect(logCall).not.toContain('--boundary');
+    });
+
+    it('log with several branches ignores focusUnique', async () => {
+      await service.log({ branches: ['a', 'b'], focusUnique: true, includeStashes: false });
+
+      const logCall = calls.find(c => c[0] === 'log')!;
+      expect(logCall).toContain('a');
+      expect(logCall).toContain('b');
+      expect(logCall).not.toContain('--boundary');
+    });
+  });
+
   describe('ref safety validation', () => {
     it('checkout rejects ref starting with -', async () => {
       await expect(service.checkout('-foo')).rejects.toThrow("must not start with '-'");
