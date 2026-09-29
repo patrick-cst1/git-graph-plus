@@ -1826,3 +1826,33 @@ describe('App — search result highlighting', () => {
     expect(container.querySelector('.commit-row.search-dim')).not.toBeNull();
   });
 });
+
+describe('App — simplify toggle', () => {
+  it('clicking the Simplify button posts setSimplify and marks the toggle active', async () => {
+    const { container } = render(App);
+    const btn = await waitFor(() => container.querySelector<HTMLButtonElement>('.simplify-btn')!);
+    expect(btn.classList.contains('active')).toBe(false);
+
+    globalThis.__postedMessages = [];
+    await fireEvent.click(btn);
+
+    const req = globalThis.__postedMessages.find(
+      m => (m.data as { type?: string }).type === 'setSimplify'
+    ) as { data: { payload: { enabled: boolean } } } | undefined;
+    expect(req).toBeDefined();
+    expect(req!.data.payload.enabled).toBe(true);
+    await waitFor(() => expect(btn.classList.contains('active')).toBe(true));
+  });
+
+  it('logData echo restores the toggle state (e.g. after a webview reload)', async () => {
+    const { container } = render(App);
+    const btn = await waitFor(() => container.querySelector<HTMLButtonElement>('.simplify-btn')!);
+    expect(btn.classList.contains('active')).toBe(false);
+
+    postMsg('logData', {
+      commits: [], graph: [], hasMore: false, currentLimit: 100, simplify: true,
+    });
+
+    await waitFor(() => expect(btn.classList.contains('active')).toBe(true));
+  });
+});

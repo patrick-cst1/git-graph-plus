@@ -320,6 +320,8 @@ export const ko: Record<string, string> = {
   'search.showAll': '모두 표시',
   'search.focusLabel': '포커스: {name}',
   'search.clearFocus': '포커스 해제',
+  'search.simplify': '간소화',
+  'search.simplifyTooltip': '구조적 커밋만 표시: 팁, 병합, 분기점',
 
   // Activity log
   'activityLog.title': '활동 로그',

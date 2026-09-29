@@ -806,3 +806,70 @@ describe('MainPanel revealCommitInGraph (Show in Graph for unloaded commits)', (
     expect('pinnedHash' in data.payload!).toBe(false);
   });
 });
+
+describe('MainPanel simplify toggle', () => {
+  const mkCommit = (hash: string, parents: string[] = [], refs: Array<Record<string, unknown>> = []) => ({
+    ...commit(hash),
+    parents,
+    refs,
+  });
+  // a (tip) → b (linear) → c (root/boundary): only a and c are structural.
+  const chain = () => [
+    mkCommit('aaaaaaa1', ['bbbbbbb2'], [{ type: 'head', name: 'main' }]),
+    mkCommit('bbbbbbb2', ['ccccccc3']),
+    mkCommit('ccccccc3'),
+  ];
+
+  it('setSimplify recomputes from the cached log without another git call', async () => {
+    H.git.log.mockResolvedValue(chain() as never);
+    await dispatch({ type: 'getLog', payload: { limit: 10 } });
+    const callsBefore = H.git.log.mock.calls.length;
+    const postsBefore = postedOfType('logData').length;
+
+    await dispatch({ type: 'setSimplify', payload: { enabled: true } });
+
+    expect(H.git.log.mock.calls.length).toBe(callsBefore);
+    expect(postedOfType('logData').length).toBe(postsBefore + 1);
+    const data = postedOfType('logData').at(-1)!;
+    expect(data.payload!.simplify).toBe(true);
+    const commits = data.payload!.commits as Array<{ hash: string; parents: string[] }>;
+    expect(commits.map(c => c.hash)).toEqual(['aaaaaaa1', 'ccccccc3']);
+    // The hidden middle commit's parent chain is folded onto the root.
+    expect(commits[0].parents).toEqual(['ccccccc3']);
+  });
+
+  it('toggling simplify off restores the full loaded log from the cache', async () => {
+    H.git.log.mockResolvedValue(chain() as never);
+    await dispatch({ type: 'getLog', payload: { limit: 10 } });
+    await dispatch({ type: 'setSimplify', payload: { enabled: true } });
+
+    await dispatch({ type: 'setSimplify', payload: { enabled: false } });
+
+    const data = postedOfType('logData').at(-1)!;
+    expect(data.payload!.simplify).toBe(false);
+    expect((data.payload!.commits as Array<{ hash: string }>).map(c => c.hash))
+      .toEqual(['aaaaaaa1', 'bbbbbbb2', 'ccccccc3']);
+  });
+
+  it('getLog applies an already-enabled simplify to freshly fetched commits', async () => {
+    // Toggled before anything was loaded: no cache, so nothing is posted yet.
+    await dispatch({ type: 'setSimplify', payload: { enabled: true } });
+    expect(postedOfType('logData').length).toBe(0);
+
+    H.git.log.mockResolvedValue(chain() as never);
+    await dispatch({ type: 'getLog', payload: {} });
+
+    const data = postedOfType('logData').at(-1)!;
+    expect(data.payload!.simplify).toBe(true);
+    expect((data.payload!.commits as Array<{ hash: string }>).map(c => c.hash))
+      .toEqual(['aaaaaaa1', 'ccccccc3']);
+  });
+
+  it('normal log payloads echo simplify: false by default', async () => {
+    H.git.log.mockResolvedValue(chain() as never);
+    await dispatch({ type: 'getLog', payload: {} });
+
+    const data = postedOfType('logData').at(-1)!;
+    expect(data.payload!.simplify).toBe(false);
+  });
+});

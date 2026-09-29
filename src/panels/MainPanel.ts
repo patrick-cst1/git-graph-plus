@@ -9,6 +9,8 @@ import { samePath } from '../utils/path';
 import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readAutoLoadHistory, readInteractiveRebaseMode, readLfsLocksEnabled, readDefaultCommitTab, readShowStashes, readShowAvatars, readShowStats, readGraphStyle } from '../utils/config';
 import { buildClassicRebaseCommand } from '../git/classic-rebase';
 import { buildFullGraph } from '../git/git-graph-builder';
+import { simplifyCommits } from '../git/graph-simplify';
+import type { Commit, BranchInfo } from '../git/types';
 import { compileBranchColorRules, makeBranchColorResolver } from '../git/branch-color-resolver';
 import { resolveGraphColors } from '../git/graph-colors';
 import { triggerVSCodeGitAuth } from '../git/vscode-git-bridge';
@@ -49,6 +51,16 @@ export class MainPanel {
   private currentBranchFilter: string[] | undefined = undefined;
   private isFirstGetLog = true;
   private logSequence = 0;
+  // Session "Simplify graph" toggle (upstream #95). Persists across webview
+  // reloads for the panel's lifetime and is echoed in every log payload.
+  private simplifyEnabled = false;
+  // Last normal (non-pinned) log result, cached so the Simplify toggle can
+  // re-derive the view from the already-loaded commits without another git
+  // call. Cleared when the panel switches repositories.
+  private lastLogCommits: Commit[] | null = null;
+  private lastLogBranches: BranchInfo[] = [];
+  private lastLogHasMore = false;
+  private lastLogIsEmptyRepo = false;
   private searchSequence = 0;
   // Two independent guards: selecting a commit (loads its file list) and
   // selecting a file (loads that file's diff) are different axes, so a file
@@ -400,6 +412,8 @@ export class MainPanel {
     this.isFirstGetLog = true;
     this.currentRemoteFilter = undefined;
     this.currentBranchFilter = undefined;
+    this.lastLogCommits = null;
+    this.lastLogBranches = [];
 
     const oldWatcher = this.fileWatcher;
     oldWatcher.dispose();
@@ -484,16 +498,23 @@ export class MainPanel {
           if (seq !== this.logSequence) break;
           const hasMore = allFetched.length > requestedLimit;
           const commits = hasMore ? allFetched.slice(0, requestedLimit) : allFetched;
-          const branchColorResolver = this.makeBranchColorResolver();
-          const fullGraph = commits.length > 0 ? buildFullGraph(commits, logBranches, branchColorResolver) : { paths: [], links: [], dots: [], commitLeftMargin: [] };
           // Distinguish a genuinely empty repository (unborn HEAD) from a
           // filter/search that simply matched nothing, so the empty state can
           // offer "create initial commit" only when it is actually valid.
           const isEmptyRepo = commits.length === 0 ? await this.gitService.isUnbornHead() : false;
+          // Cache the raw (pre-simplify) result so the Simplify toggle can
+          // recompute from the already-loaded commits without another git call.
+          this.lastLogCommits = commits;
+          this.lastLogBranches = logBranches;
+          this.lastLogHasMore = hasMore;
+          this.lastLogIsEmptyRepo = isEmptyRepo;
+          const displayCommits = this.simplifyEnabled ? simplifyCommits(commits) : commits;
+          const branchColorResolver = this.makeBranchColorResolver();
+          const fullGraph = displayCommits.length > 0 ? buildFullGraph(displayCommits, logBranches, branchColorResolver) : { paths: [], links: [], dots: [], commitLeftMargin: [] };
           this.post({
             type: 'logData',
             payload: {
-              commits,
+              commits: displayCommits,
               hasMore,
               currentLimit: requestedLimit,
               isEmptyRepo,
@@ -506,6 +527,36 @@ export class MainPanel {
               commitLeftMargin: fullGraph.commitLeftMargin,
               remoteFilter: effectiveFilter,
               branches: effectiveBranchFilter,
+              simplify: this.simplifyEnabled,
+            },
+          });
+          break;
+        }
+        case 'setSimplify': {
+          // Graph "Simplify" toggle: recompute from the cached log — the
+          // webview already has this data, so no git call is needed. A pinned
+          // slice (reflog "Show in Graph") is deliberately never simplified.
+          this.simplifyEnabled = message.payload.enabled === true;
+          const rawCommits = this.lastLogCommits;
+          if (!rawCommits) break; // nothing loaded yet; the next getLog applies it
+          const displayCommits = this.simplifyEnabled ? simplifyCommits(rawCommits) : rawCommits;
+          const simplifyColorResolver = this.makeBranchColorResolver();
+          const simplifyGraph = displayCommits.length > 0 ? buildFullGraph(displayCommits, this.lastLogBranches, simplifyColorResolver) : { paths: [], links: [], dots: [], commitLeftMargin: [] };
+          this.post({
+            type: 'logData',
+            payload: {
+              commits: displayCommits,
+              hasMore: this.lastLogHasMore,
+              currentLimit: this.currentLimit,
+              isEmptyRepo: this.lastLogIsEmptyRepo,
+              graph: [],
+              paths: simplifyGraph.paths,
+              links: simplifyGraph.links,
+              dots: simplifyGraph.dots,
+              commitLeftMargin: simplifyGraph.commitLeftMargin,
+              remoteFilter: this.currentRemoteFilter,
+              branches: this.currentBranchFilter,
+              simplify: this.simplifyEnabled,
             },
           });
           break;
@@ -1976,10 +2027,17 @@ export class MainPanel {
       const buildLogData = (allFetched: Awaited<ReturnType<typeof this.gitService.log>>, branches: Awaited<ReturnType<typeof this.gitService.branches>>, isEmptyRepo: boolean) => {
         const hasMore = allFetched.length > refreshLimit;
         const allCommits = hasMore ? allFetched.slice(0, refreshLimit) : allFetched;
+        // Keep the Simplify toggle's cache in sync with what a getLog would
+        // have cached, so toggling after a refresh recomputes the same view.
+        this.lastLogCommits = allCommits;
+        this.lastLogBranches = branches;
+        this.lastLogHasMore = hasMore;
+        this.lastLogIsEmptyRepo = isEmptyRepo;
+        const displayCommits = this.simplifyEnabled ? simplifyCommits(allCommits) : allCommits;
         // Handle empty repository (0 commits) gracefully. The webview renders from
         // paths/links/dots; the legacy GraphNode[] is unused so we don't build it.
-        const fg = allCommits.length > 0 ? buildFullGraph(allCommits, branches, this.makeBranchColorResolver()) : { paths: [], links: [], dots: [], commitLeftMargin: [] };
-        return { commits: allCommits, hasMore, currentLimit: this.currentLimit, isEmptyRepo, graph: [], paths: fg.paths, links: fg.links, dots: fg.dots, commitLeftMargin: fg.commitLeftMargin, remoteFilter, branches: branchFilter };
+        const fg = displayCommits.length > 0 ? buildFullGraph(displayCommits, branches, this.makeBranchColorResolver()) : { paths: [], links: [], dots: [], commitLeftMargin: [] };
+        return { commits: displayCommits, hasMore, currentLimit: this.currentLimit, isEmptyRepo, graph: [], paths: fg.paths, links: fg.links, dots: fg.dots, commitLeftMargin: fg.commitLeftMargin, remoteFilter, branches: branchFilter, simplify: this.simplifyEnabled };
       };
 
       if (scope === 'status') {

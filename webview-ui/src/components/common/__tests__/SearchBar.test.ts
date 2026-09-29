@@ -443,3 +443,30 @@ describe('SearchBar — jump to HEAD button', () => {
     expect(btn.classList.contains('active')).toBe(true);
   });
 });
+
+describe('SearchBar — simplify toggle', () => {
+  it('renders the toggle and reports changes', async () => {
+    const onSimplifyChange = vi.fn();
+    const { container } = render(SearchBar, { ...baseProps, onSimplifyChange });
+    const btn = container.querySelector<HTMLButtonElement>('.simplify-btn')!;
+    expect(btn).toBeTruthy();
+    expect(btn.getAttribute('aria-pressed')).toBe('false');
+    await fireEvent.click(btn);
+    expect(onSimplifyChange).toHaveBeenCalledWith(true);
+  });
+
+  it('marks the toggle active when simplify is on', () => {
+    const { container } = render(SearchBar, { ...baseProps, simplify: true });
+    const btn = container.querySelector<HTMLButtonElement>('.simplify-btn')!;
+    expect(btn.classList.contains('active')).toBe(true);
+    expect(btn.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('toggling off reports false', async () => {
+    const onSimplifyChange = vi.fn();
+    const { container } = render(SearchBar, { ...baseProps, simplify: true, onSimplifyChange });
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.simplify-btn')!);
+    expect(onSimplifyChange).toHaveBeenCalledWith(false);
+  });
+});
+

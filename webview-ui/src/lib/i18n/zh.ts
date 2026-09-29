@@ -320,6 +320,8 @@ export const zh: Record<string, string> = {
   'search.showAll': '全部显示',
   'search.focusLabel': '聚焦：{name}',
   'search.clearFocus': '清除聚焦',
+  'search.simplify': '简化',
+  'search.simplifyTooltip': '只显示结构性提交：分支端点、合并和分叉点',
 
   // Activity log
   'activityLog.title': '活动日志',

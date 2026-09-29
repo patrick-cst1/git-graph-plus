@@ -70,6 +70,10 @@ import AmendModal from './components/modals/AmendModal.svelte';
   // Branches hidden from the graph for this webview session (excluded from the
   // log query; session-only, not persisted).
   let hiddenBranches = $state<string[]>([]);
+  // "Simplify graph" toggle: show only the structural commits (tips, merges,
+  // forks) of the loaded log. The extension recomputes from its cached log —
+  // no git call — and echoes the state back in every log payload.
+  let simplify = $state(false);
   let resizing = $state(false);
   let conflict = $state<{ operation: string; files: Array<{ path: string; resolved: boolean }> } | null>(null);
   let rebasePaused = $state(false);
@@ -118,6 +122,9 @@ import AmendModal from './components/modals/AmendModal.svelte';
       switch (msg.type) {
         case 'logData':
           if (msg.payload.remoteFilter !== undefined) remoteFilter = msg.payload.remoteFilter;
+          // Echo of the session's Simplify toggle (absent on pinned slices, which
+          // are never simplified — leave the toggle as the user set it there).
+          if (msg.payload.simplify !== undefined) simplify = msg.payload.simplify;
           // The extension echoes the branches it used. In dim mode that list is
           // an internal include-list (or absent), so it must not overwrite the
           // user's focus selection; same when a hide forced an explicit list
@@ -153,6 +160,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
         case 'fullRefresh':
           remoteFilter = msg.payload.logData.remoteFilter ?? [];
           branchFilter = msg.payload.logData.branches ?? [];
+          if (msg.payload.logData.simplify !== undefined) simplify = msg.payload.logData.simplify;
           branchStore.setData(msg.payload.branchData);
           commitStore.setData(msg.payload.logData);
           pruneInvalidSelection();
@@ -475,6 +483,14 @@ import AmendModal from './components/modals/AmendModal.svelte';
     requeryLog();
   }
 
+  function handleSimplifyChange(enabled: boolean) {
+    if (simplify === enabled) return;
+    simplify = enabled;
+    // No getLog: the extension recomputes from the already-loaded commits and
+    // posts the result back (echoing `simplify`).
+    vscode.postMessage({ type: 'setSimplify', payload: { enabled } });
+  }
+
   // Commits reachable from the focused branches ('dim' mode): everything else
   // is faded. Null = no dimming (not in dim mode, or nothing selected).
   const dimFocusHashes = $derived.by<Set<string> | null>(() => {
@@ -653,6 +669,8 @@ import AmendModal from './components/modals/AmendModal.svelte';
           onHideBranch={handleHideBranch}
           onUnhideBranch={handleUnhideBranch}
           onUnhideAll={handleUnhideAll}
+          {simplify}
+          onSimplifyChange={handleSimplifyChange}
           {headOffscreen}
           onJumpToHead={handleJumpToHead}
         />

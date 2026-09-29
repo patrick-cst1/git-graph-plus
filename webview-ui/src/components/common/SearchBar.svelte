@@ -20,6 +20,8 @@
     onHideBranch?: (name: string) => void;
     onUnhideBranch?: (name: string) => void;
     onUnhideAll?: () => void;
+    simplify?: boolean;
+    onSimplifyChange?: (enabled: boolean) => void;
     headOffscreen?: boolean;
     onJumpToHead?: () => void;
   }
@@ -39,6 +41,8 @@
     onHideBranch = () => {},
     onUnhideBranch = () => {},
     onUnhideAll = () => {},
+    simplify = false,
+    onSimplifyChange = () => {},
     headOffscreen = false,
     onJumpToHead = () => {},
   }: Props = $props();
@@ -463,6 +467,17 @@
       </div>
     {/if}
   </div>
+
+  <button
+    class="filter-btn simplify-btn"
+    class:active={simplify}
+    aria-pressed={simplify}
+    onclick={() => onSimplifyChange(!simplify)}
+    use:tooltip={t('search.simplifyTooltip')}
+  >
+    <i class="codicon codicon-git-merge filter-btn-icon"></i>
+    <span class="filter-label">{t('search.simplify')}</span>
+  </button>
 </div>
 
 <style>

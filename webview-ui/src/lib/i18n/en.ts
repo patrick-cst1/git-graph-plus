@@ -320,6 +320,8 @@ export const en: Record<string, string> = {
   'search.showAll': 'Show all',
   'search.focusLabel': 'Focus: {name}',
   'search.clearFocus': 'Clear focus',
+  'search.simplify': 'Simplify',
+  'search.simplifyTooltip': 'Show only the structural commits: tips, merges and forks',
 
   // Activity log
   'activityLog.title': 'Activity Log',

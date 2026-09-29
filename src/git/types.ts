@@ -86,6 +86,9 @@ export interface CommitGraphData {
    *  a commit outside the loaded window). Absent on normal log payloads, which
    *  tells the webview to clear any pin. */
   pinnedHash?: string;
+  /** Echo of the session's "Simplify graph" toggle state so a reloaded webview
+   *  restores it. Absent on pinned slices, which are never simplified. */
+  simplify?: boolean;
 }
 
 export interface BranchInfo {
