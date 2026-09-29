@@ -207,6 +207,15 @@ describe('MainPanel construction', () => {
   it('posts the auto-load-history setting on init (default off)', () => {
     expect(postedOfType('setAutoLoadHistory').at(-1)?.payload).toEqual({ enabled: false });
   });
+
+  it('posts the resizable-columns setting on init (default off)', () => {
+    expect(postedOfType('setResizableColumns').at(-1)?.payload).toEqual({ enabled: false });
+  });
+
+  it('re-posts resizable-columns when the setting changes', () => {
+    H.configChangeHandler?.({ affectsConfiguration: (s: string) => s === 'gitGraphPlus.resizableColumns' });
+    expect(postedOfType('setResizableColumns').length).toBeGreaterThan(1);
+  });
 });
 
 describe('MainPanel message routing', () => {

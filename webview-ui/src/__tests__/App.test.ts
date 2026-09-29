@@ -37,6 +37,7 @@ function resetStores() {
   uiStore.autoLoadHistory = false;
   uiStore.graphStyle = 'rounded';
   uiStore.showStats = false;
+  uiStore.resizableColumns = false;
   uiStore.setError(null);
   // modalStore is a singleton across tests; one stuck open modal will render
   // through every subsequent App mount and break unrelated assertions.

@@ -189,6 +189,9 @@ import AmendModal from './components/modals/AmendModal.svelte';
           // The Stats view is only reachable while enabled; leave it if hidden.
           if (!uiStore.showStats && uiStore.viewMode === 'stats') uiStore.viewMode = 'graph';
           break;
+        case 'setResizableColumns':
+          uiStore.resizableColumns = msg.payload.enabled;
+          break;
         case 'setLoadMoreCount':
           uiStore.loadMoreCount = msg.payload.count;
           break;

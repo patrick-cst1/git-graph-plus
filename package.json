@@ -413,6 +413,11 @@
           "default": false,
           "markdownDescription": "Show the **Stats** view (author and commit-time charts) in the toolbar. Off by default."
         },
+        "gitGraphPlus.resizableColumns": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Make the commit list's **Author / SHA / Date** columns adjustable: drag a column border in the header to resize it and right-click the header to show or hide columns. Off by default — when off the columns keep their fixed widths."
+        },
         "gitGraphPlus.interactiveRebase.mode": {
           "type": "string",
           "enum": ["ui", "classic"],

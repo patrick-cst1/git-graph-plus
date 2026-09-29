@@ -89,6 +89,7 @@ beforeEach(() => {
   uiStore.autoLoadHistory = false;
   uiStore.loadMoreCount = 50;
   uiStore.graphStyle = 'rounded';
+  uiStore.resizableColumns = false;
   modalStore.closeAll();
 });
 
@@ -804,8 +805,33 @@ describe('CommitGraph branch focus dimming', () => {
 });
 
 describe('CommitGraph column layout', () => {
-  beforeEach(() => { localStorage.removeItem('gitGraphPlus.columnPrefs'); });
-  afterEach(() => { localStorage.removeItem('gitGraphPlus.columnPrefs'); });
+  beforeEach(() => {
+    localStorage.removeItem('gitGraphPlus.columnPrefs');
+    // The adjustable-columns feature is opt-in (gitGraphPlus.resizableColumns).
+    uiStore.resizableColumns = true;
+  });
+  afterEach(() => {
+    localStorage.removeItem('gitGraphPlus.columnPrefs');
+    uiStore.resizableColumns = false;
+  });
+
+  it('keeps the fixed columns (no handles, no header menu) by default', async () => {
+    uiStore.resizableColumns = false;
+    commitStore.setData(makeGraphData([makeCommit('h1', 'first')]));
+    const { container } = render(CommitGraph, {});
+    await tick();
+    // All three columns render at their fixed widths, without inline widths.
+    const author = container.querySelector('.graph-header .col-author') as HTMLElement;
+    expect(author).toBeTruthy();
+    expect(author.style.width).toBe('');
+    expect(container.querySelector('.graph-header .col-hash')).toBeTruthy();
+    expect(container.querySelector('.graph-header .col-date')).toBeTruthy();
+    // No resize handles, and a right-click does not open the column menu.
+    expect(container.querySelector('.graph-header .col-resize')).toBeNull();
+    await fireEvent.contextMenu(container.querySelector('.graph-header')!);
+    await tick();
+    expect(container.querySelector('.menu-item')).toBeNull();
+  });
 
   it('hides a column via the header context menu and persists the choice', async () => {
     commitStore.setData(makeGraphData([makeCommit('h1', 'first')]));

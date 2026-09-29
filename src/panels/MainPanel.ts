@@ -6,7 +6,7 @@ import { GitService, GitError } from '../git/git-service';
 import { formatGitError, isAuthFailure, transportFromRemoteUrl } from '../git/git-error-formatter';
 import { splitUpstreamRef } from '../git/git-parser';
 import { samePath } from '../utils/path';
-import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readAutoLoadHistory, readInteractiveRebaseMode, readLfsLocksEnabled, readDefaultCommitTab, readShowStashes, readShowAvatars, readShowStats, readGraphStyle } from '../utils/config';
+import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readAutoLoadHistory, readInteractiveRebaseMode, readLfsLocksEnabled, readDefaultCommitTab, readShowStashes, readShowAvatars, readShowStats, readGraphStyle, readResizableColumns } from '../utils/config';
 import { buildClassicRebaseCommand } from '../git/classic-rebase';
 import { buildFullGraph } from '../git/git-graph-builder';
 import { simplifyCommits } from '../git/graph-simplify';
@@ -268,6 +268,9 @@ export class MainPanel {
         if (e.affectsConfiguration('gitGraphPlus.showStats')) {
           this.post({ type: 'setShowStats', payload: { enabled: readShowStats() } });
         }
+        if (e.affectsConfiguration('gitGraphPlus.resizableColumns')) {
+          this.post({ type: 'setResizableColumns', payload: { enabled: readResizableColumns() } });
+        }
         if (e.affectsConfiguration('gitGraphPlus.graphStyle')) {
           this.post({ type: 'setGraphStyle', payload: { style: readGraphStyle() } });
         }
@@ -330,6 +333,7 @@ export class MainPanel {
     this.post({ type: 'setInteractiveRebaseMode', payload: { mode: readInteractiveRebaseMode() } });
     this.post({ type: 'setShowAvatars', payload: { enabled: readShowAvatars() } });
     this.post({ type: 'setShowStats', payload: { enabled: readShowStats() } });
+    this.post({ type: 'setResizableColumns', payload: { enabled: readResizableColumns() } });
     void this.postCommitLinkRules();
   }
 

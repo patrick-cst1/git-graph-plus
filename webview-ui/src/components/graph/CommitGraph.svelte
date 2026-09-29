@@ -346,24 +346,29 @@
   let navPath = $state<string[]>([]);
   let viewportWidth = $state(800);
 
-  // Right-side columns (author + sha + date): resizable via the header, each
-  // one hideable via the header context menu, persisted per webview.
+  // Right-side columns (author + sha + date). Resizing and hiding are opt-in
+  // via `gitGraphPlus.resizableColumns`; when that is off the columns keep the
+  // original fixed layout (no handles, no header menu).
   type ColKey = 'author' | 'hash' | 'date';
   const COLUMN_PREFS_KEY = 'gitGraphPlus.columnPrefs';
   const COL_MIN_WIDTH = 60;
   const COL_MAX_WIDTH = 400;
   const DEFAULT_COLUMN_WIDTHS: Record<ColKey, number> = { author: 120, hash: 75, date: 150 };
   const COL_KEYS: ColKey[] = ['author', 'hash', 'date'];
+  const FIXED_RIGHT_COLS_WIDTH = DEFAULT_COLUMN_WIDTHS.author + DEFAULT_COLUMN_WIDTHS.hash + DEFAULT_COLUMN_WIDTHS.date;
   let columnPrefs = $state({
     widths: { ...DEFAULT_COLUMN_WIDTHS },
     visible: { author: true, hash: true, date: true },
   });
   const columnWidths = $derived(columnPrefs.widths);
   const columnVisible = $derived(columnPrefs.visible);
+  const columnsAdjustable = $derived(uiStore.resizableColumns);
   const rightColsWidth = $derived(
-    (columnVisible.author ? columnWidths.author : 0) +
-    (columnVisible.hash ? columnWidths.hash : 0) +
-    (columnVisible.date ? columnWidths.date : 0)
+    !columnsAdjustable
+      ? FIXED_RIGHT_COLS_WIDTH
+      : (columnVisible.author ? columnWidths.author : 0) +
+        (columnVisible.hash ? columnWidths.hash : 0) +
+        (columnVisible.date ? columnWidths.date : 0)
   );
   const MIN_MESSAGE_WIDTH = 120;
 
@@ -1487,11 +1492,12 @@
     {#if false}{/if}
 
     <!-- Author / hash / date cells, shared by the in-row meta (normal mode) and the
-         pinned overlay (horizontal-scroll mode). Widths and visibility come from
-         the user-adjustable column layout (header drag / context menu). -->
+         pinned overlay (horizontal-scroll mode). With `resizableColumns` on, the
+         widths and visibility come from the user-adjustable column layout
+         (header drag / context menu); otherwise the original fixed layout. -->
     {#snippet metaCells(commit: typeof displayCommits[0])}
-      {#if columnVisible.author}
-        <div class="col-author" style="width: {columnWidths.author}px">
+      {#if !columnsAdjustable || columnVisible.author}
+        <div class="col-author" style={columnsAdjustable ? `width: ${columnWidths.author}px` : ''}>
           {#if commit.hash !== 'UNCOMMITTED'}
             <span class="author-id" use:tooltip={commit.author.name}>
               {#if avatarStore.enabled}
@@ -1511,44 +1517,50 @@
           {/if}
         </div>
       {/if}
-      {#if columnVisible.hash}
-        <div class="col-hash" style="width: {columnWidths.hash}px" use:tooltip={commit.hash !== 'UNCOMMITTED' ? commit.hash : ''}>{commit.hash !== 'UNCOMMITTED' ? commit.abbreviatedHash : ''}</div>
+      {#if !columnsAdjustable || columnVisible.hash}
+        <div class="col-hash" style={columnsAdjustable ? `width: ${columnWidths.hash}px` : ''} use:tooltip={commit.hash !== 'UNCOMMITTED' ? commit.hash : ''}>{commit.hash !== 'UNCOMMITTED' ? commit.abbreviatedHash : ''}</div>
       {/if}
-      {#if columnVisible.date}
-        <div class="col-date" style="width: {columnWidths.date}px" use:tooltip={commit.hash !== 'UNCOMMITTED' ? new Date(commit.author.date).toLocaleString() : ''}>{commit.hash !== 'UNCOMMITTED' ? formatDate(commit.author.date) : ''}</div>
+      {#if !columnsAdjustable || columnVisible.date}
+        <div class="col-date" style={columnsAdjustable ? `width: ${columnWidths.date}px` : ''} use:tooltip={commit.hash !== 'UNCOMMITTED' ? new Date(commit.author.date).toLocaleString() : ''}>{commit.hash !== 'UNCOMMITTED' ? formatDate(commit.author.date) : ''}</div>
       {/if}
     {/snippet}
 
-    <!-- Column headers. Drag a column border to resize it; right-click to choose
-         which columns are shown. -->
+    <!-- Column headers. With `resizableColumns` on: drag a column border to
+         resize it and right-click to choose which columns are shown. -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
       class="graph-header"
       style={contentWidth ? `width: ${contentWidth}px;` : ''}
-      oncontextmenu={onHeaderContextMenu}
-      use:tooltip={t('graph.headerMenuTooltip')}
+      oncontextmenu={columnsAdjustable ? onHeaderContextMenu : undefined}
+      use:tooltip={columnsAdjustable ? t('graph.headerMenuTooltip') : undefined}
     >
       <div class="col-message">{t('graph.description')}</div>
       <div class="col-meta">
-        {#if columnVisible.author}
-          <div class="col-author" style="width: {columnWidths.author}px">
+        {#if !columnsAdjustable || columnVisible.author}
+          <div class="col-author" style={columnsAdjustable ? `width: ${columnWidths.author}px` : ''}>
             {t('graph.author')}
-            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-            <span class="col-resize" role="separator" aria-label={t('graph.author')} onmousedown={(e) => startColumnResize(e, 'author')}></span>
+            {#if columnsAdjustable}
+              <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+              <span class="col-resize" role="separator" aria-label={t('graph.author')} onmousedown={(e) => startColumnResize(e, 'author')}></span>
+            {/if}
           </div>
         {/if}
-        {#if columnVisible.hash}
-          <div class="col-hash" style="width: {columnWidths.hash}px">
+        {#if !columnsAdjustable || columnVisible.hash}
+          <div class="col-hash" style={columnsAdjustable ? `width: ${columnWidths.hash}px` : ''}>
             {t('graph.sha')}
-            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-            <span class="col-resize" role="separator" aria-label={t('graph.sha')} onmousedown={(e) => startColumnResize(e, 'hash')}></span>
+            {#if columnsAdjustable}
+              <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+              <span class="col-resize" role="separator" aria-label={t('graph.sha')} onmousedown={(e) => startColumnResize(e, 'hash')}></span>
+            {/if}
           </div>
         {/if}
-        {#if columnVisible.date}
-          <div class="col-date" style="width: {columnWidths.date}px">
+        {#if !columnsAdjustable || columnVisible.date}
+          <div class="col-date" style={columnsAdjustable ? `width: ${columnWidths.date}px` : ''}>
             {t('graph.date')}
-            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-            <span class="col-resize" role="separator" aria-label={t('graph.date')} onmousedown={(e) => startColumnResize(e, 'date')}></span>
+            {#if columnsAdjustable}
+              <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+              <span class="col-resize" role="separator" aria-label={t('graph.date')} onmousedown={(e) => startColumnResize(e, 'date')}></span>
+            {/if}
           </div>
         {/if}
       </div>

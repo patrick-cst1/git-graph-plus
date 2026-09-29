@@ -37,6 +37,10 @@ class UiStore {
   // `gitGraphPlus.showStats` — the Stats view is opt-in. When false the toolbar
   // tab is hidden and Ctrl+3 / viewMode is forced back to the graph.
   showStats = $state(false);
+  // `gitGraphPlus.resizableColumns` — opt-in. When false the Author / SHA /
+  // Date columns keep their fixed widths and the header has no resize handles
+  // or context menu.
+  resizableColumns = $state(false);
   graphStyle = $state<GraphStyle>('rounded');
   interactiveRebaseMode = $state<InteractiveRebaseMode>('ui');
   // Which tab the commit-details panel opens on when a commit is selected

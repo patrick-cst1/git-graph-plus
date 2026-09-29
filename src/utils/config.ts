@@ -135,3 +135,12 @@ export function readShowAvatars(): boolean {
 export function readShowStats(): boolean {
   return vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('showStats', false) === true;
 }
+
+/**
+ * Reads `gitGraphPlus.resizableColumns` — whether the Author / SHA / Date
+ * columns can be resized (drag the header border) and hidden (right-click the
+ * header). Defaults to false; only an explicit `true` enables it.
+ */
+export function readResizableColumns(): boolean {
+  return vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('resizableColumns', false) === true;
+}
