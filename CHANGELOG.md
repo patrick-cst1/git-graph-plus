@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.36
+
+- Branch focus now also scopes a **merged** branch to its own commits: the fork
+  point is resolved from the branch's own reflog (`branch: Created from …`)
+  first, which survives merging — the merge base alone collapses to the branch
+  tip once the work is in the default branch (previously that fell back to the
+  full history, so the base branch's earlier commits kept showing / stayed
+  un-dimmed). The merge base remains the fallback, and a reflog point that is no
+  longer an ancestor of the tip (e.g. after a rebase) is ignored.
+
 ## 0.7.35
 
 - Branch focus now covers only the branch's **own commits**, from its fork point
