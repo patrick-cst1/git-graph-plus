@@ -192,6 +192,9 @@ export const zh: Record<string, string> = {
   'graph.deleteRemoteBranch': '删除远程分支',
   'graph.removeWorktree': '移除工作树',
   'graph.setUpstream': '设置上游',
+  'graph.pushBranch': "推送 '{branch}'",
+  'graph.pullBranch': "拉取 '{branch}'",
+  'graph.fetchIntoLocal': "抓取到 '{local}'",
 
   // Reset modal
   'reset.title': '重置到 {hash}',

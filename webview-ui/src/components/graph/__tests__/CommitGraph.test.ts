@@ -975,8 +975,7 @@ describe('CommitGraph ref badge clicks', () => {
   });
 });
 
-describe('CommitGraph compare diff modes', () => {
-  function comparePosts() {
+describe('CommitGraph compare diff modes', () => {  function comparePosts() {
     return globalThis.__postedMessages
       .map(m => m.data as { type?: string; payload?: Record<string, unknown> })
       .filter(m => m.type === 'compareCommits');
@@ -1000,5 +999,168 @@ describe('CommitGraph compare diff modes', () => {
       expect(comparePosts().pop()?.payload?.mode).toBe('ref2');
     });
     expect(comparePosts().pop()?.payload?.ref2).toBe('h1');
+  });
+});
+
+describe('CommitGraph branch sync context menu', () => {
+  const originRemote = { name: 'origin', fetchUrl: 'https://example.com/repo.git', pushUrl: 'https://example.com/repo.git' };
+
+  beforeEach(() => {
+    branchStore.remotes = [];
+    // Earlier describes leave the multi-select armed, which would replace the
+    // single-commit menu (with its ref submenus) with the selection menu.
+    uiStore.multiSelectArmed = false;
+    uiStore.selectedCommitHashes = [];
+  });
+
+  function setupNonCurrentBranch() {
+    const head = makeCommit('h1', 'first');
+    head.refs = [{ type: 'head', name: 'main' }];
+    const feat = makeCommit('h2', 'feat work', ['h1']);
+    feat.refs = [{ type: 'branch', name: 'develop' }];
+    commitStore.setData(makeGraphData([feat, head]));
+    branchStore.branches = [
+      { name: 'main', current: true, ahead: 0, behind: 0, hash: 'h1' },
+      { name: 'develop', current: false, ahead: 0, behind: 0, hash: 'h2' },
+    ];
+    branchStore.remotes = [originRemote];
+  }
+
+  async function openRefSubmenu(container: HTMLElement, parentText: string) {
+    const parent = Array.from(container.querySelectorAll<HTMLElement>('button.menu-item.has-children'))
+      .find(el => (el.textContent ?? '').includes(parentText));
+    expect(parent).toBeTruthy();
+    await fireEvent.mouseEnter(parent!);
+    await tick();
+  }
+
+  function findLeaf(container: HTMLElement, text: string) {
+    return Array.from(container.querySelectorAll<HTMLElement>('*'))
+      .find(el => el.children.length === 0 && (el.textContent ?? '').trim() === text);
+  }
+
+  function postedOfType(type: string) {
+    return globalThis.__postedMessages
+      .map(m => m.data as { type?: string; payload?: Record<string, unknown> })
+      .filter(m => m.type === type);
+  }
+
+  it('offers Push on a non-current branch and posts pushBranch', async () => {
+    setupNonCurrentBranch();
+    const { container } = render(CommitGraph, {});
+    await tick();
+    globalThis.__postedMessages = [];
+    await fireEvent.contextMenu(container.querySelectorAll<HTMLElement>('.commit-row')[0], { clientX: 10, clientY: 10 });
+    await tick();
+    await openRefSubmenu(container, 'develop');
+    const item = findLeaf(container, "Push 'develop'");
+    expect(item).toBeTruthy();
+    await fireEvent.click(item!);
+    await tick();
+    expect(postedOfType('pushBranch')[0]?.payload?.branch).toBe('develop');
+  });
+
+  it('offers Push on a worktree-linked branch', async () => {
+    setupNonCurrentBranch();
+    branchStore.worktrees = [
+      { path: 'C:/wt', hash: 'h2', branch: 'develop', detached: false, locked: false, prunable: false, isMain: false },
+    ];
+    const { container } = render(CommitGraph, {});
+    await tick();
+    globalThis.__postedMessages = [];
+    await fireEvent.contextMenu(container.querySelectorAll<HTMLElement>('.commit-row')[0], { clientX: 10, clientY: 10 });
+    await tick();
+    await openRefSubmenu(container, 'develop');
+    const item = findLeaf(container, "Push 'develop'");
+    expect(item).toBeTruthy();
+    await fireEvent.click(item!);
+    await tick();
+    expect(postedOfType('pushBranch')[0]?.payload?.branch).toBe('develop');
+  });
+
+  it('offers Pull on a non-current branch with a same-named remote branch and posts pullBranch', async () => {
+    setupNonCurrentBranch();
+    branchStore.branches = [
+      ...branchStore.branches,
+      { name: 'origin/develop', remote: 'origin', current: false, ahead: 0, behind: 0, hash: 'h2' },
+    ];
+    const { container } = render(CommitGraph, {});
+    await tick();
+    globalThis.__postedMessages = [];
+    await fireEvent.contextMenu(container.querySelectorAll<HTMLElement>('.commit-row')[0], { clientX: 10, clientY: 10 });
+    await tick();
+    await openRefSubmenu(container, 'develop');
+    const item = findLeaf(container, "Pull 'develop'");
+    expect(item).toBeTruthy();
+    await fireEvent.click(item!);
+    await tick();
+    expect(postedOfType('pullBranch')[0]?.payload?.branch).toBe('develop');
+  });
+
+  it('hides Pull when the branch has no upstream and no same-named remote branch', async () => {
+    setupNonCurrentBranch();
+    const { container } = render(CommitGraph, {});
+    await tick();
+    await fireEvent.contextMenu(container.querySelectorAll<HTMLElement>('.commit-row')[0], { clientX: 10, clientY: 10 });
+    await tick();
+    await openRefSubmenu(container, 'develop');
+    expect(findLeaf(container, "Pull 'develop'")).toBeFalsy();
+  });
+
+  it('opens the pull modal for the current branch instead of posting pullBranch', async () => {
+    setupNonCurrentBranch();
+    const { container } = render(CommitGraph, {});
+    await tick();
+    globalThis.__postedMessages = [];
+    await fireEvent.contextMenu(container.querySelectorAll<HTMLElement>('.commit-row')[1], { clientX: 10, clientY: 10 });
+    await tick();
+    await openRefSubmenu(container, 'main');
+    const item = findLeaf(container, "Pull 'main'");
+    expect(item).toBeTruthy();
+    await fireEvent.click(item!);
+    await tick();
+    expect(modalStore.pull.show).toBe(true);
+    expect(postedOfType('pullBranch')).toEqual([]);
+    modalStore.closePull();
+  });
+
+  it("offers Fetch into local on a remote branch with a same-named local branch and posts fetchIntoLocal", async () => {
+    const head = makeCommit('h1', 'first');
+    head.refs = [{ type: 'head', name: 'main' }];
+    const feat = makeCommit('h2', 'feat work', ['h1']);
+    feat.refs = [{ type: 'remote-branch', name: 'develop', remote: 'origin' }];
+    commitStore.setData(makeGraphData([feat, head]));
+    branchStore.branches = [
+      { name: 'main', current: true, ahead: 0, behind: 0, hash: 'h1' },
+      { name: 'develop', current: false, ahead: 0, behind: 0, hash: 'h2' },
+    ];
+    branchStore.remotes = [originRemote];
+    const { container } = render(CommitGraph, {});
+    await tick();
+    globalThis.__postedMessages = [];
+    await fireEvent.contextMenu(container.querySelectorAll<HTMLElement>('.commit-row')[0], { clientX: 10, clientY: 10 });
+    await tick();
+    await openRefSubmenu(container, 'origin/develop');
+    const item = findLeaf(container, "Fetch into 'develop'");
+    expect(item).toBeTruthy();
+    await fireEvent.click(item!);
+    await tick();
+    expect(postedOfType('fetchIntoLocal')[0]?.payload).toEqual({ remote: 'origin', remoteBranch: 'develop', localBranch: 'develop' });
+  });
+
+  it('hides Fetch into local when the same-named local branch is the current branch', async () => {
+    const head = makeCommit('h1', 'first');
+    head.refs = [{ type: 'remote-branch', name: 'main', remote: 'origin' }];
+    commitStore.setData(makeGraphData([head]));
+    branchStore.branches = [
+      { name: 'main', current: true, ahead: 0, behind: 0, hash: 'h1' },
+    ];
+    branchStore.remotes = [originRemote];
+    const { container } = render(CommitGraph, {});
+    await tick();
+    await fireEvent.contextMenu(container.querySelectorAll<HTMLElement>('.commit-row')[0], { clientX: 10, clientY: 10 });
+    await tick();
+    await openRefSubmenu(container, 'origin/main');
+    expect(findLeaf(container, "Fetch into 'main'")).toBeFalsy();
   });
 });

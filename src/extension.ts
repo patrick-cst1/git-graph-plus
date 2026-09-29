@@ -16,6 +16,7 @@ import { registerEditorBlame } from './features/editor-blame';
 import { registerEditorAnnotations } from './features/editor-annotations';
 import { registerRevisionNavigator } from './features/revision-navigator';
 import { registerGitCommandPalette } from './features/git-command-palette';
+import { runPushBranch, runPullBranchFastForward } from './features/branch-sync-actions';
 import { FileHistoryViewProvider, type FileHistoryViewState } from './views/file-history-view';
 import { SearchCompareViewProvider, type SearchCompareState } from './views/search-compare-view';
 import { FileVisualHistoryPanel } from './panels/FileVisualHistoryPanel';
@@ -771,41 +772,68 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage(`Pruned worktrees`);
       }).catch((err: Error) => vscode.window.showErrorMessage(err.message));
     }),
-    vscode.commands.registerCommand('gitGraphPlus.showRemoteBranchMenu', (branchItem) => {
+    vscode.commands.registerCommand('gitGraphPlus.showRemoteBranchMenu', async (branchItem) => {
       const branch = branchItem?.branch;
-      if (branch) {
-        const remote = branch.name.split('/')[0];
-        const branchName = branch.name.split('/').slice(1).join('/');
-        vscode.window.showQuickPick([
-          { label: `Checkout as local branch...`, id: 'checkout' },
-          { label: `Delete remote branch ${branch.name}`, id: 'delete' },
-        ]).then(selected => {
-          if (selected?.id === 'delete') {
-            MainPanel.showModalWithPanel(context.extensionUri, { modal: 'deleteRemoteBranch', remote, name: branchName });
-          } else if (selected?.id === 'checkout') {
-            const localName = branchName;
-            MainPanel.showModalWithPanel(context.extensionUri, { modal: 'checkoutRemote', remoteName: branch.name, localName });
-          }
-        });
+      if (!branch) return;
+      const remote = branch.name.split('/')[0];
+      const branchName = branch.name.split('/').slice(1).join('/');
+      const local = (await activeGitService.branches().catch(() => []))
+        .find(b => !b.remote && b.name === branchName);
+      const items: Array<{ label: string; id: string }> = [
+        { label: `Checkout as local branch...`, id: 'checkout' },
+        ...(local && !local.current ? [{ label: `Fetch into ${branchName}`, id: 'fetchInto' }] : []),
+        { label: `Delete remote branch ${branch.name}`, id: 'delete' },
+      ];
+      const selected = await vscode.window.showQuickPick(items);
+      if (!selected) return;
+      if (selected.id === 'delete') {
+        MainPanel.showModalWithPanel(context.extensionUri, { modal: 'deleteRemoteBranch', remote, name: branchName });
+      } else if (selected.id === 'checkout') {
+        MainPanel.showModalWithPanel(context.extensionUri, { modal: 'checkoutRemote', remoteName: branch.name, localName: branchName });
+      } else if (selected.id === 'fetchInto') {
+        runPullBranchFastForward(activeGitService, branchName, { remote, remoteBranch: branchName })
+          .then(changed => { if (changed) { refreshAll(); MainPanel.currentPanel?.postRefresh(); } })
+          .catch((err: Error) => vscode.window.showErrorMessage(err.message));
       }
     }),
-    vscode.commands.registerCommand('gitGraphPlus.showBranchMenu', (branchItem) => {
+    vscode.commands.registerCommand('gitGraphPlus.showBranchMenu', async (branchItem) => {
       const branch = branchItem?.branch;
-      if (branch) {
-        vscode.window.showQuickPick([
-          { label: `Checkout ${branch.name}`, id: 'checkout' },
-          { label: `Merge into current branch...`, id: 'merge' },
-          { label: `Rename ${branch.name}...`, id: 'rename' },
-          { label: `Delete ${branch.name}...`, id: 'delete' },
-        ]).then(selected => {
-          if (!selected) return;
-          switch (selected.id) {
-            case 'checkout': vscode.commands.executeCommand('gitGraphPlus.checkoutBranch', branchItem); break;
-            case 'merge': vscode.commands.executeCommand('gitGraphPlus.mergeBranch', branchItem); break;
-            case 'rename': vscode.commands.executeCommand('gitGraphPlus.renameBranch', branchItem); break;
-            case 'delete': vscode.commands.executeCommand('gitGraphPlus.deleteBranch', branchItem); break;
+      if (!branch) return;
+      const [allBranches, remotes] = await Promise.all([
+        activeGitService.branches().catch(() => []),
+        activeGitService.remotes().catch(() => []),
+      ]);
+      const hasSameNameRemote = allBranches.some(b => !!b.remote && b.name === `${b.remote}/${branch.name}`);
+      const canPull = branch.current || (!!branch.upstream && !branch.upstreamGone) || hasSameNameRemote;
+      const items: Array<{ label: string; id: string }> = [
+        { label: `Checkout ${branch.name}`, id: 'checkout' },
+        ...(remotes.length > 0 ? [{ label: `Push ${branch.name}`, id: 'push' }] : []),
+        ...(canPull ? [{ label: `Pull ${branch.name}`, id: 'pull' }] : []),
+        { label: `Merge into current branch...`, id: 'merge' },
+        { label: `Rename ${branch.name}...`, id: 'rename' },
+        { label: `Delete ${branch.name}...`, id: 'delete' },
+      ];
+      const selected = await vscode.window.showQuickPick(items);
+      if (!selected) return;
+      switch (selected.id) {
+        case 'checkout': vscode.commands.executeCommand('gitGraphPlus.checkoutBranch', branchItem); break;
+        case 'push':
+          runPushBranch(activeGitService, branch.name)
+            .then(changed => { if (changed) { refreshAll(); MainPanel.currentPanel?.postRefresh(); } })
+            .catch((err: Error) => vscode.window.showErrorMessage(err.message));
+          break;
+        case 'pull':
+          if (branch.current) {
+            MainPanel.showModalWithPanel(context.extensionUri, { modal: 'pull' });
+          } else {
+            runPullBranchFastForward(activeGitService, branch.name)
+              .then(changed => { if (changed) { refreshAll(); MainPanel.currentPanel?.postRefresh(); } })
+              .catch((err: Error) => vscode.window.showErrorMessage(err.message));
           }
-        });
+          break;
+        case 'merge': vscode.commands.executeCommand('gitGraphPlus.mergeBranch', branchItem); break;
+        case 'rename': vscode.commands.executeCommand('gitGraphPlus.renameBranch', branchItem); break;
+        case 'delete': vscode.commands.executeCommand('gitGraphPlus.deleteBranch', branchItem); break;
       }
     }),
     vscode.commands.registerCommand('gitGraphPlus.showTagMenu', (tagItem) => {

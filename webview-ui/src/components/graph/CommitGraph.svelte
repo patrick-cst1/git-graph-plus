@@ -972,6 +972,13 @@
       return nameA.localeCompare(nameB);
     });
 
+    const hasSameNameRemote = (name: string) => branchStore.remoteBranches.some(b => !!b.remote && b.name === `${b.remote}/${name}`);
+    const canPullLocalBranch = (name: string) => {
+      if (name === currentBranch) return true;
+      const info = localBranchMap.get(name);
+      return (!!info?.upstream && !info.upstreamGone) || hasSameNameRemote(name);
+    };
+
     for (const ref of refs) {
       if (ref.type === 'head' || ref.type === 'branch') {
         const branchName = ref.name;
@@ -988,6 +995,10 @@
                 label: t('sidebar.checkout'),
                 action: () => doCheckout(branchName),
               },
+              ...(branchStore.remotes.length > 0 ? [{
+                label: t('graph.pushBranch', { branch: branchName }),
+                action: () => vscode.postMessage({ type: 'pushBranch', payload: { branch: branchName } }),
+              }] : []),
               ...(branchName !== currentBranch ? [{
                 label: t('graph.mergeInto', { branch: currentBranch }),
                 action: () => { modalStore.openMerge(branchName, branchStore.currentBranch?.name ?? 'current branch'); },
@@ -1025,6 +1036,20 @@
                 label: t('sidebar.checkout'),
                 action: () => doCheckout(branchName),
               },
+              ...(branchStore.remotes.length > 0 ? [{
+                label: t('graph.pushBranch', { branch: branchName }),
+                action: () => vscode.postMessage({ type: 'pushBranch', payload: { branch: branchName } }),
+              }] : []),
+              ...(canPullLocalBranch(branchName) ? [{
+                label: t('graph.pullBranch', { branch: branchName }),
+                action: () => {
+                  if (branchName === currentBranch) {
+                    modalStore.openPull();
+                  } else {
+                    vscode.postMessage({ type: 'pullBranch', payload: { branch: branchName } });
+                  }
+                },
+              }] : []),
               {
                 label: t('graph.createWorktree'),
                 action: () => vscode.postMessage({ type: 'worktreeAddModalRequest', payload: { startPoint: branchName } }),
@@ -1069,6 +1094,13 @@
               label: t('sidebar.checkout'),
               action: () => doCheckoutRemote(fullName, ref.name),
             },
+            ...(localBranchMap.has(ref.name) && ref.name !== currentBranch ? [{
+              label: t('graph.fetchIntoLocal', { local: ref.name }),
+              action: () => vscode.postMessage({
+                type: 'fetchIntoLocal',
+                payload: { remote: ref.remote!, remoteBranch: ref.name, localBranch: ref.name },
+              }),
+            }] : []),
             {
               label: t('graph.mergeInto', { branch: currentBranch }),
               action: () => { modalStore.openMerge(fullName, branchStore.currentBranch?.name ?? 'current branch'); },

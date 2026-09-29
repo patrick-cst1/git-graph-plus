@@ -31,6 +31,8 @@ const H = vi.hoisted(() => {
     pull: vi.fn(async () => {}),
     push: vi.fn(async () => ''),
     pushCurrentBranch: vi.fn(async () => ({ pushed: true })),
+    pushBranch: vi.fn(async () => ({ pushed: true })),
+    pullBranchFastForward: vi.fn(async () => ({ status: 'fetched' })),
     clean: vi.fn(async () => {}),
     setWarningHandler: vi.fn(),
     setAuthRetryHandler: vi.fn(),
@@ -444,6 +446,49 @@ describe('MainPanel message routing', () => {
     expect(H.git.push).toHaveBeenCalledWith('origin', 'feature', { force: undefined, setUpstream: true });
   });
 
+  it('pushBranch pushes the right-clicked branch and refreshes', async () => {
+    await dispatch({ type: 'pushBranch', payload: { branch: 'feature' } });
+    expect(H.git.pushBranch).toHaveBeenCalledWith('feature');
+    expect(postedOfType('operationComplete').some(m => m.payload?.operation === 'pushBranch')).toBe(true);
+    expect(postedOfType('fullRefresh').length).toBeGreaterThan(0);
+  });
+
+  it('pushBranch without remotes does not refresh (nothing pushed)', async () => {
+    H.git.pushBranch.mockResolvedValue({ pushed: false, reason: 'no-remote' });
+    await dispatch({ type: 'pushBranch', payload: { branch: 'feature' } });
+    expect(postedOfType('fullRefresh').length).toBe(0);
+  });
+
+  it('pullBranch fast-forwards a non-current branch without a checkout', async () => {
+    await dispatch({ type: 'pullBranch', payload: { branch: 'feature' } });
+    expect(H.git.pullBranchFastForward).toHaveBeenCalledWith('feature', undefined);
+    expect(H.git.checkout).not.toHaveBeenCalled();
+    expect(postedOfType('fullRefresh').length).toBeGreaterThan(0);
+  });
+
+  it('pullBranch offers Checkout & Pull when the branch diverged', async () => {
+    const vscode = await import('vscode');
+    H.git.pullBranchFastForward.mockResolvedValue({ status: 'non-fast-forward', remote: 'origin', remoteBranch: 'feature' });
+    H.git.branches.mockResolvedValue([{ name: 'main', current: true }]);
+    (vscode.window.showWarningMessage as unknown as ReturnType<typeof vi.fn>).mockResolvedValue('checkoutAndPull');
+    await dispatch({ type: 'pullBranch', payload: { branch: 'feature' } });
+    expect(H.git.checkout).toHaveBeenCalledWith('feature');
+    expect(H.git.pull).toHaveBeenCalledWith('origin', 'feature');
+    expect(postedOfType('fullRefresh').length).toBeGreaterThan(0);
+  });
+
+  it('pullBranch reports a no-upstream branch without refreshing', async () => {
+    H.git.pullBranchFastForward.mockResolvedValue({ status: 'no-upstream' });
+    await dispatch({ type: 'pullBranch', payload: { branch: 'feature' } });
+    expect(postedOfType('fullRefresh').length).toBe(0);
+  });
+
+  it('fetchIntoLocal fetches the remote branch into the same-named local branch', async () => {
+    await dispatch({ type: 'fetchIntoLocal', payload: { remote: 'origin', remoteBranch: 'feature', localBranch: 'feature' } });
+    expect(H.git.pullBranchFastForward).toHaveBeenCalledWith('feature', { remote: 'origin', remoteBranch: 'feature' });
+    expect(postedOfType('fullRefresh').length).toBeGreaterThan(0);
+  });
+
   it('checkout with stash stashes before checking out', async () => {
     await dispatch({ type: 'checkout', payload: { ref: 'main', stash: true } });
     expect(H.git.stashSave).toHaveBeenCalled();
@@ -558,7 +603,9 @@ describe('MainPanel empty repository detection', () => {
 
   it('does not flag isEmptyRepo for a normal repository', async () => {
     H.git.log.mockResolvedValue([]);
-    H.git.isUnbornHead.mockResolvedValue(false);
+  H.git.isUnbornHead.mockResolvedValue(false);
+  H.git.pushBranch.mockResolvedValue({ pushed: true });
+  H.git.pullBranchFastForward.mockResolvedValue({ status: 'fetched' });
 
     await dispatch({ type: 'getLog', payload: { limit: 50 } });
 

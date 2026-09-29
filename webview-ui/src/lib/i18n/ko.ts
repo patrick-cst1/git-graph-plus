@@ -192,6 +192,9 @@ export const ko: Record<string, string> = {
   'graph.deleteRemoteBranch': '리모트 브랜치 삭제',
   'graph.removeWorktree': 'Worktree 삭제',
   'graph.setUpstream': 'Upstream 설정',
+  'graph.pushBranch': "'{branch}' Push",
+  'graph.pullBranch': "'{branch}' Pull",
+  'graph.fetchIntoLocal': "'{local}'(으)로 Fetch",
 
   // Reset modal
   'reset.title': '{hash}(으)로 Reset',

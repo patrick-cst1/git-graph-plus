@@ -26,6 +26,7 @@ import {
 } from '../utils/path-validation';
 import { SequenceGuard } from '../utils/sequence-guard';
 import { resolveDefaultWorktreePath } from '../utils/worktree-path';
+import { runPushBranch, runPullBranchFastForward } from '../features/branch-sync-actions';
 
 export class MainPanel {
   public static currentPanel: MainPanel | undefined;
@@ -1057,6 +1058,40 @@ export class MainPanel {
           });
           vscode.window.showInformationMessage(vscode.l10n.t('pushed'));
           await this.refreshAll();
+          break;
+        }
+        case 'pushBranch': {
+          const changed = await runPushBranch(this.gitService, message.payload.branch);
+          if (changed) {
+            this.post({
+              type: 'operationComplete',
+              payload: { operation: 'pushBranch', success: true },
+            });
+            await this.refreshAll();
+          }
+          break;
+        }
+        case 'pullBranch': {
+          const changed = await runPullBranchFastForward(this.gitService, message.payload.branch);
+          if (changed) {
+            this.post({
+              type: 'operationComplete',
+              payload: { operation: 'pullBranch', success: true },
+            });
+            await this.refreshAll();
+          }
+          break;
+        }
+        case 'fetchIntoLocal': {
+          const { remote, remoteBranch, localBranch } = message.payload;
+          const changed = await runPullBranchFastForward(this.gitService, localBranch, { remote, remoteBranch });
+          if (changed) {
+            this.post({
+              type: 'operationComplete',
+              payload: { operation: 'fetchIntoLocal', success: true },
+            });
+            await this.refreshAll();
+          }
           break;
         }
         case 'addRemote': {

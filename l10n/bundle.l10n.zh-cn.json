@@ -115,5 +115,12 @@
   "remoteAdded": "远程 '{0}' 已添加",
   "remoteRemoved": "远程 '{0}' 已移除",
   "externalDiffFailed": "打开外部 diff 工具失败：{0}",
-  "worktreeRemoved": "工作树已移除"
+  "worktreeRemoved": "工作树已移除",
+  "noRemotesToPushTo": "没有配置可推送的远程。",
+  "pullNothingToPull": "分支 '{0}' 没有上游或同名远程分支，无法拉取。",
+  "pullBranchCheckedOut": "分支 '{0}' 已在另一个工作树中签出，请在对应工作树中拉取。",
+  "pullNotFastForward": "分支 '{0}' 与远程分支已分叉，无法快进拉取。",
+  "checkoutAndPull": "签出并拉取",
+  "switchedToForPull": "已签出 '{0}' 并完成拉取。",
+  "switchBackTo": "切回 '{0}'"
 }

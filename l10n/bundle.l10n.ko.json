@@ -115,5 +115,12 @@
   "remoteAdded": "리모트 '{0}'이(가) 추가되었습니다",
   "remoteRemoved": "리모트 '{0}'이(가) 제거되었습니다",
   "externalDiffFailed": "외부 diff 도구를 열지 못했습니다: {0}",
-  "worktreeRemoved": "Worktree가 제거되었습니다"
+  "worktreeRemoved": "Worktree가 제거되었습니다",
+  "noRemotesToPushTo": "Push할 remote가 설정되어 있지 않습니다.",
+  "pullNothingToPull": "'{0}' 브랜치에 upstream 또는 같은 이름의 remote 브랜치가 없어 pull할 수 없습니다.",
+  "pullBranchCheckedOut": "'{0}' 브랜치는 다른 worktree에서 체크아웃되어 있습니다. 해당 worktree에서 pull하세요.",
+  "pullNotFastForward": "'{0}' 브랜치가 remote 브랜치와 분기되어 fast-forward로 pull할 수 없습니다.",
+  "checkoutAndPull": "Checkout 후 Pull",
+  "switchedToForPull": "'{0}'을(를) checkout하고 pull했습니다.",
+  "switchBackTo": "'{0}'(으)로 돌아가기"
 }

@@ -1746,6 +1746,127 @@ export class GitService {
     return remotes.includes('origin') ? 'origin' : remotes[0];
   }
 
+  /** Remote names whose remote-tracking refs include `<remote>/<branch>`. */
+  private async remotesWithBranch(branch: string): Promise<string[]> {
+    const remotes = await this.getRemoteNames();
+    if (remotes.length === 0) return [];
+    const raw = await this.exec(['for-each-ref', '--format=%(refname:short)', 'refs/remotes']);
+    const refs = new Set(raw.split('\n').map(line => line.trim()).filter(Boolean));
+    return remotes.filter(remote => refs.has(`${remote}/${branch}`));
+  }
+
+  /**
+   * Pushes a specific local branch without checking it out first (right-click
+   * Push). With an upstream configured the push targets that remote (a gone
+   * upstream is re-published with -u; a renamed upstream retargets, #97).
+   * Without one, -u publish targets the single remote that already has a
+   * same-named branch, falling back to the default push remote.
+   */
+  async pushBranch(branch: string): Promise<{ pushed: boolean; reason?: 'no-remote' }> {
+    this.assertSafeRef(branch, 'push');
+    const info = (await this.branches()).find(b => !b.remote && b.name === branch);
+    if (!info) {
+      throw new GitError(`Branch not found: ${branch}`, null, []);
+    }
+    if (info.upstream) {
+      const slash = info.upstream.indexOf('/');
+      const remote = slash > 0 ? info.upstream.substring(0, slash) : '';
+      if (remote && (await this.getRemoteNames()).includes(remote)) {
+        const upstreamBranch = info.upstream.substring(slash + 1);
+        await this.push(remote, branch, upstreamBranch === branch && !info.upstreamGone ? {} : { setUpstream: true });
+        return { pushed: true };
+      }
+    }
+    const existing = await this.remotesWithBranch(branch);
+    const remote = existing.length === 1 ? existing[0] : await this.defaultPushRemote();
+    if (!remote) {
+      return { pushed: false, reason: 'no-remote' };
+    }
+    await this.push(remote, branch, { setUpstream: true });
+    return { pushed: true };
+  }
+
+  /**
+   * Updates a local branch to a remote branch without a checkout: the remote
+   * branch is fetched into its remote-tracking ref first (so the graph shows
+   * the remote move even when the local update is rejected), then the local
+   * branch is updated from that ref with a local refspec fetch that carries no
+   * `+`. Git therefore rejects anything that is not a fast-forward (diverged
+   * commits are never clobbered) and refuses branches checked out anywhere.
+   * The working tree and the current branch are untouched.
+   */
+  async fetchBranchInto(remote: string, remoteBranch: string, localBranch: string): Promise<
+    { ok: true } | { ok: false; reason: 'non-fast-forward' | 'checked-out' | 'other'; message: string }
+  > {
+    this.assertSafeRef(remote, 'fetch');
+    this.assertSafeRef(remoteBranch, 'fetch');
+    this.assertSafeRef(localBranch, 'fetch');
+    try {
+      await this.execWithAuthRetry(['fetch', remote, `refs/heads/${remoteBranch}`], remote);
+      await this.exec(['fetch', '.', `refs/remotes/${remote}/${remoteBranch}:refs/heads/${localBranch}`]);
+      return { ok: true };
+    } catch (err) {
+      const text = err instanceof GitError ? `${err.stderr}\n${err.stdout}` : String(err);
+      const message = text.trim();
+      if (/non-fast-forward|\[rejected\]/i.test(text)) {
+        return { ok: false, reason: 'non-fast-forward', message };
+      }
+      if (/checked out at/i.test(text)) {
+        return { ok: false, reason: 'checked-out', message };
+      }
+      return { ok: false, reason: 'other', message };
+    }
+  }
+
+  /**
+   * Pulls a local branch by fast-forwarding it to its upstream without checking
+   * it out. An explicit source overrides the upstream (remote-branch menu
+   * "Fetch into local"). Without an upstream the single same-named remote
+   * branch is used. Callers surface the result; non-fast-forwards are reported,
+   * never forced.
+   */
+  async pullBranchFastForward(branch: string, source?: { remote: string; remoteBranch: string }): Promise<
+    | { status: 'fetched' }
+    | { status: 'no-upstream' }
+    | { status: 'current-branch' }
+    | { status: 'non-fast-forward'; remote: string; remoteBranch: string }
+    | { status: 'checked-out' }
+  > {
+    this.assertSafeRef(branch, 'pull');
+    const info = (await this.branches()).find(b => !b.remote && b.name === branch);
+    if (!info) {
+      throw new GitError(`Branch not found: ${branch}`, null, []);
+    }
+    if (info.current) {
+      return { status: 'current-branch' };
+    }
+    let remote = source?.remote;
+    let remoteBranch = source?.remoteBranch;
+    if (!remote || !remoteBranch) {
+      if (info.upstream && !info.upstreamGone) {
+        const slash = info.upstream.indexOf('/');
+        if (slash > 0) {
+          remote = info.upstream.substring(0, slash);
+          remoteBranch = info.upstream.substring(slash + 1);
+        }
+      }
+      if (!remote || !remoteBranch) {
+        const candidates = await this.remotesWithBranch(branch);
+        if (candidates.length === 0) {
+          return { status: 'no-upstream' };
+        }
+        const def = await this.defaultPushRemote();
+        remote = def && candidates.includes(def) ? def : candidates[0];
+        remoteBranch = branch;
+      }
+    }
+    const res = await this.fetchBranchInto(remote, remoteBranch, branch);
+    if (res.ok) return { status: 'fetched' };
+    if (res.reason === 'checked-out') return { status: 'checked-out' };
+    if (res.reason === 'non-fast-forward') return { status: 'non-fast-forward', remote, remoteBranch };
+    throw new GitError(res.message, null, []);
+  }
+
   async addRemote(name: string, url: string): Promise<void> {
     this.assertSafeRef(name, 'remote add');
     this.assertSafeRemoteUrl(url);
