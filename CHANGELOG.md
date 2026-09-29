@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.25
+
+- Reflog entries can now be recovered directly from the context menu:
+  **New Branch** / **New Tag** pin a commit that no branch points at any more
+  (e.g. after a bad reset or rebase), and **Cherry-Pick Commit** moves it onto
+  the current branch.
+
 ## 0.7.24
 
 - Merge connectors (the lines leaving a merge commit to join the merged
