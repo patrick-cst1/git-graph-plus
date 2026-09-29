@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.24
+
+- Merge connectors (the lines leaving a merge commit to join the merged
+  branch) now use the same one-sweep quadratic as the branch-line transitions,
+  so every bend matches the head/tail style instead of the private two-bend S.
+- **Simplify** toggle in the filter bar: show only the structural commits of
+  the loaded log — branch/tag/remote tips, merges, forks and the load
+  boundary. Recomputed from the already-loaded commits, no extra git call, and
+  remembered for the session.
+- The adjustable commit columns are now opt-in: enable
+  `gitGraphPlus.resizableColumns` to drag column borders and right-click the
+  header to show or hide columns. Off by default, the Author / SHA / Date
+  columns keep their fixed widths.
+
 ## 0.7.23
 
 - Commit list columns: drag the border between the Author / SHA / Date headers
