@@ -71,11 +71,16 @@ import AmendModal from './components/modals/AmendModal.svelte';
   // What the focus covers: 'own' = each branch's own commits (fork point to
   // tip, resolved by the extension from the branch reflog / merge base),
   // 'full' = the branch's whole ancestry (the classic git log view).
-  let focusScope = $state<'own' | 'full'>('own');
+  // This is the user's preference; the control also reflects when Own commits
+  // cannot apply (see focusScopeDisplay).
+  let focusScopePreference = $state<'own' | 'full'>('own');
   // Fork point of every focused branch, keyed by branch name. A null entry
   // means "no fork point" — that branch keeps its full history.
   let focusBases = $state<Record<string, string | null>>({});
   let focusBaseRequestId = '';
+  // Set of branches (and scope) the last focus-base request was made for, so an
+  // unchanged selection never re-requests or clears the resolved points.
+  let focusBaseKey = '';
   // Branches hidden from the graph for this webview session (excluded from the
   // log query; session-only, not persisted).
   let hiddenBranches = $state<string[]>([]);
@@ -143,7 +148,13 @@ import AmendModal from './components/modals/AmendModal.svelte';
             focusMode === 'filter' &&
             (branchFilter.length > 0 || hiddenBranches.length === 0)
           ) {
-            branchFilter = msg.payload.branches;
+            // Only reassign when the contents differ: a fresh array with the
+            // same branches would re-trigger the focus-base effect (clearing
+            // the resolved fork points and flashing the fallback notice).
+            const next = msg.payload.branches;
+            if (next.length !== branchFilter.length || next.some((b: string, i: number) => b !== branchFilter[i])) {
+              branchFilter = next;
+            }
           }
           commitStore.setData(msg.payload);
           pruneInvalidSelection();
@@ -483,13 +494,13 @@ import AmendModal from './components/modals/AmendModal.svelte';
     return {
       branches: effectiveLogBranches(),
       remoteFilter: remoteFilter.length > 0 ? [...remoteFilter] : undefined,
-      focusUnique: focusMode === 'filter' && focusScope === 'own' && branchFilter.length > 0 ? true : undefined,
+      focusUnique: focusMode === 'filter' && focusScopePreference === 'own' && branchFilter.length > 0 ? true : undefined,
     };
   }
 
   function handleFocusScopeChange(scope: 'own' | 'full') {
-    if (focusScope === scope) return;
-    focusScope = scope;
+    if (focusScopePreference === scope) return;
+    focusScopePreference = scope;
     requeryLog();
   }
 
@@ -531,12 +542,20 @@ import AmendModal from './components/modals/AmendModal.svelte';
   // Branch focus (Own commits): ask the extension for the fork point of every
   // focused branch, so filter/dim can scope each to its own commits. Runs only
   // in 'own' scope; Full history drops the bases and always uses the ancestry.
+  // Keyed on the selection: unchanged sets (e.g. the logData echo) must not
+  // clear or re-request — that flashed the fallback notice in filter mode.
   $effect(() => {
-    if (focusScope !== 'own' || branchFilter.length === 0) {
-      focusBases = {};
+    const branches = [...branchFilter];
+    const key = `${focusScopePreference}|${branches.join('\n')}`;
+    if (focusScopePreference !== 'own' || branches.length === 0) {
+      if (focusBaseKey !== '') {
+        focusBaseKey = '';
+        focusBases = {};
+      }
       return;
     }
-    const branches = [...branchFilter];
+    if (key === focusBaseKey) return;
+    focusBaseKey = key;
     const requestId = `fb-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     focusBaseRequestId = requestId;
     focusBases = {};
@@ -547,9 +566,21 @@ import AmendModal from './components/modals/AmendModal.svelte';
   // absent reflog, the default branch itself, …): they keep their full history
   // and the focus popover explains why.
   const focusFallbackNames = $derived.by<string[]>(() => {
-    if (focusScope !== 'own') return [];
+    if (focusScopePreference !== 'own') return [];
     return branchFilter.filter((name) => name in focusBases && focusBases[name] === null);
   });
+
+  // What the scope control shows. When Own commits cannot scope anything — every
+  // focused branch fell back — the graph is showing full history, so the control
+  // reflects that. Purely presentational: the query logic keeps using the
+  // preference, which yields exactly the same full-history result for these
+  // branches (their fork point is null), and a later branch that can be scoped
+  // is scoped again without the user having to switch back.
+  const focusScopeDisplay = $derived<'own' | 'full'>(
+    focusFallbackNames.length > 0 && focusFallbackNames.length === branchFilter.length
+      ? 'full'
+      : focusScopePreference,
+  );
 
   // The focused ref name carried by a commit, and the branch's fork point —
   // takes the ref name so per-branch bases can be looked up.
@@ -575,7 +606,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
       if (!name) continue;
       tips.push({
         hash: c.hash,
-        baseHash: focusScope === 'own' ? focusBases[name] ?? null : null,
+        baseHash: focusScopePreference === 'own' ? focusBases[name] ?? null : null,
       });
     }
     return collectFocusHashes(commitStore.commits, tips);
@@ -730,7 +761,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
           onBranchFilterChange={handleBranchFilterChange}
           {focusMode}
           onFocusModeChange={handleFocusModeChange}
-          {focusScope}
+          focusScope={focusScopeDisplay}
           onFocusScopeChange={handleFocusScopeChange}
           {focusFallbackNames}
           {hiddenBranches}

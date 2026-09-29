@@ -1704,6 +1704,48 @@ describe('App — filter change handlers', () => {
     await waitFor(() => {
       expect(container.querySelector('.scope-warning')).not.toBeNull();
     });
+    // Own commits cannot scope it, so the graph shows full history and the
+    // scope control reflects that (the popover stays open after a pick).
+    await waitFor(() => {
+      const active = Array.from(container.querySelectorAll<HTMLButtonElement>('.dd-mode-btn.active'))
+        .map((el) => el.textContent?.trim());
+      expect(active).toContain('Full history');
+    });
+  });
+
+  it('does not clear or re-request focus bases when a log refresh echoes the same branches', async () => {
+    const { container } = render(App);
+    postMsg('branchData', {
+      branches: [
+        { name: 'main', current: true, ahead: 0, behind: 0, hash: 'h1' },
+        { name: 'feature', current: false, ahead: 0, behind: 0, hash: 'h2' },
+      ],
+      tags: [], remotes: [], stashes: [], worktrees: [],
+    });
+    await waitFor(() => container.querySelectorAll('.filter-btn').length >= 2);
+    await fireEvent.click(container.querySelectorAll<HTMLButtonElement>('.filter-btn')[1]);
+    await fireEvent.click(Array.from(container.querySelectorAll<HTMLButtonElement>('.dd-item'))
+      .find(el => el.textContent?.includes('feature'))!);
+    const requestCount = () => globalThis.__postedMessages
+      .filter((m) => (m.data as { type?: string }).type === 'branchFocusBase').length;
+    const req = await waitFor(() => {
+      const found = globalThis.__postedMessages
+        .map((m) => m.data as { type?: string; payload?: { requestId?: string } })
+        .find((m) => m.type === 'branchFocusBase');
+      expect(found).toBeTruthy();
+      return found!;
+    });
+    postMsg('branchFocusBaseData', { branches: ['feature'], bases: { feature: null }, requestId: req.payload?.requestId });
+    await waitFor(() => expect(container.querySelector('.scope-warning')).not.toBeNull());
+    const before = requestCount();
+
+    // A log refresh echoes the same branch list as a new array: the resolved
+    // fork points must survive (no flicker of the fallback notice).
+    postMsg('logData', { commits: [], graph: [], branches: ['feature'] });
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+    expect(requestCount()).toBe(before);
+    expect(container.querySelector('.scope-warning')).not.toBeNull();
   });
 
   it('selecting a remote in the source filter posts getLog with that remoteFilter', async () => {
