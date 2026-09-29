@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.30
+
+- Fixes: the remote-branch **Delete Remote Branch** context-menu item now
+  opens the delete dialog (it was never wired up), the File History and
+  Search & Compare views no longer show two refresh buttons, and **Show Line
+  History** no longer includes the line after a selection that ends at column 0.
+
 ## 0.7.29
 
 - **Search & Compare** view in the Source Control sidebar: search commit
