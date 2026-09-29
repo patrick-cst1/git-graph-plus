@@ -74,6 +74,11 @@
   let compareBehind = $state<Commit[]>([]);
   let compareListLoading = $state(false);
   let compareListRequestId = '';
+  // The row most recently opened from a compare list. It stays highlighted and
+  // is scrolled back into view after returning from the peek, so the user lands
+  // where they left off instead of at the top of the list.
+  let lastPeekHash = $state<string | null>(null);
+  let compareListEl: HTMLDivElement | undefined = $state();
   const compareAll = $derived(
     [...compareAhead, ...compareBehind].sort((a, b) => Date.parse(b.author.date) - Date.parse(a.author.date)),
   );
@@ -381,6 +386,17 @@
     if (peekRequestedHash === hash) return;
     peekRequestedHash = hash;
     vscode.postMessage({ type: 'getCommitData', payload: { hash } });
+  });
+
+  // Returning from a peek: the list re-mounts at the top, so scroll the row the
+  // user opened back into view (it is also kept highlighted via lastPeekHash).
+  $effect(() => {
+    const peeking = uiStore.comparePeekHash;
+    const hash = lastPeekHash;
+    const list = compareListEl;
+    if (peeking || !hash || !list || !uiStore.comparing) return;
+    const row = list.querySelector<HTMLElement>(`[data-hash="${hash}"]`);
+    row?.scrollIntoView({ block: 'center' });
   });
 
   $effect(() => {
@@ -1052,7 +1068,7 @@
   {:else if activeTab === 'changes'}
     <div class="changes-tab-content">
       {#if uiStore.comparing && !commit && uiStore.compareView !== 'files' && uiStore.compareRef1 && uiStore.compareRef2}
-        <div class="compare-commits-content">
+        <div class="compare-commits-content" bind:this={compareListEl}>
           {#if compareListLoading}
             <div class="empty-state-text">{t('compare.listLoading')}</div>
           {:else if compareListCommits.length === 0}
@@ -1061,9 +1077,10 @@
             {#each compareListCommits as c (c.hash)}
               <button
                 class="compare-commit-item"
-                class:selected={uiStore.comparePeekHash === c.hash}
+                class:selected={lastPeekHash === c.hash}
+                data-hash={c.hash}
                 use:tooltip={t('compare.openCommitHint')}
-                onclick={() => uiStore.peekCompareCommit(c.hash)}
+                onclick={() => { lastPeekHash = c.hash; uiStore.peekCompareCommit(c.hash); }}
               >
                 <i class="codicon codicon-git-commit"></i>
                 <span class="cc-subject truncate">{c.subject}</span>
