@@ -1545,6 +1545,17 @@ export class MainPanel {
           this.post({ type: 'commitDiffData', payload: { hash: '', diffs: compareDiffs, files: compareFiles, base } });
           break;
         }
+        case 'compareCommitList': {
+          // Ahead / Behind lists for the compare panel: ref2 relative to ref1
+          // (ahead = commits ref2 has that ref1 doesn't, and vice versa).
+          const { ref1, ref2, requestId } = message.payload;
+          const [ahead, behind] = await Promise.all([
+            this.gitService.commitsBetween(ref1, ref2),
+            this.gitService.commitsBetween(ref2, ref1),
+          ]);
+          this.post({ type: 'compareCommitListData', payload: { ref1, ref2, requestId, ahead, behind } });
+          break;
+        }
         // --- File tree at commit ---
         case 'lsTree': {
           const entries = await this.gitService.lsTree(message.payload.ref, message.payload.path);

@@ -289,6 +289,17 @@ export const en: Record<string, string> = {
   'compare.conflictHint': 'Merge-tree dry run of the two compared refs. The conflicted files are the same in either direction, so this is the PR result whichever branch is the source.',
   'compare.noConflicts': 'No conflicts',
   'compare.conflictFiles': '{count} conflicted file(s)',
+  'compare.viewFiles': 'Files',
+  'compare.viewFilesHint': 'The changed files of the selected compare scope',
+  'compare.viewAhead': 'Ahead {count}',
+  'compare.viewAheadHint': 'Commits {target} has that {source} does not (will be added by merging {target})',
+  'compare.viewBehind': 'Behind {count}',
+  'compare.viewBehindHint': 'Commits {source} has that {target} does not',
+  'compare.viewAll': 'All {count}',
+  'compare.viewAllHint': 'All commits that differ between the two refs (ahead + behind)',
+  'compare.noCommits': 'No commits in this direction',
+  'compare.listLoading': 'Loading commits…',
+  'compare.openCommitHint': 'Click to open this commit',
 
   // Search bar
   'search.placeholder': 'Search commits (message, author, hash, branch, tag)',

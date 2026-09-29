@@ -67,6 +67,22 @@
   let conflictChecking = $state(false);
   let conflictResult = $state<{ hasConflict: boolean; files: string[] } | null>(null);
   let conflictRequestId = '';
+  // Ahead / Behind commit lists (GitLens-style compare tabs). They are fetched
+  // together with the compare diff; `uiStore.compareView` selects what the
+  // Changes tab shows — the file list or one of these commit lists.
+  let compareAhead = $state<Commit[]>([]);
+  let compareBehind = $state<Commit[]>([]);
+  let compareListLoading = $state(false);
+  let compareListRequestId = '';
+  const compareAll = $derived(
+    [...compareAhead, ...compareBehind].sort((a, b) => Date.parse(b.author.date) - Date.parse(a.author.date)),
+  );
+  const compareListCommits = $derived(
+    uiStore.compareView === 'ahead' ? compareAhead
+      : uiStore.compareView === 'behind' ? compareBehind
+        : uiStore.compareView === 'all' ? compareAll
+          : [],
+  );
   // Human label for a compared ref: the branch/tag name when the commit is a
   // ref tip (that's how the user picked it), otherwise the short hash.
   function compareRefLabel(hash: string): string {
@@ -326,9 +342,21 @@
       compareBase = null;
       conflictChecking = false;
       conflictResult = null;
+      compareAhead = [];
+      compareBehind = [];
+      compareListLoading = false;
+      uiStore.compareView = 'files';
       // A new pair checks its merge conflicts straight away — the check is a
       // merge-tree dry run and costs nothing on the working tree.
-      if (r1 && r2 && uiStore.selectedCommitHashes.length === 2) checkConflicts();
+      if (r1 && r2 && uiStore.selectedCommitHashes.length === 2) {
+        checkConflicts();
+        compareListRequestId = `cl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        compareListLoading = true;
+        vscode.postMessage({
+          type: 'compareCommitList',
+          payload: { ref1: r1, ref2: r2, requestId: compareListRequestId },
+        });
+      }
     }
   });
 
@@ -391,6 +419,12 @@
         if (msg.payload.requestId !== conflictRequestId) return;
         conflictChecking = false;
         conflictResult = { hasConflict: msg.payload.hasConflict, files: msg.payload.files };
+      }
+      if (msg.type === 'compareCommitListData') {
+        if (msg.payload.requestId !== compareListRequestId) return;
+        compareListLoading = false;
+        compareAhead = msg.payload.ahead;
+        compareBehind = msg.payload.behind;
       }
       if (msg.type === 'fileDiffData') {
         if (msg.payload.hash !== activeHash) return;
@@ -741,6 +775,40 @@
           {t('compare.mergeInto', { source: compareLabel2, target: compareLabel1 })}
         </button>
       </div>
+      <div class="compare-views">
+        <button
+          class="compare-view-btn"
+          class:active={uiStore.compareView === 'files'}
+          use:tooltip={t('compare.viewFilesHint')}
+          onclick={() => { uiStore.compareView = 'files'; }}
+        >
+          {t('compare.viewFiles')}
+        </button>
+        <button
+          class="compare-view-btn"
+          class:active={uiStore.compareView === 'ahead'}
+          use:tooltip={t('compare.viewAheadHint', { source: compareLabel1, target: compareLabel2 })}
+          onclick={() => { uiStore.compareView = 'ahead'; }}
+        >
+          {t('compare.viewAhead', { count: String(compareAhead.length) })}
+        </button>
+        <button
+          class="compare-view-btn"
+          class:active={uiStore.compareView === 'behind'}
+          use:tooltip={t('compare.viewBehindHint', { source: compareLabel1, target: compareLabel2 })}
+          onclick={() => { uiStore.compareView = 'behind'; }}
+        >
+          {t('compare.viewBehind', { count: String(compareBehind.length) })}
+        </button>
+        <button
+          class="compare-view-btn"
+          class:active={uiStore.compareView === 'all'}
+          use:tooltip={t('compare.viewAllHint')}
+          onclick={() => { uiStore.compareView = 'all'; }}
+        >
+          {t('compare.viewAll', { count: String(compareAhead.length + compareBehind.length) })}
+        </button>
+      </div>
       <div class="compare-conflict" use:tooltip={t('compare.conflictHint')}>
         {#if conflictChecking}
           <span class="compare-conflict-state">{t('compare.checking')}</span>
@@ -945,6 +1013,28 @@
   <!-- Changes tab -->
   {:else if activeTab === 'changes'}
     <div class="changes-tab-content">
+      {#if uiStore.comparing && uiStore.compareView !== 'files' && uiStore.compareRef1 && uiStore.compareRef2}
+        <div class="compare-commits-content">
+          {#if compareListLoading}
+            <div class="empty-state-text">{t('compare.listLoading')}</div>
+          {:else if compareListCommits.length === 0}
+            <div class="empty-state-text">{t('compare.noCommits')}</div>
+          {:else}
+            {#each compareListCommits as c (c.hash)}
+              <button
+                class="compare-commit-item"
+                use:tooltip={t('compare.openCommitHint')}
+                onclick={() => uiStore.selectCommit(c.hash)}
+              >
+                <i class="codicon codicon-git-commit"></i>
+                <span class="cc-subject truncate">{c.subject}</span>
+                <span class="cc-author">{c.author.name}</span>
+                <span class="cc-date">{new Date(c.author.date).toLocaleDateString()}</span>
+              </button>
+            {/each}
+          {/if}
+        </div>
+      {:else}
       <div class="files-panel" style="width: {filesPanelWidth}px">
         <div class="files-list">
           {#if activeHash === 'UNCOMMITTED' && uncommittedFiles}
@@ -1323,6 +1413,7 @@
           onReverseLines={canReverseInThisView ? handleLinesReverse : undefined}
         />
       {/if}
+      {/if}
     </div>
 
   {/if}
@@ -1448,7 +1539,8 @@
     overflow: hidden;
   }
 
-  .compare-mode-btn {
+  .compare-mode-btn,
+  .compare-view-btn {
     padding: 3px 9px;
     font-size: 0.85em;
     background: transparent;
@@ -1464,15 +1556,63 @@
     text-overflow: ellipsis;
   }
 
-  .compare-mode-btn:hover {
+  .compare-mode-btn:hover,
+  .compare-view-btn:hover {
     color: var(--text-primary);
     border-color: var(--vscode-focusBorder, #007fd4);
   }
 
-  .compare-mode-btn.active {
+  .compare-mode-btn.active,
+  .compare-view-btn.active {
     color: var(--text-primary);
     border-color: var(--vscode-focusBorder, #007fd4);
     background: rgba(0, 127, 212, 0.12);
+  }
+
+  /* Ahead / Behind / All commit lists */
+  .compare-views {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    overflow: hidden;
+    padding-left: 8px;
+    border-left: 1px solid var(--border-color);
+  }
+
+  .compare-commits-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 0;
+  }
+
+  .compare-commit-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 5px 12px;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 0.9em;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .compare-commit-item:hover {
+    background: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.06));
+  }
+
+  .compare-commit-item .cc-subject {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .compare-commit-item .cc-author,
+  .compare-commit-item .cc-date {
+    color: var(--text-secondary);
+    flex-shrink: 0;
   }
 
   .compare-conflict {

@@ -67,6 +67,7 @@ beforeEach(() => {
   uiStore.compareRef1 = null;
   uiStore.compareRef2 = null;
   uiStore.compareMode = 'direct';
+  uiStore.compareView = 'files';
   uiStore.selectedCommitHashes = [];
   uiStore.multiSelectArmed = false;
 });
@@ -455,6 +456,103 @@ describe('CommitDetails — compare scope (2-dot/3-dot) & conflict check', () =>
     const open = postedOfType('openDiff').pop();
     expect(open?.payload?.ref1).toBe('eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee');
     expect(open?.payload?.ref2).toBe(REF1);
+  });
+});
+
+describe('CommitDetails — compare Ahead / Behind tabs', () => {
+  const REF1 = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const REF2 = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const AHEAD = 'hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh';
+  const BEHIND = 'gggggggggggggggggggggggggggggggggggggggg';
+
+  function renderCompare() {
+    uiStore.comparing = true;
+    uiStore.compareRef1 = REF1;
+    uiStore.compareRef2 = REF2;
+    uiStore.selectedCommitHashes = [REF1, REF2];
+    return render(CommitDetails);
+  }
+
+  function postedOfType(type: string) {
+    return globalThis.__postedMessages
+      .map(m => m.data as { type?: string; payload?: Record<string, unknown> })
+      .filter(m => m.type === type);
+  }
+
+  it('requests both directions and shows the counts on the tabs', async () => {
+    const { container, findByText } = renderCompare();
+    await waitFor(() => expect(postedOfType('compareCommitList').length).toBe(1));
+    const req = postedOfType('compareCommitList')[0];
+    expect(req.payload?.ref1).toBe(REF1);
+    expect(req.payload?.ref2).toBe(REF2);
+    expect(container.querySelectorAll('.compare-view-btn').length).toBe(4);
+
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      type: 'compareCommitListData',
+      payload: {
+        ref1: REF1, ref2: REF2, requestId: req.payload?.requestId,
+        ahead: [commit({ hash: AHEAD, subject: 'ahead one' })],
+        behind: [commit({ hash: BEHIND, subject: 'behind one' })],
+      },
+    }}));
+
+    expect(await findByText('Ahead 1')).toBeTruthy();
+    expect(await findByText('Behind 1')).toBeTruthy();
+    expect(await findByText('All 2')).toBeTruthy();
+  });
+
+  it('switches between the commit lists and the file list', async () => {
+    const { container, findByText, queryByText } = renderCompare();
+    await waitFor(() => expect(postedOfType('compareCommitList').length).toBe(1));
+    const req = postedOfType('compareCommitList')[0];
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      type: 'commitDiffData',
+      payload: { hash: '', files: [{ path: 'changed.sql', status: 'M' }], diffs: [] },
+    }}));
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      type: 'compareCommitListData',
+      payload: {
+        ref1: REF1, ref2: REF2, requestId: req.payload?.requestId,
+        ahead: [commit({ hash: AHEAD, subject: 'ahead one' })],
+        behind: [commit({ hash: BEHIND, subject: 'behind one' })],
+      },
+    }}));
+    await findByText('changed.sql');
+
+    // Ahead → only the ahead commits; Behind → only the behind ones.
+    await fireEvent.click(await findByText('Ahead 1'));
+    expect(uiStore.compareView).toBe('ahead');
+    expect(await findByText('ahead one')).toBeTruthy();
+    expect(queryByText('changed.sql')).toBeNull();
+
+    await fireEvent.click(await findByText('Behind 1'));
+    expect(await findByText('behind one')).toBeTruthy();
+    expect(queryByText('ahead one')).toBeNull();
+
+    // All → both lists; Files → the file list again.
+    await fireEvent.click(await findByText('All 2'));
+    expect(await findByText('ahead one')).toBeTruthy();
+    expect(await findByText('behind one')).toBeTruthy();
+    await fireEvent.click(await findByText('Files'));
+    expect(uiStore.compareView).toBe('files');
+    expect(await findByText('changed.sql')).toBeTruthy();
+  });
+
+  it('opens a commit from an Ahead / Behind row', async () => {
+    const { findByText } = renderCompare();
+    await waitFor(() => expect(postedOfType('compareCommitList').length).toBe(1));
+    const req = postedOfType('compareCommitList')[0];
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      type: 'compareCommitListData',
+      payload: {
+        ref1: REF1, ref2: REF2, requestId: req.payload?.requestId,
+        ahead: [commit({ hash: AHEAD, subject: 'ahead one' })],
+        behind: [],
+      },
+    }}));
+    await fireEvent.click(await findByText('Ahead 1'));
+    await fireEvent.click(await findByText('ahead one'));
+    expect(uiStore.selectedCommitHash).toBe(AHEAD);
   });
 });
 

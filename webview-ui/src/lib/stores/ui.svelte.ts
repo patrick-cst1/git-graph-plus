@@ -16,6 +16,9 @@ class UiStore {
   // Compare diff scope: 'direct' = both sides (2-dot); 'ref1'/'ref2' = only
   // that side's own changes since the merge base (3-dot, PR "Files changed").
   compareMode = $state<'direct' | 'ref1' | 'ref2'>('direct');
+  // What the compare panel shows: the file list ('files') or the Ahead /
+  // Behind / All commit lists (GitLens-style compare tabs).
+  compareView = $state<'files' | 'ahead' | 'behind' | 'all'>('files');
   viewMode = $state<'graph' | 'log' | 'stats'>('graph');
   // Non-null while the graph shows a pinned slice fetched from a reflog entry
   // outside the loaded window. Cleared by any normal logData payload or by the
@@ -69,6 +72,7 @@ class UiStore {
     this.comparing = false;
     this.compareRef1 = null;
     this.compareRef2 = null;
+    this.compareView = 'files';
     if (hash) {
       this.showBottomPanel = true;
     }
@@ -85,6 +89,7 @@ class UiStore {
     this.comparing = false;
     this.compareRef1 = null;
     this.compareRef2 = null;
+    this.compareView = 'files';
     const arr = [...this.selectedCommitHashes];
     const i = arr.indexOf(hash);
     const removed = i >= 0;
@@ -115,6 +120,7 @@ class UiStore {
     this.comparing = false;
     this.compareRef1 = null;
     this.compareRef2 = null;
+    this.compareView = 'files';
     this.selectedCommitHashes = orderedHashes.slice(lo, hi + 1);
     // In armed multi-select mode, selectedCommitHash is always null.
     this.selectedCommitHash = null;
@@ -144,6 +150,7 @@ class UiStore {
       this.comparing = false;
       this.compareRef1 = null;
       this.compareRef2 = null;
+    this.compareView = 'files';
     }
     if (opts.range) {
       this.selectRange(hash, opts.orderedHashes);
@@ -161,6 +168,7 @@ class UiStore {
     this.comparing = false;
     this.compareRef1 = null;
     this.compareRef2 = null;
+    this.compareView = 'files';
     this.showBottomPanel = true;
   }
 
@@ -173,6 +181,7 @@ class UiStore {
     this.comparing = false;
     this.compareRef1 = null;
     this.compareRef2 = null;
+    this.compareView = 'files';
   }
 
   setViewMode(mode: 'graph' | 'log' | 'stats') {

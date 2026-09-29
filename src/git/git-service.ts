@@ -2309,6 +2309,23 @@ export class GitService {
   }
 
   /**
+   * Commits reachable from `head` but not from `base` (`git log base..head`),
+   * newest first. Used by the compare panel's Ahead / Behind lists.
+   */
+  async commitsBetween(base: string, head: string, limit: number = 200): Promise<Commit[]> {
+    this.assertSafeRef(base, 'log');
+    this.assertSafeRef(head, 'log');
+    const args = [
+      'log',
+      `--format=${GitService.BASE_LOG_FORMAT}`,
+      `--max-count=${Math.max(1, limit)}`,
+      `${base}..${head}`,
+    ];
+    const [raw, remoteNames] = await Promise.all([this.exec(args), this.getRemoteNames()]);
+    return parseLog(raw, remoteNames);
+  }
+
+  /**
    * Blame a file (working-tree version, so uncommitted edits show as
    * "not committed yet"). Pass a 1-based inclusive `range` to blame only a
    * slice of a large file; otherwise the whole file is blamed.

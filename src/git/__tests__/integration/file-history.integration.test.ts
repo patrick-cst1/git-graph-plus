@@ -94,6 +94,32 @@ describe('GitService integration — fileHistory', () => {
   });
 });
 
+describe('GitService integration — commitsBetween', () => {
+  it('lists the commits each side has that the other does not', async () => {
+    const repo = makeRepo();
+    commitFile(repo, 'a.txt', 'base\n', 'base');
+    git(repo, ['checkout', '-b', 'feature']);
+    commitFile(repo, 'b.txt', 'feature\n', 'feature work');
+    git(repo, ['checkout', 'main']);
+    commitFile(repo, 'c.txt', 'main\n', 'main work');
+    const service = new GitService(repo);
+
+    const ahead = await service.commitsBetween('main', 'feature');
+    const behind = await service.commitsBetween('feature', 'main');
+
+    expect(ahead.map((c) => c.subject)).toEqual(['feature work']);
+    expect(behind.map((c) => c.subject)).toEqual(['main work']);
+  });
+
+  it('returns an empty list for identical refs', async () => {
+    const repo = makeRepo();
+    commitFile(repo, 'a.txt', 'one\n', 'first');
+    const service = new GitService(repo);
+
+    expect(await service.commitsBetween('HEAD', 'HEAD')).toEqual([]);
+  });
+});
+
 describe('GitService integration — lineHistory', () => {
   it('returns only the commits that changed the requested lines', async () => {
     const repo = makeRepo();

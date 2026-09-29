@@ -117,6 +117,7 @@ export type WebviewMessage =
   | { type: 'restoreStashFiles'; payload: { index: number; paths: string[] } }
   | { type: 'compareToWorking'; payload: { hash: string } }
   | { type: 'compareCommits'; payload: { ref1: string; ref2: string; mode?: 'direct' | 'ref1' | 'ref2' } }
+  | { type: 'compareCommitList'; payload: { ref1: string; ref2: string; requestId: string } }
   | { type: 'getImageAtRef'; payload: { ref: string; path: string } }
   | { type: 'continueOperation' }
   | { type: 'skipOperation' }
@@ -142,6 +143,7 @@ export type ExtensionMessage =
   | { type: 'branchData'; payload: BranchData }
   | { type: 'fullRefresh'; payload: { logData: CommitGraphData; branchData: BranchData } }
   | { type: 'commitDiffData'; payload: { hash?: string; diffs?: DiffData[]; files: Array<{ path: string; status: string }>; base?: string } }
+  | { type: 'compareCommitListData'; payload: { ref1: string; ref2: string; requestId: string; ahead: Commit[]; behind: Commit[] } }
   | { type: 'commitSignatureData'; payload: { hash: string; signature: CommitSignature } }
   | { type: 'rebaseCommitsData'; payload: { base: string; commits: Commit[] } }
   | { type: 'searchResults'; payload: CommitGraphData }

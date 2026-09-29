@@ -43,6 +43,7 @@ const H = vi.hoisted(() => {
     isLfsLocksVerifyEnabled: vi.fn(async () => true),
     searchCommits: vi.fn(async () => []),
     searchByFile: vi.fn(async () => []),
+    commitsBetween: vi.fn(async () => []),
     diffCommits: vi.fn(async () => []),
     diffFiles: vi.fn(async () => []),
     getMergeBase: vi.fn(async () => 'basesha'),
@@ -355,6 +356,19 @@ describe('MainPanel message routing', () => {
     await dispatch({ type: 'compareCommits', payload: { ref1: 'r1', ref2: 'r2' } });
     expect(H.git.diffCommits).toHaveBeenCalledWith('r1', 'r2');
     expect(postedOfType('commitDiffData').at(-1)!.payload!.base).toBeUndefined();
+  });
+
+  it('compareCommitList returns both directions with the request id echoed', async () => {
+    H.git.commitsBetween
+      .mockResolvedValueOnce([commit('aheadhash')])
+      .mockResolvedValueOnce([commit('behindhash')]);
+    await dispatch({ type: 'compareCommitList', payload: { ref1: 'r1', ref2: 'r2', requestId: 'rid-1' } });
+    expect(H.git.commitsBetween).toHaveBeenNthCalledWith(1, 'r1', 'r2');
+    expect(H.git.commitsBetween).toHaveBeenNthCalledWith(2, 'r2', 'r1');
+    const data = postedOfType('compareCommitListData').at(-1)!;
+    expect(data.payload!.requestId).toBe('rid-1');
+    expect((data.payload!.ahead as Array<{ hash: string }>).map((c) => c.hash)).toEqual(['aheadhash']);
+    expect((data.payload!.behind as Array<{ hash: string }>).map((c) => c.hash)).toEqual(['behindhash']);
   });
 
   it('compareCommits diffs one side against the merge base in 3-dot mode', async () => {

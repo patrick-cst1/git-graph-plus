@@ -7,6 +7,7 @@ beforeEach(() => {
   uiStore.comparing = false;
   uiStore.compareRef1 = null;
   uiStore.compareRef2 = null;
+  uiStore.compareView = 'files';
   uiStore.showBottomPanel = false;
   uiStore.errorMessage = null;
   uiStore.viewMode = 'graph';

@@ -1346,6 +1346,25 @@ describe('GitService', () => {
     });
   });
 
+  describe('commitsBetween', () => {
+    it('logs the base..head range with a limit', async () => {
+      const calls: string[][] = [];
+      (service as any).cachedRemoteNames = [];
+      (service as any).remoteNamesCacheTime = Date.now();
+      mockExec(service, async (args) => { calls.push(args); return ''; });
+
+      await service.commitsBetween('main', 'feature', 25);
+      const args = calls.find(a => a[0] === 'log')!;
+      expect(args).toContain('main..feature');
+      expect(args).toContain('--max-count=25');
+    });
+
+    it('rejects refs starting with -', async () => {
+      await expect(service.commitsBetween('-x', 'main')).rejects.toThrow("must not start with '-'");
+      await expect(service.commitsBetween('main', '-x')).rejects.toThrow("must not start with '-'");
+    });
+  });
+
   describe('lsTree', () => {
     it('passes -- before the path to prevent flag injection', async () => {
       const calls: string[][] = [];
