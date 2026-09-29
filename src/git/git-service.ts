@@ -16,6 +16,7 @@ import { resolveGitDirs } from '../services/file-watcher-helpers';
 const DEFAULT_MAX_BUFFER_BYTES = 256 * 1024 * 1024;
 import { parseLog, parseBranches, parseTags, parseRemotes, parseStashList, parseDiff, parseWorktreeList, parseLfsFiles, parseLfsLocks, mapSignatureStatus } from './git-parser';
 import { parseBlamePorcelain, type BlameLine } from './blame-parser';
+import { parseUnifiedZeroMarks, type FileChangeMarks } from './diff-marks-parser';
 import { buildReversePatch } from './patch-builder';
 import type { Commit, BranchInfo, TagInfo, RemoteInfo, StashEntry, LogOptions, DiffData, WorktreeInfo, CommitSignature } from './types';
 
@@ -2279,6 +2280,21 @@ export class GitService {
     args.push('--', filePath);
     const raw = await this.exec(args);
     return parseBlamePorcelain(raw);
+  }
+
+  /**
+   * Working-tree change marks (added / modified / removed lines) for a file,
+   * versus HEAD — used by the editor's "Changes" annotation. Returns empty
+   * marks when the file is clean, untracked, or HEAD is unborn.
+   */
+  async workingFileLineMarks(filePath: string): Promise<FileChangeMarks> {
+    this.assertSafePath(filePath, 'diff');
+    try {
+      const raw = await this.exec(['diff', '--unified=0', '--no-color', 'HEAD', '--', filePath], { silent: true });
+      return parseUnifiedZeroMarks(raw);
+    } catch {
+      return { added: [], modified: [], deleted: [] };
+    }
   }
 
   async searchByHash(hash: string): Promise<Commit | null> {

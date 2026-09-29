@@ -44,6 +44,7 @@ vi.mock('vscode', () => ({
   },
   languages: {
     registerHoverProvider: () => ({ dispose() {} }),
+    registerCodeLensProvider: () => ({ dispose() {} }),
   },
   commands: {
     registerCommand: (id: string, cb: (...args: unknown[]) => unknown) => { H.registeredCommands.push(id); H.commandHandlers[id] = cb; return { dispose() {} }; },
@@ -57,7 +58,10 @@ vi.mock('vscode', () => ({
   MarkdownString: class { appendMarkdown() {} },
   Hover: class {},
   Range: class {},
+  CodeLens: class {},
+  EventEmitter: class { event = () => ({ dispose() {} }); fire() {} dispose() {} },
   StatusBarAlignment: { Left: 1 },
+  OverviewRulerLane: { Left: 1 },
   ConfigurationTarget: { Global: 1 },
 }));
 
@@ -150,6 +154,10 @@ describe('activate', () => {
     // Editor blame features (current-line blame toggle + open-commit command).
     expect(H.registeredCommands).toContain('gitGraphPlus.toggleCurrentLineBlame');
     expect(H.registeredCommands).toContain('gitGraphPlus.showCommit');
+    // File annotation toggles (blame / changes / heatmap).
+    expect(H.registeredCommands).toContain('gitGraphPlus.toggleBlameAnnotations');
+    expect(H.registeredCommands).toContain('gitGraphPlus.toggleChangesAnnotations');
+    expect(H.registeredCommands).toContain('gitGraphPlus.toggleHeatmap');
     expect(H.registeredCommands.length).toBeGreaterThan(15);
     expect(H.treeViewsCreated).toEqual([
       'gitGraphPlus.branches',

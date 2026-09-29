@@ -13,6 +13,8 @@ import { WorktreesViewProvider } from './views/worktrees-view';
 import { StatusBarManager } from './views/status-bar';
 import { BlameService } from './services/blame-service';
 import { registerEditorBlame } from './features/editor-blame';
+import { registerEditorAnnotations } from './features/editor-annotations';
+import { getRepoRootForFile } from './services/repo-resolver';
 import { RepoDiscoveryService } from './services/repo-discovery';
 import { samePath } from './utils/path';
 import { resolveDefaultWorktreePath } from './utils/worktree-path';
@@ -349,14 +351,21 @@ export function activate(context: vscode.ExtensionContext) {
   MainPanel.onSidebarRefresh = refreshAll;
   MainPanel.onRepoChange = switchToRepo;
 
-  // Editor-level blame features (current-line blame, status bar, hovers) and
-  // the "open commit in the timeline" command they share.
-  registerEditorBlame(context, {
+  // Editor-level blame features (current-line blame, status bar, hovers),
+  // file annotations (blame / changes / heatmap), CodeLens, and the
+  // "open commit in the timeline" command they share.
+  const showCommitInTimeline = (hash: string): void => {
+    MainPanel.createOrShow(context.extensionUri, activeRepoPath);
+    MainPanel.currentPanel?.showCommit(hash);
+  };
+  registerEditorBlame(context, { blameService, showCommit: showCommitInTimeline });
+  registerEditorAnnotations(context, {
     blameService,
-    showCommit: (hash) => {
-      MainPanel.createOrShow(context.extensionUri, activeRepoPath);
-      MainPanel.currentPanel?.showCommit(hash);
+    getGitServiceForFile: (fsPath) => {
+      const root = getRepoRootForFile(fsPath);
+      return root ? gitServiceForRepo(root) : undefined;
     },
+    showCommit: showCommitInTimeline,
   });
 
   function getWorktreeUri(wtItem: { worktree?: { path?: string } } | undefined): vscode.Uri | undefined {

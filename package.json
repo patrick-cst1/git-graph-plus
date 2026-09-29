@@ -169,6 +169,24 @@
       "command": "gitGraphPlus.showCommit",
       "title": "%command.showCommit%",
       "category": "Commit Timeline"
+    },
+    {
+      "command": "gitGraphPlus.toggleBlameAnnotations",
+      "title": "%command.toggleBlameAnnotations%",
+      "category": "Commit Timeline",
+      "icon": "$(person)"
+    },
+    {
+      "command": "gitGraphPlus.toggleChangesAnnotations",
+      "title": "%command.toggleChangesAnnotations%",
+      "category": "Commit Timeline",
+      "icon": "$(diff)"
+    },
+    {
+      "command": "gitGraphPlus.toggleHeatmap",
+      "title": "%command.toggleHeatmap%",
+      "category": "Commit Timeline",
+      "icon": "$(flame)"
     }
   ],
     "views": {
@@ -212,6 +230,34 @@
       {
         "command": "gitGraphPlus.open",
         "group": "navigation"
+      },
+      {
+        "command": "gitGraphPlus.toggleCurrentLineBlame",
+        "when": "resourceScheme == file",
+        "group": "navigation@9",
+        "icon": "$(git-commit)",
+        "toggled": "gitGraphPlus.currentLineBlame"
+      },
+      {
+        "command": "gitGraphPlus.toggleBlameAnnotations",
+        "when": "resourceScheme == file",
+        "group": "navigation@10",
+        "icon": "$(person)",
+        "toggled": "gitGraphPlus.annotations.blame"
+      },
+      {
+        "command": "gitGraphPlus.toggleChangesAnnotations",
+        "when": "resourceScheme == file",
+        "group": "navigation@11",
+        "icon": "$(diff)",
+        "toggled": "gitGraphPlus.annotations.changes"
+      },
+      {
+        "command": "gitGraphPlus.toggleHeatmap",
+        "when": "resourceScheme == file",
+        "group": "navigation@12",
+        "icon": "$(flame)",
+        "toggled": "gitGraphPlus.annotations.heatmap"
       }
     ],
     "commandPalette": [
@@ -453,6 +499,11 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "Show commit details when hovering over a line."
+        },
+        "gitGraphPlus.codeLens.enabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Show a CodeLens above each blame block (author and age); click it to open the commit in Commit Timeline."
         },
         "gitGraphPlus.interactiveRebase.mode": {
           "type": "string",

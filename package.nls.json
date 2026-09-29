@@ -25,5 +25,8 @@
   "command.addWorktree": "Add Worktree",
   "command.pruneWorktrees": "Prune Worktrees",
   "command.toggleCurrentLineBlame": "Toggle Current Line Blame",
-  "command.showCommit": "Open Commit in Commit Timeline"
+  "command.showCommit": "Open Commit in Commit Timeline",
+  "command.toggleBlameAnnotations": "Toggle Blame Annotations",
+  "command.toggleChangesAnnotations": "Toggle Changes Annotations",
+  "command.toggleHeatmap": "Toggle Heatmap"
 }

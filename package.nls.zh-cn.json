@@ -25,5 +25,8 @@
   "command.addWorktree": "添加工作树",
   "command.pruneWorktrees": "修剪工作树",
   "command.toggleCurrentLineBlame": "切换当前行 Blame",
-  "command.showCommit": "在 Commit Timeline 中打开提交"
+  "command.showCommit": "在 Commit Timeline 中打开提交",
+  "command.toggleBlameAnnotations": "切换 Blame 注解",
+  "command.toggleChangesAnnotations": "切换变更注解",
+  "command.toggleHeatmap": "切换热力图"
 }

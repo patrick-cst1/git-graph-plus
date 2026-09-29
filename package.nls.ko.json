@@ -25,5 +25,8 @@
   "command.addWorktree": "Worktree 추가",
   "command.pruneWorktrees": "Worktree 정리",
   "command.toggleCurrentLineBlame": "현재 줄 Blame 전환",
-  "command.showCommit": "Commit Timeline에서 커밋 열기"
+  "command.showCommit": "Commit Timeline에서 커밋 열기",
+  "command.toggleBlameAnnotations": "Blame 주석 전환",
+  "command.toggleChangesAnnotations": "변경 사항 주석 전환",
+  "command.toggleHeatmap": "히트맵 전환"
 }

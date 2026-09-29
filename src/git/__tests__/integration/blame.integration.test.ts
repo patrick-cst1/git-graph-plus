@@ -98,3 +98,37 @@ describe('GitService integration — blame', () => {
     await expect(service.blame('-flag')).rejects.toThrow();
   });
 });
+
+describe('GitService integration — workingFileLineMarks', () => {
+  it('reports modified and added lines versus HEAD', async () => {
+    const repo = makeRepo();
+    commitFile(repo, 'a.txt', 'one\ntwo\nthree\nfour\n', 'first');
+    writeFileSync(join(repo, 'a.txt'), 'one\nTWO\nthree\nFOUR-EXTRA\nfive\n');
+    const service = new GitService(repo);
+
+    const marks = await service.workingFileLineMarks('a.txt');
+
+    expect(marks.modified).toEqual([2, 4, 5]);
+    expect(marks.added).toEqual([]);
+    expect(marks.deleted).toEqual([]);
+  });
+
+  it('reports a pure deletion on the line above the removal point', async () => {
+    const repo = makeRepo();
+    commitFile(repo, 'a.txt', 'one\ntwo\nthree\n', 'first');
+    writeFileSync(join(repo, 'a.txt'), 'one\nthree\n');
+    const service = new GitService(repo);
+
+    const marks = await service.workingFileLineMarks('a.txt');
+
+    expect(marks.deleted).toEqual([1]);
+  });
+
+  it('returns empty marks for a clean file', async () => {
+    const repo = makeRepo();
+    commitFile(repo, 'a.txt', 'one\n', 'first');
+    const service = new GitService(repo);
+
+    expect(await service.workingFileLineMarks('a.txt')).toEqual({ added: [], modified: [], deleted: [] });
+  });
+});

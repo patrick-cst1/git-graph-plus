@@ -34,6 +34,8 @@ export function registerEditorBlame(context: vscode.ExtensionContext, options: E
   const statusBarEnabled = () => config().get<boolean>('statusBarBlame.enabled', true) !== false;
   const hoversEnabled = () => config().get<boolean>('hovers.enabled', true) !== false;
   const blameFormat = () => config().get<string>('currentLineBlame.format', '{author}, {ago}');
+  const updateCurrentLineContext = () =>
+    void vscode.commands.executeCommand('setContext', 'gitGraphPlus.currentLineBlame', currentLineEnabled());
 
   let decoratedEditor: vscode.TextEditor | undefined;
   let lastKey = '';
@@ -144,6 +146,7 @@ export function registerEditorBlame(context: vscode.ExtensionContext, options: E
     }),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (!e.affectsConfiguration('gitGraphPlus')) return;
+      updateCurrentLineContext();
       lastKey = '';
       schedule(0);
     }),
@@ -177,6 +180,7 @@ export function registerEditorBlame(context: vscode.ExtensionContext, options: E
     vscode.commands.registerCommand('gitGraphPlus.toggleCurrentLineBlame', async () => {
       const next = !currentLineEnabled();
       await config().update('currentLineBlame.enabled', next, vscode.ConfigurationTarget.Global);
+      updateCurrentLineContext();
       vscode.window.setStatusBarMessage(next ? 'Commit Timeline: line blame on' : 'Commit Timeline: line blame off', 3000);
     }),
     vscode.commands.registerCommand(SHOW_COMMIT_COMMAND, (hash: unknown) => {
@@ -184,5 +188,6 @@ export function registerEditorBlame(context: vscode.ExtensionContext, options: E
     }),
   );
 
+  updateCurrentLineContext();
   schedule(0);
 }
