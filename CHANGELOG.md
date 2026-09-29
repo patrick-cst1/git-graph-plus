@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.41
+
+- Naming fix: the remote branch right-click action is now **Pull into '<local>'**
+  (it was "Fetch into …"). It performs the same fast-forward pull as the local
+  branch's Pull — the old label suggested it would only fetch and not move the
+  local branch. The Remotes sidebar menu matches.
+
 ## 0.7.40
 
 - **Push/pull any branch without checking it out**: a local branch's right-click
