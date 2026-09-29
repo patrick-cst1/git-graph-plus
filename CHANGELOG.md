@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.38
+
+- Focus scope polish: when **every** focused branch has no fork point (so Own
+  commits cannot scope anything), the scope control now shows **Full history**
+  as active — that is what the graph is displaying. The preference itself is
+  kept, so focusing a branch that can be scoped later still uses Own commits.
+- Fixed the fallback notice flashing (appear → disappear → appear) in Filter
+  mode: a log refresh echoing the same branch list no longer clears and
+  re-requests the resolved fork points.
+
 ## 0.7.37
 
 - Branch focus now has a **scope toggle** in the focus popover (next to
