@@ -1703,6 +1703,9 @@ describe('App — filter change handlers', () => {
     postMsg('branchFocusBaseData', { branches: ['feature'], bases: { feature: null }, requestId: req.payload?.requestId });
     await waitFor(() => {
       expect(container.querySelector('.scope-warning')).not.toBeNull();
+      // The explanation stays visible even though the control now shows Full
+      // history because every focused branch fell back.
+      expect(container.querySelector('.dd-note')?.textContent).toContain('No fork point');
     });
     // Own commits cannot scope it, so the graph shows full history and the
     // scope control reflects that (the popover stays open after a pick).

@@ -412,7 +412,7 @@
             use:tooltip={t('search.scopeFullTooltip')}
           >{t('search.scopeFull')}</button>
         </div>
-        {#if focusScope === 'own' && focusFallbackNames.length > 0}
+        {#if focusFallbackNames.length > 0}
           <div class="dd-note">
             <i class="codicon codicon-warning"></i>
             <span>{t('search.scopeFallbackNote', { names: focusFallbackNames.join(', ') })}</span>
