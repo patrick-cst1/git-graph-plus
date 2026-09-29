@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.29
+
+- **Search & Compare** view in the Source Control sidebar: search commit
+  messages (a hex query jumps to the commit) and compare two branches or tags
+  to list the changed files — click a file to open its diff between the refs.
+- **Git Command Palette** (`gitGraphPlus.gitCommandPalette`): one quick pick
+  that guides fetch / pull / push, branch / tag / stash, checkout, merge,
+  rebase, reset (with a hard-reset confirmation), cherry-pick, revert, amend,
+  undo last commit, continue / abort the running operation, and clean.
+
 ## 0.7.28
 
 - **File History** view in the Source Control sidebar: the commits that touched
