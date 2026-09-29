@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.37
+
+- Branch focus now has a **scope toggle** in the focus popover (next to
+  Filter / Dim): **Own commits** (default) shows each focused branch from its
+  fork point to its tip, **Full history** shows the branch's whole ancestry
+  (the classic `git log` view).
+- The scope applies to **any number** of focused branches — each branch is
+  scoped to its own commits, and their ranges are unioned (filter logs each
+  range, dim stops each walk at its own fork point).
+- When a focused branch has no resolvable fork point (its local reflog is
+  missing or expired, or it is the default branch), it keeps its full history
+  and the focus chip shows a warning + the popover explains why.
+
 ## 0.7.36
 
 - Branch focus now also scopes a **merged** branch to its own commits: the fork
