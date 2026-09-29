@@ -11,6 +11,8 @@ import { TagsViewProvider } from './views/tags-view';
 import { StashesViewProvider } from './views/stashes-view';
 import { WorktreesViewProvider } from './views/worktrees-view';
 import { StatusBarManager } from './views/status-bar';
+import { BlameService } from './services/blame-service';
+import { registerEditorBlame } from './features/editor-blame';
 import { RepoDiscoveryService } from './services/repo-discovery';
 import { samePath } from './utils/path';
 import { resolveDefaultWorktreePath } from './utils/worktree-path';
@@ -82,6 +84,29 @@ export function activate(context: vscode.ExtensionContext) {
   let activeGitService = new GitService(activeRepoPath);
   activeGitService.setDefaultTimeout(readTimeoutMs());
 
+  // Git env (askpass) resolved from the built-in git extension; applied to
+  // every GitService we create for editor-level features too.
+  let injectedGitEnv: Record<string, string> | undefined;
+
+  // Per-repo GitService cache for editor-level features (blame, history).
+  // The active repo keeps its long-lived service above; this map covers files
+  // in other workspace repos without recreating a service per request.
+  const repoGitServices = new Map<string, GitService>();
+  function gitServiceForRepo(repoRoot: string): GitService {
+    const key = repoRoot.toLowerCase();
+    let service = repoGitServices.get(key);
+    if (!service) {
+      service = new GitService(repoRoot);
+      service.setDefaultTimeout(readTimeoutMs());
+      if (injectedGitEnv) service.setExtraEnv(injectedGitEnv);
+      repoGitServices.set(key, service);
+    }
+    return service;
+  }
+
+  // Shared blame cache behind current-line blame, status bar and hovers.
+  const blameService = new BlameService(gitServiceForRepo);
+
   // Inject VS Code's built-in git extension askpass env so authentication prompts work
   const builtinGit = vscode.extensions.getExtension('vscode.git');
   if (builtinGit) {
@@ -92,6 +117,7 @@ export function activate(context: vscode.ExtensionContext) {
         if (git?.env) {
           activeGitService.setExtraEnv(git.env);
           MainPanel.setExtraEnv(git.env);
+          injectedGitEnv = git.env;
         }
         // The built-in extension's resolved path already honors `git.path`; adopt
         // it as the fallback for when the user hasn't set a valid `git.path`.
@@ -266,6 +292,9 @@ export function activate(context: vscode.ExtensionContext) {
     }
   }
   function refreshAll() {
+    // HEAD may have moved (commit, checkout, rebase, …): drop cached blame so
+    // the next editor update reflects it.
+    blameService.invalidateAll();
     if (sidebarRefreshTimer) { clearTimeout(sidebarRefreshTimer); }
     sidebarRefreshTimer = setTimeout(() => {
       sidebarRefreshTimer = null;
@@ -276,6 +305,7 @@ export function activate(context: vscode.ExtensionContext) {
   function switchToRepo(newPath: string) {
     if (samePath(newPath, activeRepoPath)) { return; }
     activeRepoPath = newPath;
+    blameService.invalidateAll();
     activeGitService = new GitService(newPath);
     activeGitService.setDefaultTimeout(readTimeoutMs());
 
@@ -318,6 +348,16 @@ export function activate(context: vscode.ExtensionContext) {
 
   MainPanel.onSidebarRefresh = refreshAll;
   MainPanel.onRepoChange = switchToRepo;
+
+  // Editor-level blame features (current-line blame, status bar, hovers) and
+  // the "open commit in the timeline" command they share.
+  registerEditorBlame(context, {
+    blameService,
+    showCommit: (hash) => {
+      MainPanel.createOrShow(context.extensionUri, activeRepoPath);
+      MainPanel.currentPanel?.showCommit(hash);
+    },
+  });
 
   function getWorktreeUri(wtItem: { worktree?: { path?: string } } | undefined): vscode.Uri | undefined {
     const wtPath = wtItem?.worktree?.path;

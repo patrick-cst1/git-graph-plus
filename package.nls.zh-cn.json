@@ -23,5 +23,7 @@
   "command.openWorktreeInFileExplorer": "在文件资源管理器中打开",
   "command.removeWorktree": "移除工作树",
   "command.addWorktree": "添加工作树",
-  "command.pruneWorktrees": "修剪工作树"
+  "command.pruneWorktrees": "修剪工作树",
+  "command.toggleCurrentLineBlame": "切换当前行 Blame",
+  "command.showCommit": "在 Commit Timeline 中打开提交"
 }

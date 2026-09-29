@@ -192,6 +192,10 @@ import AmendModal from './components/modals/AmendModal.svelte';
         case 'setResizableColumns':
           uiStore.resizableColumns = msg.payload.enabled;
           break;
+        case 'showCommit':
+          // From the editor (blame hover / status bar): jump to the commit.
+          handleShowInGraph(msg.payload.hash);
+          break;
         case 'setLoadMoreCount':
           uiStore.loadMoreCount = msg.payload.count;
           break;

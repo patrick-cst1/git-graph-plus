@@ -15,6 +15,7 @@ import { resolveGitDirs } from '../services/file-watcher-helpers';
  *  extension host. Callers can override per-invocation via `maxBufferBytes`. */
 const DEFAULT_MAX_BUFFER_BYTES = 256 * 1024 * 1024;
 import { parseLog, parseBranches, parseTags, parseRemotes, parseStashList, parseDiff, parseWorktreeList, parseLfsFiles, parseLfsLocks, mapSignatureStatus } from './git-parser';
+import { parseBlamePorcelain, type BlameLine } from './blame-parser';
 import { buildReversePatch } from './patch-builder';
 import type { Commit, BranchInfo, TagInfo, RemoteInfo, StashEntry, LogOptions, DiffData, WorktreeInfo, CommitSignature } from './types';
 
@@ -2256,6 +2257,28 @@ export class GitService {
     const [raw, remoteNames] = await Promise.all([this.exec(args), this.getRemoteNames()]);
     const commits = parseLog(raw, remoteNames);
     return commits;
+  }
+
+  /**
+   * Blame a file (working-tree version, so uncommitted edits show as
+   * "not committed yet"). Pass a 1-based inclusive `range` to blame only a
+   * slice of a large file; otherwise the whole file is blamed.
+   */
+  async blame(filePath: string, range?: { start: number; end: number }): Promise<BlameLine[]> {
+    this.assertSafePath(filePath, 'blame');
+    const args = ['blame', '--line-porcelain'];
+    if (range) {
+      if (
+        !Number.isInteger(range.start) || !Number.isInteger(range.end) ||
+        range.start < 1 || range.end < range.start
+      ) {
+        throw new GitError(`Invalid blame range: ${range.start},${range.end}`, null, []);
+      }
+      args.push('-L', `${range.start},${range.end}`);
+    }
+    args.push('--', filePath);
+    const raw = await this.exec(args);
+    return parseBlamePorcelain(raw);
   }
 
   async searchByHash(hash: string): Promise<Commit | null> {

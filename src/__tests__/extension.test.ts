@@ -20,11 +20,13 @@ vi.mock('vscode', () => ({
         if (section === 'git' && key === 'path') return H.gitPathConfig;
         return def;
       },
+      update: vi.fn(async () => {}),
     }),
     get workspaceFolders() { return H.workspaceFolders; },
     onDidChangeWorkspaceFolders: () => ({ dispose() {} }),
     onDidChangeConfiguration: () => ({ dispose() {} }),
     onDidSaveTextDocument: () => ({ dispose() {} }),
+    onDidChangeTextDocument: () => ({ dispose() {} }),
     registerTextDocumentContentProvider: () => ({ dispose() {} }),
   },
   window: {
@@ -33,8 +35,15 @@ vi.mock('vscode', () => ({
     showInformationMessage: vi.fn(async () => undefined),
     showErrorMessage: vi.fn(),
     showQuickPick: vi.fn(async () => undefined),
+    setStatusBarMessage: vi.fn(),
+    createTextEditorDecorationType: () => ({ dispose() {} }),
+    createStatusBarItem: () => ({ text: '', tooltip: undefined, command: undefined, show() {}, hide() {}, dispose() {} }),
     onDidChangeActiveTextEditor: () => ({ dispose() {} }),
+    onDidChangeTextEditorSelection: () => ({ dispose() {} }),
     activeTextEditor: undefined,
+  },
+  languages: {
+    registerHoverProvider: () => ({ dispose() {} }),
   },
   commands: {
     registerCommand: (id: string, cb: (...args: unknown[]) => unknown) => { H.registeredCommands.push(id); H.commandHandlers[id] = cb; return { dispose() {} }; },
@@ -44,6 +53,12 @@ vi.mock('vscode', () => ({
   l10n: { t: (s: string) => s },
   Uri: { joinPath: () => ({}), file: (p: string) => ({ fsPath: p }), parse: () => ({}) },
   ViewColumn: { One: 1 },
+  ThemeColor: class {},
+  MarkdownString: class { appendMarkdown() {} },
+  Hover: class {},
+  Range: class {},
+  StatusBarAlignment: { Left: 1 },
+  ConfigurationTarget: { Global: 1 },
 }));
 
 vi.mock('fs', () => ({ existsSync: vi.fn(() => true) }));
@@ -132,6 +147,9 @@ describe('activate', () => {
     for (const id of ['gitGraphPlus.open', 'gitGraphPlus.refresh', 'gitGraphPlus.fetch', 'gitGraphPlus.pull', 'gitGraphPlus.push', 'gitGraphPlus.createBranch']) {
       expect(H.registeredCommands).toContain(id);
     }
+    // Editor blame features (current-line blame toggle + open-commit command).
+    expect(H.registeredCommands).toContain('gitGraphPlus.toggleCurrentLineBlame');
+    expect(H.registeredCommands).toContain('gitGraphPlus.showCommit');
     expect(H.registeredCommands.length).toBeGreaterThan(15);
     expect(H.treeViewsCreated).toEqual([
       'gitGraphPlus.branches',

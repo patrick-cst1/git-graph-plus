@@ -455,6 +455,15 @@ export class MainPanel {
     this.post({ type: 'showModal', payload });
   }
 
+  /** Bring the panel forward and reveal a commit in the graph. Used by the
+   *  editor blame hover / status bar; the webview selects the commit when it
+   *  is loaded and asks for a pinned slice otherwise. */
+  public showCommit(hash: string): void {
+    if (typeof hash !== 'string' || hash.length === 0) return;
+    this.panel.reveal();
+    this.post({ type: 'showCommit', payload: { hash } });
+  }
+
   private static pendingModal: { modal: string; [key: string]: any } | null = null;
 
   public static showModalWithPanel(extensionUri: vscode.Uri, payload: { modal: string; [key: string]: any }): void {

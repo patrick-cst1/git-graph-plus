@@ -155,12 +155,22 @@
         "title": "%command.addWorktree%",
         "icon": "$(add)"
       },
-      {
-        "command": "gitGraphPlus.pruneWorktrees",
-        "title": "%command.pruneWorktrees%",
-        "icon": "$(clear-all)"
-      }
-    ],
+    {
+      "command": "gitGraphPlus.pruneWorktrees",
+      "title": "%command.pruneWorktrees%",
+      "icon": "$(clear-all)"
+    },
+    {
+      "command": "gitGraphPlus.toggleCurrentLineBlame",
+      "title": "%command.toggleCurrentLineBlame%",
+      "category": "Commit Timeline"
+    },
+    {
+      "command": "gitGraphPlus.showCommit",
+      "title": "%command.showCommit%",
+      "category": "Commit Timeline"
+    }
+  ],
     "views": {
       "scm": [
         {
@@ -198,12 +208,18 @@
       }
     ],
     "menus": {
-      "editor/title": [
-        {
-          "command": "gitGraphPlus.open",
-          "group": "navigation"
-        }
-      ],
+    "editor/title": [
+      {
+        "command": "gitGraphPlus.open",
+        "group": "navigation"
+      }
+    ],
+    "commandPalette": [
+      {
+        "command": "gitGraphPlus.showCommit",
+        "when": "false"
+      }
+    ],
       "scm/title": [
         {
           "command": "gitGraphPlus.open",
@@ -417,6 +433,26 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "Make the commit list's **Author / SHA / Date** columns adjustable: drag a column border in the header to resize it and right-click the header to show or hide columns. Off by default — when off the columns keep their fixed widths."
+        },
+        "gitGraphPlus.currentLineBlame.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show the commit that last changed the current line as an annotation at the end of the line."
+        },
+        "gitGraphPlus.currentLineBlame.format": {
+          "type": "string",
+          "default": "{author}, {ago}",
+          "markdownDescription": "Format of the current-line blame annotation. Tokens: `{author}`, `{ago}`, `{date}`, `{summary}`, `{sha}`."
+        },
+        "gitGraphPlus.statusBarBlame.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show the current line's commit in the status bar. Click it to open the commit in Commit Timeline."
+        },
+        "gitGraphPlus.hovers.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show commit details when hovering over a line."
         },
         "gitGraphPlus.interactiveRebase.mode": {
           "type": "string",

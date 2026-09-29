@@ -172,6 +172,7 @@ export type ExtensionMessage =
   | { type: 'setShowAvatars'; payload: { enabled: boolean } }
   | { type: 'setShowStats'; payload: { enabled: boolean } }
   | { type: 'setResizableColumns'; payload: { enabled: boolean } }
+  | { type: 'showCommit'; payload: { hash: string } }
   | { type: 'setGraphColors'; payload: { colors: string[] } }
   | { type: 'setCommitLinkRules'; payload: { rules: LinkRule[] } }
   | { type: 'repoList'; payload: { repos: Array<{ path: string; name: string; type: 'root' | 'submodule' | 'nested' }>; active: string } }

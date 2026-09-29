@@ -23,5 +23,7 @@
   "command.openWorktreeInFileExplorer": "Open in File Explorer",
   "command.removeWorktree": "Remove Worktree",
   "command.addWorktree": "Add Worktree",
-  "command.pruneWorktrees": "Prune Worktrees"
+  "command.pruneWorktrees": "Prune Worktrees",
+  "command.toggleCurrentLineBlame": "Toggle Current Line Blame",
+  "command.showCommit": "Open Commit in Commit Timeline"
 }

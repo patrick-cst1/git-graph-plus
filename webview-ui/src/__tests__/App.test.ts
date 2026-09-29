@@ -1828,6 +1828,41 @@ describe('App — search result highlighting', () => {
   });
 });
 
+describe('App — showCommit (editor blame jump)', () => {
+  function commitRow(hash: string, subject: string) {
+    return {
+      hash, abbreviatedHash: hash.slice(0, 7), subject, body: '', parents: [], refs: [],
+      author: { name: '', email: '', date: '' }, committer: { name: '', email: '', date: '' },
+    };
+  }
+
+  it('selects a loaded commit and switches to the graph view', async () => {
+    render(App);
+    commitStore.commits = [commitRow('aaaaaaa1', 'loaded commit')] as never;
+    uiStore.viewMode = 'log';
+
+    postMsg('showCommit', { hash: 'aaaaaaa1' });
+
+    await waitFor(() => {
+      expect(uiStore.viewMode).toBe('graph');
+      expect(uiStore.selectedCommitHash).toBe('aaaaaaa1');
+    });
+  });
+
+  it('asks the extension for a commit that is not loaded', async () => {
+    render(App);
+    globalThis.__postedMessages = [];
+
+    postMsg('showCommit', { hash: 'deadbeef1234' });
+
+    await waitFor(() => {
+      expect(globalThis.__postedMessages.some(
+        m => (m.data as { type?: string }).type === 'revealCommitInGraph'
+      )).toBe(true);
+    });
+  });
+});
+
 describe('App — simplify toggle', () => {
   it('clicking the Simplify button posts setSimplify and marks the toggle active', async () => {
     const { container } = render(App);
