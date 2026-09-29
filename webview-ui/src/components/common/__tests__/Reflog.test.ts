@@ -3,6 +3,7 @@ import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import Reflog from '../Reflog.svelte';
 import { i18n } from '../../../lib/i18n/index.svelte';
 import { branchStore } from '../../../lib/stores/branches.svelte';
+import { modalStore } from '../../../lib/stores/modals.svelte';
 
 interface ReflogEntry {
   hash: string;
@@ -38,6 +39,9 @@ beforeEach(() => {
   branchStore.tags = [];
   branchStore.stashes = [];
   branchStore.worktrees = [];
+  // modalStore is a singleton: a modal left open by one test would render into
+  // the next one's DOM and confuse the context-menu queries.
+  modalStore.closeAll();
   globalThis.__postedMessages = [];
 });
 
@@ -528,5 +532,69 @@ describe('Reflog — Show in Graph', () => {
       expect(text).toMatch(/reset|checkout|sha/i);
       expect(text).toMatch(/show in graph/i);
     });
+  });
+});
+
+describe('Reflog — recover actions (branch / tag / cherry-pick)', () => {
+  async function openMenu(container: HTMLElement) {
+    await fireEvent.contextMenu(container.querySelector('.reflog-row')!, { clientX: 10, clientY: 10 });
+    await waitFor(() => expect(document.body.textContent ?? '').toMatch(/new branch/i));
+  }
+
+  function menuItem(label: RegExp) {
+    return Array.from(document.querySelectorAll<HTMLButtonElement>('button, [role="menuitem"]'))
+      .find(b => label.test(b.textContent ?? ''))!;
+  }
+
+  it('offers New Branch / New Tag / Cherry-Pick on a reflog entry', async () => {
+    const { container } = render(Reflog, { active: true });
+    deliverReflog([entry()]);
+    await waitFor(() => container.querySelector('.reflog-row'));
+    await openMenu(container);
+    expect(menuItem(/new branch/i)).toBeTruthy();
+    expect(menuItem(/new tag/i)).toBeTruthy();
+    expect(menuItem(/cherry-pick/i)).toBeTruthy();
+  });
+
+  it('New Branch opens the create-branch modal pinned to the entry hash', async () => {
+    const { container } = render(Reflog, { active: true });
+    deliverReflog([entry({ hash: 'rescueHash1' })]);
+    await waitFor(() => container.querySelector('.reflog-row'));
+    await openMenu(container);
+
+    await fireEvent.click(menuItem(/new branch/i));
+
+    expect(modalStore.createBranch.show).toBe(true);
+    expect(modalStore.createBranch.startPoint).toBe('rescueHash1');
+  });
+
+  it('New Tag opens the create-tag modal pinned to the entry hash', async () => {
+    const { container } = render(Reflog, { active: true });
+    deliverReflog([entry({ hash: 'rescueHash2' })]);
+    await waitFor(() => container.querySelector('.reflog-row'));
+    await openMenu(container);
+
+    await fireEvent.click(menuItem(/new tag/i));
+
+    expect(modalStore.createTag.show).toBe(true);
+    expect(modalStore.createTag.ref).toBe('rescueHash2');
+  });
+
+  it('Cherry-Pick confirm posts cherryPick with the entry hash', async () => {
+    const { container } = render(Reflog, { active: true });
+    deliverReflog([entry({ hash: 'pickMeHash3' })]);
+    await waitFor(() => container.querySelector('.reflog-row'));
+    await openMenu(container);
+
+    await fireEvent.click(menuItem(/cherry-pick/i));
+    await waitFor(() => document.querySelector('.modal button.primary'));
+    globalThis.__postedMessages = [];
+    await fireEvent.click(document.querySelector<HTMLButtonElement>('.modal button.primary')!);
+
+    const req = globalThis.__postedMessages.find(
+      (m) => (m.data as { type?: string }).type === 'cherryPick'
+    );
+    expect(req).toBeDefined();
+    expect((req!.data as { payload: { commit: string } }).payload.commit).toBe('pickMeHash3');
   });
 });

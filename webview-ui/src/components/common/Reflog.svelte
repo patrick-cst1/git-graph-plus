@@ -5,7 +5,9 @@
   import ContextMenu from './ContextMenu.svelte';
   import ResetModal from '../modals/ResetModal.svelte';
   import CheckoutCommitModal from '../modals/CheckoutCommitModal.svelte';
+  import CherryPickModal from '../modals/CherryPickModal.svelte';
   import { branchStore } from '../../lib/stores/branches.svelte';
+  import { modalStore } from '../../lib/stores/modals.svelte';
   import { tooltip } from '../../lib/actions/tooltip';
   import LinkifiedText from './LinkifiedText.svelte';
 
@@ -84,6 +86,8 @@
   let resetTarget           = $state('');
   let showCheckoutModal     = $state(false);
   let checkoutTarget        = $state('');
+  let showCherryPickModal   = $state(false);
+  let cherryPickTarget      = $state('');
 
   // ── 액션 파싱 ────────────────────────────────────────────
   const ACTION_MAP: Record<string, { color: string }> = {
@@ -214,6 +218,14 @@
 
     items.push(
       { label: t('reflog.showInGraph'), action: () => { onShowInGraph(entry.hash); } },
+      sep,
+      // Recovering lost work: a reflog entry can be the only handle on a
+      // commit that no branch points at any more, so let the user pin it
+      // (branch/tag) or move it onto the current branch (cherry-pick).
+      { label: t('graph.createBranchHere'), action: () => { modalStore.openCreateBranch(entry.hash); } },
+      { label: t('graph.newTag'), action: () => { modalStore.openCreateTag(entry.hash); } },
+      sep,
+      { label: t('graph.cherryPickCommit'), action: () => { cherryPickTarget = entry.hash; showCherryPickModal = true; } },
       sep,
       { label: t('reflog.resetTo', { selector: entry.selector }), action: () => { resetTarget = entry.hash; showResetModal = true; } },
       sep,
@@ -436,6 +448,18 @@
     defaultMode="hard"
     onConfirm={(mode) => { vscode.postMessage({ type: 'reset', payload: { ref: resetTarget, mode } }); }}
     onClose={() => { showResetModal = false; }}
+  />
+{/if}
+
+{#if showCherryPickModal}
+  <CherryPickModal
+    commit={cherryPickTarget}
+    branch={branchStore.currentBranch?.name ?? 'current branch'}
+    onClose={() => { showCherryPickModal = false; }}
+    onCherryPick={({ noCommit, pushAfter }) => {
+      showCherryPickModal = false;
+      vscode.postMessage({ type: 'cherryPick', payload: { commit: cherryPickTarget, noCommit, pushAfter } });
+    }}
   />
 {/if}
 
