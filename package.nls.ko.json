@@ -39,5 +39,11 @@
   "command.fileHistoryLoadMore": "파일 기록 더 불러오기",
   "command.fileHistoryOpenRevision": "이 리비전의 파일 열기",
   "command.fileHistoryComparePrevious": "이전 리비전과 비교",
-  "command.fileHistoryCopySha": "SHA 복사"
+  "command.fileHistoryCopySha": "SHA 복사",
+  "command.searchCompareSearch": "커밋 검색…",
+  "command.searchCompareCompare": "Ref 비교…",
+  "command.searchCompareRefresh": "검색 및 비교 새로고침",
+  "command.searchCompareClear": "검색 및 비교 지우기",
+  "command.searchCompareOpenFileDiff": "파일 Diff 열기",
+  "command.gitCommandPalette": "Git 명령 팔레트…"
 }

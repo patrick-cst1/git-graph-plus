@@ -39,5 +39,11 @@
   "command.fileHistoryLoadMore": "加载更多文件历史",
   "command.fileHistoryOpenRevision": "打开此修订的文件",
   "command.fileHistoryComparePrevious": "与上一修订比较",
-  "command.fileHistoryCopySha": "复制 SHA"
+  "command.fileHistoryCopySha": "复制 SHA",
+  "command.searchCompareSearch": "搜索提交…",
+  "command.searchCompareCompare": "比较引用…",
+  "command.searchCompareRefresh": "刷新搜索与比较",
+  "command.searchCompareClear": "清除搜索与比较",
+  "command.searchCompareOpenFileDiff": "打开文件差异",
+  "command.gitCommandPalette": "Git 命令面板…"
 }

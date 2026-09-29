@@ -39,5 +39,11 @@
   "command.fileHistoryLoadMore": "Load More File History",
   "command.fileHistoryOpenRevision": "Open File at This Revision",
   "command.fileHistoryComparePrevious": "Compare with Previous Revision",
-  "command.fileHistoryCopySha": "Copy SHA"
+  "command.fileHistoryCopySha": "Copy SHA",
+  "command.searchCompareSearch": "Search Commits…",
+  "command.searchCompareCompare": "Compare Refs…",
+  "command.searchCompareRefresh": "Refresh Search & Compare",
+  "command.searchCompareClear": "Clear Search & Compare",
+  "command.searchCompareOpenFileDiff": "Open File Diff",
+  "command.gitCommandPalette": "Git Command Palette…"
 }

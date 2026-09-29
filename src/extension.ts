@@ -15,7 +15,9 @@ import { BlameService } from './services/blame-service';
 import { registerEditorBlame } from './features/editor-blame';
 import { registerEditorAnnotations } from './features/editor-annotations';
 import { registerRevisionNavigator } from './features/revision-navigator';
+import { registerGitCommandPalette } from './features/git-command-palette';
 import { FileHistoryViewProvider, type FileHistoryViewState } from './views/file-history-view';
+import { SearchCompareViewProvider, type SearchCompareState } from './views/search-compare-view';
 import { FileVisualHistoryPanel } from './panels/FileVisualHistoryPanel';
 import { toGitUri } from './utils/git-uri';
 import { getRepoRootForFile } from './services/repo-resolver';
@@ -492,6 +494,100 @@ export function activate(context: vscode.ExtensionContext) {
     getGitServiceForFile: (fsPath) => {
       const root = getRepoRootForFile(fsPath);
       return root ? gitServiceForRepo(root) : undefined;
+    },
+  });
+
+  // --- Search & Compare view + Git Command Palette ---
+  const searchCompareProvider = new SearchCompareViewProvider({ getService: () => activeGitService });
+  const searchCompareView = vscode.window.createTreeView('gitGraphPlus.searchCompare', {
+    treeDataProvider: searchCompareProvider,
+  });
+  const updateSearchCompareView = (state: SearchCompareState): void => {
+    if (state.error) {
+      searchCompareView.message = state.error;
+    } else if (state.loading) {
+      searchCompareView.message = 'Loading…';
+    } else if (state.mode === 'search' && !state.query) {
+      searchCompareView.message = 'Run “Search Commits” to search messages, authors and hashes.';
+    } else if (state.mode === 'compare' && !state.base) {
+      searchCompareView.message = 'Run “Compare Refs” to diff two branches or tags.';
+    } else if (state.count === 0) {
+      searchCompareView.message = state.mode === 'search'
+        ? 'No commits match the search.'
+        : 'No files differ between the refs.';
+    } else {
+      searchCompareView.message = undefined;
+    }
+    searchCompareView.description = state.mode === 'compare' && state.base
+      ? `${state.base} → ${state.head}`
+      : undefined;
+  };
+  updateSearchCompareView(searchCompareProvider.getState());
+
+  const pickRefForCompare = async (title: string): Promise<string | undefined> => {
+    const [branches, tags] = await Promise.all([activeGitService.branches(), activeGitService.tags()]);
+    const items: Array<vscode.QuickPickItem & { ref: string }> = [
+      ...branches.filter((b) => !b.remote).map((b) => ({
+        label: `$(git-branch) ${b.name}`,
+        description: b.current ? 'current' : b.upstream ?? '',
+        ref: b.name,
+      })),
+      ...tags.map((t) => ({ label: `$(tag) ${t.name}`, description: 'tag', ref: t.name })),
+      { label: '$(git-commit) HEAD', description: 'current commit', ref: 'HEAD' },
+    ];
+    const picked = await vscode.window.showQuickPick(items, { title, placeHolder: title, matchOnDescription: true });
+    return picked?.ref;
+  };
+
+  context.subscriptions.push(
+    searchCompareProvider,
+    searchCompareView,
+    searchCompareProvider.onDidChangeState(updateSearchCompareView),
+    vscode.commands.registerCommand('gitGraphPlus.searchCompare.search', async () => {
+      const query = await vscode.window.showInputBox({
+        title: 'Search Commits',
+        prompt: 'Message text, author name, or commit hash',
+        ignoreFocusOut: true,
+      });
+      if (query === undefined || !query.trim()) return;
+      await searchCompareProvider.search(query);
+      await vscode.commands.executeCommand('gitGraphPlus.searchCompare.focus');
+    }),
+    vscode.commands.registerCommand('gitGraphPlus.searchCompare.compare', async () => {
+      const base = await pickRefForCompare('Compare Refs — Base');
+      if (!base) return;
+      const head = await pickRefForCompare('Compare Refs — Head');
+      if (!head) return;
+      await searchCompareProvider.compare(base, head);
+      await vscode.commands.executeCommand('gitGraphPlus.searchCompare.focus');
+    }),
+    vscode.commands.registerCommand('gitGraphPlus.searchCompare.refresh', () => searchCompareProvider.refresh()),
+    vscode.commands.registerCommand('gitGraphPlus.searchCompare.clear', () => searchCompareProvider.clear()),
+    vscode.commands.registerCommand('gitGraphPlus.searchCompare.openFileDiff', async (item: { diff?: { file?: string } } | undefined) => {
+      const file = item?.diff?.file;
+      const base = searchCompareProvider.getBase();
+      const head = searchCompareProvider.getHead();
+      if (!file || !base || !head) return;
+      try {
+        const leftRef = (await activeGitService.fileExistsAtRef(base, file)) ? base : await activeGitService.getEmptyTreeRef();
+        const rightRef = (await activeGitService.fileExistsAtRef(head, file)) ? head : await activeGitService.getEmptyTreeRef();
+        const fsPath = path.join(activeRepoPath, file);
+        await vscode.commands.executeCommand(
+          'vscode.diff',
+          toGitUri(fsPath, leftRef),
+          toGitUri(fsPath, rightRef),
+          `${file} (${base} ↔ ${head})`,
+        );
+      } catch (err) {
+        vscode.window.showErrorMessage(`Commit Timeline: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }),
+  );
+  registerGitCommandPalette(context, {
+    getService: () => activeGitService,
+    refresh: () => {
+      refreshAll();
+      MainPanel.currentPanel?.postRefresh();
     },
   });
 

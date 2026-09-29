@@ -249,6 +249,41 @@
       "command": "gitGraphPlus.fileHistory.copySha",
       "title": "%command.fileHistoryCopySha%",
       "category": "Commit Timeline"
+    },
+    {
+      "command": "gitGraphPlus.searchCompare.search",
+      "title": "%command.searchCompareSearch%",
+      "category": "Commit Timeline",
+      "icon": "$(search)"
+    },
+    {
+      "command": "gitGraphPlus.searchCompare.compare",
+      "title": "%command.searchCompareCompare%",
+      "category": "Commit Timeline",
+      "icon": "$(git-compare)"
+    },
+    {
+      "command": "gitGraphPlus.searchCompare.refresh",
+      "title": "%command.searchCompareRefresh%",
+      "category": "Commit Timeline",
+      "icon": "$(refresh)"
+    },
+    {
+      "command": "gitGraphPlus.searchCompare.clear",
+      "title": "%command.searchCompareClear%",
+      "category": "Commit Timeline",
+      "icon": "$(clear-all)"
+    },
+    {
+      "command": "gitGraphPlus.searchCompare.openFileDiff",
+      "title": "%command.searchCompareOpenFileDiff%",
+      "category": "Commit Timeline"
+    },
+    {
+      "command": "gitGraphPlus.gitCommandPalette",
+      "title": "%command.gitCommandPalette%",
+      "category": "Commit Timeline",
+      "icon": "$(terminal)"
     }
   ],
     "views": {
@@ -283,6 +318,11 @@
           "id": "gitGraphPlus.fileHistory",
           "name": "File History",
           "icon": "$(history)"
+        },
+        {
+          "id": "gitGraphPlus.searchCompare",
+          "name": "Search & Compare",
+          "icon": "$(search)"
         }
       ]
     },
@@ -294,6 +334,10 @@
       {
         "view": "gitGraphPlus.fileHistory",
         "contents": "Open a file in a git repository to see its history.\n[Show in Commit Timeline](command:gitGraphPlus.open)"
+      },
+      {
+        "view": "gitGraphPlus.searchCompare",
+        "contents": "Search the commit history or compare two refs.\n[Search Commits](command:gitGraphPlus.searchCompare.search)\n[Compare Refs](command:gitGraphPlus.searchCompare.compare)"
       }
     ],
     "menus": {
@@ -338,6 +382,10 @@
       },
       {
         "command": "gitGraphPlus.fileHistory.loadMore",
+        "when": "false"
+      },
+      {
+        "command": "gitGraphPlus.searchCompare.openFileDiff",
         "when": "false"
       }
     ],
@@ -423,6 +471,26 @@
           "command": "gitGraphPlus.showFileVisualHistory",
           "when": "view == gitGraphPlus.fileHistory",
           "group": "navigation@3"
+        },
+        {
+          "command": "gitGraphPlus.searchCompare.search",
+          "when": "view == gitGraphPlus.searchCompare",
+          "group": "navigation@1"
+        },
+        {
+          "command": "gitGraphPlus.searchCompare.compare",
+          "when": "view == gitGraphPlus.searchCompare",
+          "group": "navigation@2"
+        },
+        {
+          "command": "gitGraphPlus.searchCompare.refresh",
+          "when": "view == gitGraphPlus.searchCompare",
+          "group": "navigation@3"
+        },
+        {
+          "command": "gitGraphPlus.searchCompare.clear",
+          "when": "view == gitGraphPlus.searchCompare",
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [

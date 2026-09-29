@@ -168,6 +168,10 @@ describe('activate', () => {
     expect(H.registeredCommands).toContain('gitGraphPlus.openFileRevision');
     expect(H.registeredCommands).toContain('gitGraphPlus.previousRevision');
     expect(H.registeredCommands).toContain('gitGraphPlus.nextRevision');
+    // Search & compare + command palette.
+    expect(H.registeredCommands).toContain('gitGraphPlus.searchCompare.search');
+    expect(H.registeredCommands).toContain('gitGraphPlus.searchCompare.compare');
+    expect(H.registeredCommands).toContain('gitGraphPlus.gitCommandPalette');
     expect(H.registeredCommands.length).toBeGreaterThan(15);
     expect(H.treeViewsCreated).toEqual([
       'gitGraphPlus.branches',
@@ -176,6 +180,7 @@ describe('activate', () => {
       'gitGraphPlus.stashes',
       'gitGraphPlus.worktrees',
       'gitGraphPlus.fileHistory',
+      'gitGraphPlus.searchCompare',
     ]);
   });
 
