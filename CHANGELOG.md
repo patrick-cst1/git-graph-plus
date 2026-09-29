@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.27
+
+- File annotations for the active editor, toggled from the editor title bar:
+  **Blame** shows the author and age after every line, **Changes** highlights
+  lines added / modified / removed versus HEAD, and **Heatmap** tints lines by
+  how recently they were changed.
+- Optional **CodeLens** above each blame block (author + age); click it to open
+  the commit in Commit Timeline. Off by default — enable
+  `gitGraphPlus.codeLens.enabled`.
+- The editor title bar now also carries the current-line blame toggle with a
+  checked state, and every toggle only appears for real files.
+
 ## 0.7.26
 
 - Editor blame: the current line shows the commit that last changed it, the
