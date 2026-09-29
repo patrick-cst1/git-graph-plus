@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.31
+
+- Compare mode now has **Ahead / Behind / All** tabs next to the file view:
+  they list the commits each side has that the other does not (with live
+  counts), and clicking a commit opens it. The lists are fetched together with
+  the compare diff, one `git log <base>..<head>` per direction.
+
 ## 0.7.30
 
 - Fixes: the remote-branch **Delete Remote Branch** context-menu item now
