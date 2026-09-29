@@ -201,6 +201,25 @@ describe('CommitGraph smoke', () => {
     modalStore.closeAmend();
   });
 
+  it('closes the commit context menu when clicking elsewhere', async () => {
+    const head = makeCommit('h1', 'first');
+    head.refs = [{ type: 'head', name: 'main' }];
+    commitStore.setData(makeGraphData([head]));
+    branchStore.branches = [
+      { name: 'main', current: true, ahead: 0, behind: 0, hash: 'h1' },
+    ];
+    const { container } = render(CommitGraph, {});
+    await tick();
+    const row = container.querySelectorAll<HTMLElement>('.commit-row')[0];
+    await fireEvent.contextMenu(row, { clientX: 10, clientY: 10 });
+    await tick();
+    expect(container.querySelector('.context-menu')).not.toBeNull();
+
+    await fireEvent.mouseDown(document.body);
+    await tick();
+    expect(container.querySelector('.context-menu')).toBeNull();
+  });
+
   it('offers "Create worktree from" on a regular branch and posts startPoint', async () => {
     const head = makeCommit('h1', 'first');
     head.refs = [{ type: 'head', name: 'main' }];

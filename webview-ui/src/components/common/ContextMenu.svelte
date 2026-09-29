@@ -24,6 +24,54 @@
   let activeSubmenu = $state<number | null>(null);
   let submenuOnLeft = $state(false);
   let submenuOffsetY = $state(0);
+  let submenuShiftX = $state(0);
+
+  // Assumed rendered width of a submenu (min-width: 180px + borders). Used to
+  // decide the flip side and to clamp the submenu into the viewport.
+  const SUBMENU_MIN_WIDTH = 190;
+  // Grace period before a hovered submenu closes: moving the pointer from the
+  // parent item into the submenu briefly leaves the wrapper (the pointer can
+  // pass over the 1px gap / round the corner), which used to close the submenu
+  // mid-move — and on a left-flipped submenu it flickered away before it could
+  // be clicked.
+  const SUBMENU_CLOSE_DELAY_MS = 250;
+  let submenuCloseTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function cancelSubmenuClose() {
+    if (submenuCloseTimer) {
+      clearTimeout(submenuCloseTimer);
+      submenuCloseTimer = null;
+    }
+  }
+
+  function scheduleSubmenuClose() {
+    cancelSubmenuClose();
+    submenuCloseTimer = setTimeout(() => {
+      submenuCloseTimer = null;
+      activeSubmenu = null;
+    }, SUBMENU_CLOSE_DELAY_MS);
+  }
+
+  function openSubmenu(idx: number, e: MouseEvent, childCount: number) {
+    cancelSubmenuClose();
+    activeSubmenu = idx;
+    const wrapper = (e.currentTarget as HTMLElement).closest('.submenu-wrapper') as HTMLElement;
+    if (wrapper) {
+      const rect = wrapper.getBoundingClientRect();
+      const rightSpace = window.innerWidth - rect.right;
+      const leftSpace = rect.left;
+      // Flip only when the right overflows AND the left has more room —
+      // flipping into a wall would put the submenu off-screen.
+      submenuOnLeft = rightSpace < SUBMENU_MIN_WIDTH && leftSpace > rightSpace;
+      // Clamp the submenu into the viewport on whichever side it lands.
+      submenuShiftX = submenuOnLeft
+        ? Math.max(0, SUBMENU_MIN_WIDTH - leftSpace + 4)
+        : Math.max(0, SUBMENU_MIN_WIDTH - rightSpace + 4);
+      const submenuHeight = childCount * 30 + 8;
+      const overflow = rect.top + submenuHeight - window.innerHeight + 4;
+      submenuOffsetY = overflow > 0 ? -overflow : 0;
+    }
+  }
 
   onMount(() => {
     // Hover tooltips out-rank the menu on z-index; keep them hidden while it's
@@ -38,12 +86,19 @@
     function handleEscape(e: KeyboardEvent) {
       if (e.key === 'Escape') { onClose(); }
     }
-    window.addEventListener('mousedown', handleClickOutside);
+    // Clicking outside the webview (another editor, the sidebar, …) never
+    // reaches this document, so a mousedown listener alone leaves the menu
+    // open; the iframe's window blur fires when focus moves away.
+    function handleBlur() { onClose(); }
+    window.addEventListener('mousedown', handleClickOutside, true);
     window.addEventListener('keydown', handleEscape);
+    window.addEventListener('blur', handleBlur);
     return () => {
       releaseTooltips();
-      window.removeEventListener('mousedown', handleClickOutside);
+      cancelSubmenuClose();
+      window.removeEventListener('mousedown', handleClickOutside, true);
       window.removeEventListener('keydown', handleEscape);
+      window.removeEventListener('blur', handleBlur);
     };
   });
 
@@ -75,21 +130,11 @@
       <div class="separator"></div>
     {:else if item.children}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="submenu-wrapper" onmouseleave={() => { activeSubmenu = null; }}>
+      <div class="submenu-wrapper" onmouseleave={scheduleSubmenuClose} onmouseenter={cancelSubmenuClose}>
         <button
           class="menu-item has-children"
           class:submenu-active={activeSubmenu === idx}
-          onmouseenter={(e) => {
-            activeSubmenu = idx;
-            const wrapper = (e.currentTarget as HTMLElement).closest('.submenu-wrapper') as HTMLElement;
-            if (wrapper) {
-              const rect = wrapper.getBoundingClientRect();
-              submenuOnLeft = rect.right + 190 > window.innerWidth;
-              const submenuHeight = item.children ? item.children.length * 30 + 8 : 0;
-              const overflow = rect.top + submenuHeight - window.innerHeight + 4;
-              submenuOffsetY = overflow > 0 ? -overflow : 0;
-            }
-          }}
+          onmouseenter={(e) => openSubmenu(idx, e, item.children?.length ?? 0)}
           role="menuitem"
         >
           {#if item.icon}<i class="codicon codicon-{item.icon} menu-icon"></i>{/if}
@@ -97,7 +142,13 @@
           <i class="codicon codicon-chevron-right submenu-arrow"></i>
         </button>
         {#if activeSubmenu === idx}
-          <div class="submenu" class:on-left={submenuOnLeft} style="top: calc(-5px + {submenuOffsetY}px);" role="menu" tabindex="-1">
+          <div
+            class="submenu"
+            class:on-left={submenuOnLeft}
+            style="top: calc(-5px + {submenuOffsetY}px);{submenuOnLeft ? ` right: calc(100% - ${submenuShiftX}px);` : ` left: calc(100% - ${submenuShiftX}px);`}"
+            role="menu"
+            tabindex="-1"
+          >
             {#each item.children as child}
               {#if child.separator}
                 <div class="separator"></div>
@@ -214,7 +265,6 @@
     position: absolute;
     left: 100%;
     top: -5px;
-    margin-left: 2px;
     background: var(--vscode-menu-background, var(--bg-secondary));
     border: 1px solid var(--vscode-menu-border, var(--border-color));
     border-radius: 4px;
@@ -227,8 +277,6 @@
   .submenu.on-left {
     left: auto;
     right: 100%;
-    margin-left: 0;
-    margin-right: 2px;
   }
 
   .separator {

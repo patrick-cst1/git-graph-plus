@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import ContextMenu from '../ContextMenu.svelte';
 
 describe('ContextMenu', () => {
@@ -87,6 +88,17 @@ describe('ContextMenu', () => {
     });
     // Click on document.body (which is outside the .context-menu element).
     await fireEvent.mouseDown(document.body);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('window blur triggers onClose (clicking outside the webview)', async () => {
+    const onClose = vi.fn();
+    render(ContextMenu, {
+      x: 0, y: 0,
+      onClose,
+      items: [{ label: 'X', action: vi.fn() }],
+    });
+    await fireEvent.blur(window);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -215,24 +227,78 @@ describe('ContextMenu', () => {
     expect(submenu?.classList.contains('on-left')).toBe(true);
   });
 
-  it('mouseleave from submenu-wrapper clears activeSubmenu', async () => {
+  it('does not flip the submenu left when neither side has room', async () => {
+    Object.defineProperty(window, 'innerWidth', { value: 800, writable: true, configurable: true });
     const { container } = render(ContextMenu, {
       x: 0, y: 0,
       onClose: vi.fn(),
       items: [
-        {
-          label: 'More',
-          action: vi.fn(),
-          children: [{ label: 'Sub', action: vi.fn() }],
-        },
+        { label: 'More', action: vi.fn(), children: [{ label: 'Sub', action: vi.fn() }] },
       ],
     });
     const parent = container.querySelector<HTMLButtonElement>('button.has-children')!;
+    const wrapper = parent.closest('.submenu-wrapper') as HTMLElement;
+    // 100px of room on the right, 50px on the left: flipping would push the
+    // submenu off-screen, so it must stay on the right.
+    wrapper.getBoundingClientRect = () => ({
+      x: 0, y: 0, top: 0, left: 50, right: 700, bottom: 30, width: 650, height: 30, toJSON() {},
+    });
     await fireEvent.mouseEnter(parent);
-    expect(container.querySelector('.submenu')).not.toBeNull();
-    const wrapper = container.querySelector<HTMLDivElement>('.submenu-wrapper')!;
-    await fireEvent.mouseLeave(wrapper);
-    expect(container.querySelector('.submenu')).toBeNull();
+    const submenu = container.querySelector('.submenu');
+    expect(submenu?.classList.contains('on-left')).toBe(false);
+  });
+
+  it('keeps the submenu open through a brief mouseleave, then closes it after the grace period', async () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = render(ContextMenu, {
+        x: 0, y: 0,
+        onClose: vi.fn(),
+        items: [
+          { label: 'More', action: vi.fn(), children: [{ label: 'Sub', action: vi.fn() }] },
+        ],
+      });
+      const parent = container.querySelector<HTMLButtonElement>('button.has-children')!;
+      await fireEvent.mouseEnter(parent);
+      expect(container.querySelector('.submenu')).not.toBeNull();
+
+      // Moving the pointer from the parent item into the submenu briefly leaves
+      // the wrapper (rounding the corner / crossing the gap). The submenu must
+      // survive that, otherwise it flickers away before it can be clicked.
+      const wrapper = container.querySelector<HTMLDivElement>('.submenu-wrapper')!;
+      await fireEvent.mouseLeave(wrapper);
+      expect(container.querySelector('.submenu')).not.toBeNull();
+
+      vi.advanceTimersByTime(300);
+      await tick();
+      expect(container.querySelector('.submenu')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('re-entering the wrapper cancels the pending submenu close', async () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = render(ContextMenu, {
+        x: 0, y: 0,
+        onClose: vi.fn(),
+        items: [
+          { label: 'More', action: vi.fn(), children: [{ label: 'Sub', action: vi.fn() }] },
+        ],
+      });
+      const parent = container.querySelector<HTMLButtonElement>('button.has-children')!;
+      await fireEvent.mouseEnter(parent);
+      const wrapper = container.querySelector<HTMLDivElement>('.submenu-wrapper')!;
+      await fireEvent.mouseLeave(wrapper);
+      await fireEvent.mouseEnter(wrapper);
+
+      vi.advanceTimersByTime(300);
+      await tick();
+      expect(container.querySelector('.submenu')).not.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('clicking a submenu child invokes its action and closes the parent menu', async () => {
