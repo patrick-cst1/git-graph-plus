@@ -1124,7 +1124,7 @@ describe('CommitGraph branch sync context menu', () => {
     modalStore.closePull();
   });
 
-  it("offers Fetch into local on a remote branch with a same-named local branch and posts fetchIntoLocal", async () => {
+  it("offers Pull into local on a remote branch with a same-named local branch and posts fetchIntoLocal", async () => {
     const head = makeCommit('h1', 'first');
     head.refs = [{ type: 'head', name: 'main' }];
     const feat = makeCommit('h2', 'feat work', ['h1']);
@@ -1141,14 +1141,14 @@ describe('CommitGraph branch sync context menu', () => {
     await fireEvent.contextMenu(container.querySelectorAll<HTMLElement>('.commit-row')[0], { clientX: 10, clientY: 10 });
     await tick();
     await openRefSubmenu(container, 'origin/develop');
-    const item = findLeaf(container, "Fetch into 'develop'");
+    const item = findLeaf(container, "Pull into 'develop'");
     expect(item).toBeTruthy();
     await fireEvent.click(item!);
     await tick();
     expect(postedOfType('fetchIntoLocal')[0]?.payload).toEqual({ remote: 'origin', remoteBranch: 'develop', localBranch: 'develop' });
   });
 
-  it('hides Fetch into local when the same-named local branch is the current branch', async () => {
+  it('hides Pull into local when the same-named local branch is the current branch', async () => {
     const head = makeCommit('h1', 'first');
     head.refs = [{ type: 'remote-branch', name: 'main', remote: 'origin' }];
     commitStore.setData(makeGraphData([head]));
@@ -1161,6 +1161,6 @@ describe('CommitGraph branch sync context menu', () => {
     await fireEvent.contextMenu(container.querySelectorAll<HTMLElement>('.commit-row')[0], { clientX: 10, clientY: 10 });
     await tick();
     await openRefSubmenu(container, 'origin/main');
-    expect(findLeaf(container, "Fetch into 'main'")).toBeFalsy();
+    expect(findLeaf(container, "Pull into 'main'")).toBeFalsy();
   });
 });

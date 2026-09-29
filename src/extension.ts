@@ -781,7 +781,7 @@ export function activate(context: vscode.ExtensionContext) {
         .find(b => !b.remote && b.name === branchName);
       const items: Array<{ label: string; id: string }> = [
         { label: `Checkout as local branch...`, id: 'checkout' },
-        ...(local && !local.current ? [{ label: `Fetch into ${branchName}`, id: 'fetchInto' }] : []),
+        ...(local && !local.current ? [{ label: `Pull into ${branchName}`, id: 'fetchInto' }] : []),
         { label: `Delete remote branch ${branch.name}`, id: 'delete' },
       ];
       const selected = await vscode.window.showQuickPick(items);

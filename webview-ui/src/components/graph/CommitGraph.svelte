@@ -1095,7 +1095,7 @@
               action: () => doCheckoutRemote(fullName, ref.name),
             },
             ...(localBranchMap.has(ref.name) && ref.name !== currentBranch ? [{
-              label: t('graph.fetchIntoLocal', { local: ref.name }),
+              label: t('graph.pullIntoLocal', { local: ref.name }),
               action: () => vscode.postMessage({
                 type: 'fetchIntoLocal',
                 payload: { remote: ref.remote!, remoteBranch: ref.name, localBranch: ref.name },

@@ -1821,7 +1821,7 @@ export class GitService {
   /**
    * Pulls a local branch by fast-forwarding it to its upstream without checking
    * it out. An explicit source overrides the upstream (remote-branch menu
-   * "Fetch into local"). Without an upstream the single same-named remote
+   * "Pull into local"). Without an upstream the single same-named remote
    * branch is used. Callers surface the result; non-fast-forwards are reported,
    * never forced.
    */
