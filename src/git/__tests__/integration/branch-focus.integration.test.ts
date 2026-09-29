@@ -79,4 +79,27 @@ describe('GitService integration — branch focus', () => {
     const scoped = await service.log({ branches: ['main'], focusUnique: true, includeStashes: false });
     expect(scoped.map((c) => c.subject)).toEqual(['main2', 'main1']);
   });
+
+  it('still scopes a merged branch via its reflog creation point', async () => {
+    const repo = makeRepo();
+    commitFile(repo, 'a.txt', 'm0\n', 'main0');
+    commitFile(repo, 'a.txt', 'm1\n', 'main1');
+    const forkPoint = git(repo, ['rev-parse', 'HEAD']).trim();
+    git(repo, ['checkout', '-b', 'feature']);
+    commitFile(repo, 'b.txt', 'f1\n', 'feat1');
+    git(repo, ['checkout', 'main']);
+    git(repo, ['merge', '--ff-only', 'feature']); // feature is now an ancestor of main
+    commitFile(repo, 'a.txt', 'm2\n', 'main2');
+    const service = new GitService(repo);
+
+    // The merge base collapsed to the branch tip; the reflog still knows where
+    // the branch was created, so focus keeps working after merging.
+    expect(await service.focusBase('feature')).toBe(forkPoint);
+
+    const scoped = await service.log({ branches: ['feature'], focusUnique: true, includeStashes: false });
+    expect(scoped.map((c) => c.subject)).toEqual(['feat1', 'main1']);
+
+    const full = await service.log({ branches: ['feature'], includeStashes: false });
+    expect(full.map((c) => c.subject)).toEqual(['feat1', 'main1', 'main0']);
+  });
 });

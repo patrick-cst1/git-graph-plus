@@ -288,6 +288,34 @@ describe('GitService', () => {
       expect(await service.focusBase('feature')).toBe('base1');
     });
 
+    it('focusBase prefers the reflog creation point, which also works once merged', async () => {
+      vi.spyOn(service, 'defaultBranch').mockResolvedValue('main');
+      const mergeBase = vi.spyOn(service, 'getMergeBase').mockResolvedValue('tip1'); // fully merged
+      mockExec(service, async (args) => {
+        // `reflog show` prints newest first; the oldest entry is the creation point.
+        if (args[0] === 'reflog') return 'tip1\ncreated\n';
+        if (args[0] === 'rev-parse') return 'tip1\n';
+        if (args[0] === 'merge-base') return ''; // --is-ancestor succeeds
+        return '';
+      });
+
+      expect(await service.focusBase('fix/issue-62')).toBe('created');
+      expect(mergeBase).not.toHaveBeenCalled();
+    });
+
+    it('ignores a reflog point that is not an ancestor of the tip (e.g. after a rebase)', async () => {
+      vi.spyOn(service, 'defaultBranch').mockResolvedValue('main');
+      vi.spyOn(service, 'getMergeBase').mockResolvedValue('base1');
+      mockExec(service, async (args) => {
+        if (args[0] === 'reflog') return 'tip1\nstale\n';
+        if (args[0] === 'rev-parse') return 'tip1\n';
+        if (args[0] === 'merge-base') throw new Error('not ancestor');
+        return '';
+      });
+
+      expect(await service.focusBase('rebased')).toBe('base1');
+    });
+
     it('focusBase returns null for the default branch, merged branches and failures', async () => {
       vi.spyOn(service, 'defaultBranch').mockResolvedValue('main');
       expect(await service.focusBase('main')).toBeNull();

@@ -1086,25 +1086,60 @@ export class GitService {
   }
 
   /**
-   * The commit a branch was created from, approximated by the merge base with
-   * the repository's default branch. Null when it cannot be determined (no
-   * default branch, unrelated histories, the branch IS the default branch, or
-   * the branch is fully merged — no commits of its own). Used by branch focus
-   * to scope the graph to the branch's own commits.
+   * The commit a branch was created from — used by branch focus to scope the
+   * graph to the branch's own commits. Resolved in this order:
+   *
+   * 1. The branch's own reflog: its oldest entry is where the branch was
+   *    created ("branch: Created from …"). This also works once the branch has
+   *    been merged and the merge base has collapsed to the branch tip.
+   * 2. The merge base with the repository's default branch — the true fork
+   *    point for a branch that has commits of its own.
+   *
+   * Null when neither yields a usable point (no default branch, unrelated
+   * histories, no reflog, the branch IS the default branch, or the branch has
+   * no commits of its own) — callers then keep the branch's full history.
    */
   async focusBase(branch: string): Promise<string | null> {
     this.assertSafeRef(branch, 'merge-base');
     try {
       const defaultBranch = await this.defaultBranch();
-      if (!defaultBranch || defaultBranch === branch) return null;
-      const base = await this.getMergeBase(defaultBranch, branch);
-      if (!base) return null;
+      if (defaultBranch && defaultBranch === branch) return null;
+
       const tip = (await this.exec(['rev-parse', '--verify', '--quiet', `${branch}^{commit}`], { silent: true })).trim();
-      // No commits unique to the branch (same tip as the fork point).
-      if (!tip || tip === base) return null;
-      return base;
+      if (!tip) return null;
+
+      const createdFrom = await this.reflogCreationPoint(branch);
+      if (createdFrom && createdFrom !== tip && (await this.isAncestorOf(createdFrom, tip))) {
+        return createdFrom;
+      }
+
+      if (defaultBranch) {
+        const base = await this.getMergeBase(defaultBranch, branch);
+        if (base && base !== tip) return base;
+      }
+      return null;
     } catch {
       return null;
+    }
+  }
+
+  /** Oldest reflog entry of a ref (where its recorded history began), or null. */
+  private async reflogCreationPoint(ref: string): Promise<string | null> {
+    try {
+      const raw = await this.exec(['reflog', 'show', '--format=%H', ref], { silent: true });
+      const lines = raw.split('\n').map((line) => line.trim()).filter(Boolean);
+      return lines.length > 0 ? lines[lines.length - 1] : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async isAncestorOf(ancestor: string, descendant: string): Promise<boolean> {
+    try {
+      await this.exec(['merge-base', '--is-ancestor', ancestor, descendant], { silent: true });
+      return true;
+    } catch {
+      return false;
     }
   }
 
