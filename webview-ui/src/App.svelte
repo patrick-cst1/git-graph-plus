@@ -36,6 +36,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
   import PullModal from './components/modals/PullModal.svelte';
   import PushModal from './components/modals/PushModal.svelte';
   import { modalStore } from './lib/stores/modals.svelte';
+  import { resolvePushRemote, resolvePullSource } from './lib/utils/branch-target';
   import { defaultsStore } from './lib/stores/defaults.svelte';
   import { graphColorsStore } from './lib/stores/graph-colors.svelte';
   import { commitLinkRulesStore } from './lib/stores/commit-link-rules.svelte';
@@ -326,8 +327,17 @@ import AmendModal from './components/modals/AmendModal.svelte';
             modalStore.openFetch();
           } else if (msg.payload.modal === 'pull') {
             modalStore.openPull();
+          } else if (msg.payload.modal === 'pullBranch') {
+            const source = msg.payload.remote
+              ? { source: `${msg.payload.remote}/${msg.payload.remoteBranch}`, remote: msg.payload.remote, remoteBranch: msg.payload.remoteBranch }
+              : resolvePullSource(msg.payload.branch, branchStore);
+            if (source) modalStore.openPullBranch(msg.payload.branch, source);
           } else if (msg.payload.modal === 'push') {
-            modalStore.openPush();
+            if (msg.payload.branch) {
+              modalStore.openPush(msg.payload.remote ?? resolvePushRemote(msg.payload.branch, branchStore), msg.payload.branch);
+            } else {
+              modalStore.openPush();
+            }
           }
           break;
       }
@@ -1076,24 +1086,60 @@ import AmendModal from './components/modals/AmendModal.svelte';
   />
 {/if}
 
+{#if modalStore.pullBranch.show}
+  <PullModal
+    upstream={modalStore.pullBranch.source}
+    currentBranch={modalStore.pullBranch.branch}
+    notCheckedOut={modalStore.pullBranch.branch !== branchStore.currentBranch?.name}
+    onClose={() => { modalStore.closePullBranch(); }}
+    onPull={({ rebase, stash }) => {
+      const target = modalStore.pullBranch;
+      modalStore.closePullBranch();
+      uiStore.operating = 'pull';
+      vscode.postMessage({
+        type: 'pullBranch',
+        payload: { branch: target.branch, remote: target.remote, remoteBranch: target.remoteBranch, rebase, stash },
+      });
+    }}
+  />
+{/if}
+
 {#if modalStore.push.show}
-  {@const hasUpstream = !!branchStore.currentBranch?.upstream && !branchStore.currentBranch?.upstreamGone}
-  {@const pushBranchName = branchStore.currentBranch?.name ?? 'branch'}
+  {@const pushBranchName = modalStore.push.branch || branchStore.currentBranch?.name || 'branch'}
+  {@const pushBranchInfo = branchStore.localBranches.find(b => b.name === pushBranchName)}
+  {@const pushHasUpstream = !!pushBranchInfo?.upstream && !pushBranchInfo.upstreamGone}
+  {@const pushIsCurrent = pushBranchName === branchStore.currentBranch?.name}
+  {@const pushUpstreamRemote = pushHasUpstream ? pushBranchInfo!.upstream!.split('/')[0] : ''}
+  {@const pushUpstreamBranch = pushHasUpstream ? pushBranchInfo!.upstream!.slice(pushUpstreamRemote.length + 1) : ''}
   <PushModal
     branchName={pushBranchName}
-    {hasUpstream}
-    upstream={branchStore.currentBranch?.upstream ?? ''}
+    hasUpstream={pushHasUpstream}
+    upstream={pushBranchInfo?.upstream ?? ''}
     remotes={branchStore.remotes}
     initialRemote={modalStore.push.remote}
     onClose={() => { modalStore.closePush(); }}
     onPush={({ forceMode, setUpstream, remote, allTags }) => {
       const force = forceMode === 'none' ? undefined : forceMode;
-      const remoteArg = hasUpstream ? undefined : remote;
-      const branchArg = hasUpstream ? undefined : pushBranchName;
       modalStore.closePush();
       uiStore.operating = 'push';
-      vscode.postMessage({ type: 'push', payload: { remote: remoteArg, branch: branchArg, force, setUpstream: !hasUpstream && setUpstream } });
-      if (allTags) vscode.postMessage({ type: 'pushAllTags', payload: { remote } });
+      if (pushIsCurrent && pushHasUpstream) {
+        // Current branch with an upstream: keep the legacy contract (omit
+        // remote/branch) so pushCurrentBranch resolves the upstream and a
+        // renamed upstream is handled (#97).
+        vscode.postMessage({ type: 'push', payload: { force } });
+      } else {
+        const renamed = pushHasUpstream && pushUpstreamBranch !== pushBranchName;
+        vscode.postMessage({
+          type: 'pushBranch',
+          payload: {
+            branch: pushBranchName,
+            remote: pushHasUpstream ? pushUpstreamRemote : remote,
+            force,
+            setUpstream: pushHasUpstream ? renamed : setUpstream,
+          },
+        });
+      }
+      if (allTags) vscode.postMessage({ type: 'pushAllTags', payload: { remote: pushHasUpstream ? pushUpstreamRemote : remote } });
     }}
   />
 {/if}

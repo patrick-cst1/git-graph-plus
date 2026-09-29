@@ -1757,13 +1757,18 @@ export class GitService {
 
   /**
    * Pushes a specific local branch without checking it out first (right-click
-   * Push). With an upstream configured the push targets that remote (a gone
-   * upstream is re-published with -u; a renamed upstream retargets, #97).
-   * Without one, -u publish targets the single remote that already has a
-   * same-named branch, falling back to the default push remote.
+   * Push / the branch-targeted push dialog). An explicit remote/force/
+   * setUpstream (from the dialog) is used as given; without one, the push
+   * targets the branch's upstream (a gone upstream is re-published with -u; a
+   * renamed upstream retargets, #97), else the single remote that already has
+   * a same-named branch, falling back to the default push remote.
    */
-  async pushBranch(branch: string): Promise<{ pushed: boolean; reason?: 'no-remote' }> {
+  async pushBranch(branch: string, options?: { remote?: string; force?: 'with-lease' | 'force'; setUpstream?: boolean }): Promise<{ pushed: boolean; reason?: 'no-remote' }> {
     this.assertSafeRef(branch, 'push');
+    if (options?.remote) {
+      await this.push(options.remote, branch, { force: options.force, setUpstream: options.setUpstream });
+      return { pushed: true };
+    }
     const info = (await this.branches()).find(b => !b.remote && b.name === branch);
     if (!info) {
       throw new GitError(`Branch not found: ${branch}`, null, []);
@@ -1773,7 +1778,10 @@ export class GitService {
       const remote = slash > 0 ? info.upstream.substring(0, slash) : '';
       if (remote && (await this.getRemoteNames()).includes(remote)) {
         const upstreamBranch = info.upstream.substring(slash + 1);
-        await this.push(remote, branch, upstreamBranch === branch && !info.upstreamGone ? {} : { setUpstream: true });
+        await this.push(remote, branch, {
+          force: options?.force,
+          ...(upstreamBranch === branch && !info.upstreamGone ? {} : { setUpstream: true }),
+        });
         return { pushed: true };
       }
     }
@@ -1782,7 +1790,7 @@ export class GitService {
     if (!remote) {
       return { pushed: false, reason: 'no-remote' };
     }
-    await this.push(remote, branch, { setUpstream: true });
+    await this.push(remote, branch, { force: options?.force, setUpstream: true });
     return { pushed: true };
   }
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, untrack } from 'svelte';
+  import { onMount, untrack, tick } from 'svelte';
   import { getVsCodeApi } from '../../lib/vscode-api';
   import { t } from '../../lib/i18n/index.svelte';
   import ContextMenu from './ContextMenu.svelte';
@@ -59,6 +59,24 @@
     'HEAD',
     ...branchStore.localBranches.map(b => b.name),
   ]);
+
+  let refQuery         = $state('');
+  let refInputEl: HTMLInputElement | undefined = $state();
+  const filteredRefOptions = $derived.by(() => {
+    const q = refQuery.trim().toLowerCase();
+    if (!q) return refOptions;
+    return refOptions.filter(ref => ref.toLowerCase().includes(q));
+  });
+
+  async function toggleRefDropdown() {
+    refOpen = !refOpen;
+    actionOpen = false;
+    if (refOpen) {
+      refQuery = '';
+      await tick();
+      refInputEl?.focus();
+    }
+  }
 
   const refActive = $derived(!!selectedRef && selectedRef !== 'HEAD');
   const actionActive  = $derived(activeActions.size > 0);
@@ -275,7 +293,7 @@
     <button
       class="filter-btn"
       class:active={refActive}
-      onclick={() => { refOpen = !refOpen; actionOpen = false; }}
+      onclick={() => void toggleRefDropdown()}
       use:tooltip={t('reflog.filterRef')}
     >
       <i class="codicon codicon-git-branch filter-btn-icon"></i>
@@ -287,17 +305,34 @@
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div class="backdrop" onclick={() => { refOpen = false; }}></div>
-      <div class="dropdown">
-        {#each refOptions as ref (ref)}
-          <button
-            class="dd-item"
-            class:active={selectedRef === ref}
-            onclick={() => { if (selectedRef !== ref) changeRef(ref); refOpen = false; }}
-          >
-            <span class="dd-radio" class:checked={selectedRef === ref}></span>
-            <span class="dd-ref-name">{ref}</span>
-          </button>
-        {/each}
+      <div class="dropdown dropdown-ref">
+        <input
+          class="dd-search"
+          bind:this={refInputEl}
+          bind:value={refQuery}
+          placeholder={t('reflog.filterRefPlaceholder')}
+          aria-label={t('reflog.filterRefPlaceholder')}
+          onkeydown={(e) => {
+            if (e.key === 'Escape') {
+              e.stopPropagation();
+              if (refQuery) { refQuery = ''; } else { refOpen = false; }
+            }
+          }}
+        />
+        <div class="dd-list">
+          {#each filteredRefOptions as ref (ref)}
+            <button
+              class="dd-item"
+              class:active={selectedRef === ref}
+              onclick={() => { if (selectedRef !== ref) changeRef(ref); refQuery = ''; refOpen = false; }}
+            >
+              <span class="dd-radio" class:checked={selectedRef === ref}></span>
+              <span class="dd-ref-name">{ref}</span>
+            </button>
+          {:else}
+            <div class="dd-empty">{t('search.noResults')}</div>
+          {/each}
+        </div>
       </div>
     {/if}
   </div>
@@ -673,6 +708,41 @@
 
   :global(body.vscode-light) .dropdown {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  }
+
+  .dropdown-ref {
+    display: flex;
+    flex-direction: column;
+    max-height: 280px;
+    padding: 0;
+  }
+
+  .dd-search {
+    flex-shrink: 0;
+    margin: 6px 8px 4px;
+    width: calc(100% - 16px);
+    padding: 4px 8px;
+    background: var(--vscode-input-background, #3c3c3c);
+    color: var(--vscode-input-foreground, #cccccc);
+    border: 1px solid var(--vscode-input-border, transparent);
+    border-radius: 3px;
+    outline: none;
+    font-size: 12px;
+  }
+
+  .dd-search:focus {
+    border-color: var(--vscode-focusBorder, #007fd4);
+  }
+
+  .dd-list {
+    overflow-y: auto;
+    padding: 4px 0;
+  }
+
+  .dd-empty {
+    padding: 6px 12px;
+    color: var(--text-secondary, #888);
+    font-size: 12px;
   }
 
   .dd-item {

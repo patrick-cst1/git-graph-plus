@@ -93,10 +93,17 @@ class ModalStore {
   openPull() { this.pull = { show: true, rebase: true, stash: false }; }
   closePull() { this.pull = { show: false, rebase: true, stash: false }; }
 
+  // ── Pull (a specific branch, from an explicit source) ──
+  pullBranch = $state({ show: false, branch: '', source: '', remote: '', remoteBranch: '' });
+  openPullBranch(branch: string, source: { source: string; remote: string; remoteBranch: string }) {
+    this.pullBranch = { show: true, branch, ...source };
+  }
+  closePullBranch() { this.pullBranch = { show: false, branch: '', source: '', remote: '', remoteBranch: '' }; }
+
   // ── Push ──
-  push = $state({ show: false, forceMode: 'none' as 'none' | 'with-lease' | 'force', setUpstream: true, remote: 'origin', allTags: false });
-  openPush(remote = 'origin') { this.push = { show: true, forceMode: 'none', setUpstream: true, remote, allTags: false }; }
-  closePush() { this.push = { show: false, forceMode: 'none', setUpstream: true, remote: 'origin', allTags: false }; }
+  push = $state({ show: false, forceMode: 'none' as 'none' | 'with-lease' | 'force', setUpstream: true, remote: 'origin', allTags: false, branch: '' });
+  openPush(remote = 'origin', branch = '') { this.push = { show: true, forceMode: 'none', setUpstream: true, remote, allTags: false, branch }; }
+  closePush() { this.push = { show: false, forceMode: 'none', setUpstream: true, remote: 'origin', allTags: false, branch: '' }; }
 
   // ── Flow Init ──
   flowInit = $state({ show: false });
@@ -148,7 +155,7 @@ class ModalStore {
   private static readonly MODAL_KEYS = [
     'deleteBranch', 'deleteTag', 'createBranch', 'createTag', 'merge', 'checkoutRemote',
     'renameBranch', 'deleteRemoteBranch', 'removeWorktree', 'stashApply', 'stashRename',
-    'stashSave', 'stashRestore', 'amend', 'setUpstream', 'fetch', 'pull', 'push',
+    'stashSave', 'stashRestore', 'amend', 'setUpstream', 'fetch', 'pull', 'pullBranch', 'push',
     'flowInit', 'flowStart', 'flowFinish', 'pushTag', 'interactiveRebase',
   ] as const;
 
@@ -184,6 +191,7 @@ class ModalStore {
       setUpstream: () => this.closeSetUpstream(),
       fetch: () => this.closeFetch(),
       pull: () => this.closePull(),
+      pullBranch: () => this.closePullBranch(),
       push: () => this.closePush(),
       flowInit: () => this.closeFlowInit(),
       flowStart: () => this.closeFlowStart(),
@@ -220,6 +228,7 @@ class ModalStore {
     this.closeSetUpstream();
     this.closeFetch();
     this.closePull();
+    this.closePullBranch();
     this.closePush();
     this.closeFlowInit();
     this.closeFlowStart();

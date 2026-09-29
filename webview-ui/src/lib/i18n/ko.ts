@@ -373,6 +373,7 @@ export const ko: Record<string, string> = {
   'reflog.noMatches': '일치하는 항목 없음',
   'reflog.filter': '필터',
   'reflog.filterRef': 'Ref',
+  'reflog.filterRefPlaceholder': '브랜치 필터…',
   'reflog.filterAction': '액션',
   'reflog.filterAll': '전체',
   'reflog.filterDanglingOnly': 'Dangling 커밋만 보기',
@@ -443,6 +444,7 @@ export const ko: Record<string, string> = {
   'pull.desc': '리모트 저장소에서 변경 사항을 pull합니다.',
   'pull.rebase': 'Merge 대신 Rebase',
   'pull.stash': '로컬 변경 사항을 Stash 후 재적용',
+  'pull.notCheckedOut': '체크아웃되어 있지 않은 브랜치입니다. Pull 시 먼저 체크아웃되며, 이후 되돌아갈 수 있습니다.',
   'pull.pull': 'Pull',
 
   // Cherry-Pick modal

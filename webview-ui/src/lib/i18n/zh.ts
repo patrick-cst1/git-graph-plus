@@ -373,6 +373,7 @@ export const zh: Record<string, string> = {
   'reflog.noMatches': '无匹配条目',
   'reflog.filter': '筛选',
   'reflog.filterRef': '引用',
+  'reflog.filterRefPlaceholder': '筛选分支…',
   'reflog.filterAction': '操作类型',
   'reflog.filterAll': '全部',
   'reflog.filterDanglingOnly': '仅显示 Dangling 提交',
@@ -443,6 +444,7 @@ export const zh: Record<string, string> = {
   'pull.desc': '从远程仓库拉取更改。',
   'pull.rebase': '使用变基而不是合并',
   'pull.stash': '储藏并重新应用本地更改',
+  'pull.notCheckedOut': '该分支尚未签出。拉取会先签出该分支，之后可以切回。',
   'pull.pull': '拉取',
 
   // Cherry-pick modal

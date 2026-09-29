@@ -7,11 +7,12 @@
   interface Props {
     upstream: string;
     currentBranch: string;
+    notCheckedOut?: boolean;
     onClose: () => void;
     onPull: (options: { rebase: boolean; stash: boolean }) => void;
   }
 
-  let { upstream, currentBranch, onClose, onPull }: Props = $props();
+  let { upstream, currentBranch, notCheckedOut = false, onClose, onPull }: Props = $props();
   let rebase = $state(defaultsStore.current.pull.rebase);
   let stash = $state(defaultsStore.current.pull.stash);
 </script>
@@ -23,6 +24,9 @@
     <i class="codicon codicon-arrow-right" style="color: var(--text-secondary);"></i>
     <span use:tooltip={currentBranch} class="modal-pill modal-pill--target"><i class="codicon codicon-git-branch"></i><span class="modal-pill-text">{currentBranch}</span></span>
   </div>
+  {#if notCheckedOut}
+    <p class="modal-warning" role="note"><i class="codicon codicon-info"></i><span>{t('pull.notCheckedOut')}</span></p>
+  {/if}
   <div class="modal-form-group">
     <label class="modal-checkbox">
       <input type="checkbox" bind:checked={rebase} />

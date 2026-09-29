@@ -26,7 +26,7 @@ import {
 } from '../utils/path-validation';
 import { SequenceGuard } from '../utils/sequence-guard';
 import { resolveDefaultWorktreePath } from '../utils/worktree-path';
-import { runPushBranch, runPullBranchFastForward } from '../features/branch-sync-actions';
+import { runPullBranch } from '../features/branch-sync-actions';
 
 export class MainPanel {
   public static currentPanel: MainPanel | undefined;
@@ -1061,35 +1061,41 @@ export class MainPanel {
           break;
         }
         case 'pushBranch': {
-          const changed = await runPushBranch(this.gitService, message.payload.branch);
-          if (changed) {
+          const res = await this.gitService.pushBranch(message.payload.branch, {
+            remote: message.payload.remote,
+            force: message.payload.force,
+            setUpstream: message.payload.setUpstream,
+          });
+          if (!res.pushed) {
+            vscode.window.showWarningMessage(vscode.l10n.t('noRemotesToPushTo'));
             this.post({
               type: 'operationComplete',
-              payload: { operation: 'pushBranch', success: true },
+              payload: { operation: 'pushBranch', success: false },
             });
-            await this.refreshAll();
+            break;
           }
+          this.post({
+            type: 'operationComplete',
+            payload: { operation: 'pushBranch', success: true },
+          });
+          vscode.window.showInformationMessage(vscode.l10n.t('pushed'));
+          await this.refreshAll();
           break;
         }
         case 'pullBranch': {
-          const changed = await runPullBranchFastForward(this.gitService, message.payload.branch);
+          const changed = await runPullBranch(
+            this.gitService,
+            message.payload.branch,
+            { remote: message.payload.remote, remoteBranch: message.payload.remoteBranch },
+            { rebase: message.payload.rebase, stash: message.payload.stash },
+          );
+          // Always report completion so the webview clears its busy state,
+          // even when nothing changed (no source / checked out elsewhere).
+          this.post({
+            type: 'operationComplete',
+            payload: { operation: 'pullBranch', success: changed },
+          });
           if (changed) {
-            this.post({
-              type: 'operationComplete',
-              payload: { operation: 'pullBranch', success: true },
-            });
-            await this.refreshAll();
-          }
-          break;
-        }
-        case 'fetchIntoLocal': {
-          const { remote, remoteBranch, localBranch } = message.payload;
-          const changed = await runPullBranchFastForward(this.gitService, localBranch, { remote, remoteBranch });
-          if (changed) {
-            this.post({
-              type: 'operationComplete',
-              payload: { operation: 'fetchIntoLocal', success: true },
-            });
             await this.refreshAll();
           }
           break;

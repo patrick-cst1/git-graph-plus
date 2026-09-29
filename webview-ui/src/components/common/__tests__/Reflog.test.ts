@@ -95,6 +95,38 @@ describe('Reflog — loading & data flow', () => {
     });
   });
 
+  it('filters the ref dropdown with its search input', async () => {
+    branchStore.branches = [
+      { name: 'main', current: true, remote: undefined, upstream: undefined, ahead: 0, behind: 0, hash: 'h1' },
+      { name: 'feature/login', current: false, remote: undefined, upstream: undefined, ahead: 0, behind: 0, hash: 'h2' },
+      { name: 'feature/signup', current: false, remote: undefined, upstream: undefined, ahead: 0, behind: 0, hash: 'h3' },
+    ];
+    const { container } = render(Reflog, { active: true });
+    deliverReflog([]); // settle initial load
+    await waitFor(() => {
+      expect(container.querySelector('.reflog-empty')).not.toBeNull();
+    });
+    globalThis.__postedMessages = [];
+
+    await fireEvent.click(container.querySelectorAll<HTMLButtonElement>('.filter-btn')[0]);
+    const search = container.querySelector<HTMLInputElement>('.dd-search');
+    expect(search).toBeTruthy();
+    await fireEvent.input(search!, { target: { value: 'login' } });
+
+    await waitFor(() => {
+      const items = Array.from(container.querySelectorAll<HTMLButtonElement>('.dd-list .dd-item'));
+      expect(items.map(b => b.textContent?.trim())).toEqual(['feature/login']);
+    });
+
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.dd-list .dd-item')!);
+    await waitFor(() => {
+      const reqs = globalThis.__postedMessages.filter(
+        (m) => (m.data as { type?: string }).type === 'getReflog'
+      );
+      expect((reqs.at(-1)!.data as { payload: { ref: string } }).payload.ref).toBe('feature/login');
+    });
+  });
+
   it('renders entries when reflogData arrives', async () => {
     const { container } = render(Reflog, { active: true });
     deliverReflog([

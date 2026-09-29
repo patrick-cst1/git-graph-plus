@@ -2,29 +2,18 @@ import * as vscode from 'vscode';
 import { GitService } from '../git/git-service';
 
 /**
- * Push a branch from a right-click menu without checking it out. Returns true
- * when the repository changed and callers should refresh.
+ * Pulls a branch from an explicit source, honouring the dialog's rebase/stash
+ * choices. A branch that is strictly behind is fast-forwarded in place without
+ * a checkout (the options are moot for a fast-forward); a diverged branch is
+ * checked out, pulled with the chosen strategy, and the user is offered a
+ * switch back. Returns true when the repository changed and callers should
+ * refresh.
  */
-export async function runPushBranch(gitService: GitService, branch: string): Promise<boolean> {
-  const res = await gitService.pushBranch(branch);
-  if (!res.pushed) {
-    vscode.window.showWarningMessage(vscode.l10n.t('noRemotesToPushTo'));
-    return false;
-  }
-  vscode.window.showInformationMessage(vscode.l10n.t('pushed'));
-  return true;
-}
-
-/**
- * Pull a branch without checking it out, fast-forward only. A diverged branch
- * offers "Checkout & Pull" (optionally switching back afterwards); a branch
- * checked out in another worktree is reported instead. Returns true when the
- * repository changed and callers should refresh.
- */
-export async function runPullBranchFastForward(
+export async function runPullBranch(
   gitService: GitService,
   branch: string,
-  source?: { remote: string; remoteBranch: string },
+  source: { remote: string; remoteBranch: string },
+  options: { rebase?: boolean; stash?: boolean },
 ): Promise<boolean> {
   const res = await gitService.pullBranchFastForward(branch, source);
   switch (res.status) {
@@ -33,12 +22,9 @@ export async function runPullBranchFastForward(
       return true;
     }
     case 'current-branch': {
-      if (source) {
-        await gitService.pull(source.remote, source.remoteBranch);
-        vscode.window.showInformationMessage(vscode.l10n.t('pulled'));
-        return true;
-      }
-      return false;
+      await pullIntoCurrent(gitService, source, options);
+      vscode.window.showInformationMessage(vscode.l10n.t('pulled'));
+      return true;
     }
     case 'no-upstream': {
       vscode.window.showWarningMessage(vscode.l10n.t('pullNothingToPull', branch));
@@ -49,18 +35,22 @@ export async function runPullBranchFastForward(
       return false;
     }
     case 'non-fast-forward': {
-      const checkoutAndPull = vscode.l10n.t('checkoutAndPull');
-      const action = await vscode.window.showWarningMessage(
-        vscode.l10n.t('pullNotFastForward', branch),
-        { modal: true },
-        checkoutAndPull,
-      );
-      if (action !== checkoutAndPull) {
-        return false;
-      }
       const before = (await gitService.branches()).find(b => !b.remote && b.current)?.name;
-      await gitService.checkout(branch);
-      await gitService.pull(res.remote, res.remoteBranch);
+      if (options.stash) {
+        await gitService.stashSave('Auto-stash before pull');
+      }
+      try {
+        await gitService.checkout(branch);
+        await gitService.pull(source.remote, source.remoteBranch, { rebase: options.rebase });
+      } finally {
+        if (options.stash) {
+          try {
+            await gitService.stashPop(0);
+          } catch {
+            vscode.window.showWarningMessage(vscode.l10n.t('stashPopAfterPullFailed'));
+          }
+        }
+      }
       if (before && before !== branch) {
         const switchBack = vscode.l10n.t('switchBackTo', before);
         const picked = await vscode.window.showInformationMessage(vscode.l10n.t('switchedToForPull', branch), switchBack);
@@ -71,6 +61,27 @@ export async function runPullBranchFastForward(
         vscode.window.showInformationMessage(vscode.l10n.t('switchedToForPull', branch));
       }
       return true;
+    }
+  }
+}
+
+async function pullIntoCurrent(
+  gitService: GitService,
+  source: { remote: string; remoteBranch: string },
+  options: { rebase?: boolean; stash?: boolean },
+): Promise<void> {
+  if (options.stash) {
+    await gitService.stashSave('Auto-stash before pull');
+  }
+  try {
+    await gitService.pull(source.remote, source.remoteBranch, { rebase: options.rebase });
+  } finally {
+    if (options.stash) {
+      try {
+        await gitService.stashPop(0);
+      } catch {
+        vscode.window.showWarningMessage(vscode.l10n.t('stashPopAfterPullFailed'));
+      }
     }
   }
 }

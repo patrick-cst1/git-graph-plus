@@ -58,9 +58,8 @@ export type WebviewMessage =
   | { type: 'reset'; payload: { ref: string; mode: 'soft' | 'mixed' | 'hard' } }
   | { type: 'push'; payload: { remote?: string; branch?: string; force?: 'with-lease' | 'force'; setUpstream?: boolean } }
   | { type: 'pull'; payload: { remote?: string; branch?: string; rebase?: boolean; stash?: boolean } }
-  | { type: 'pushBranch'; payload: { branch: string } }
-  | { type: 'pullBranch'; payload: { branch: string } }
-  | { type: 'fetchIntoLocal'; payload: { remote: string; remoteBranch: string; localBranch: string } }
+  | { type: 'pushBranch'; payload: { branch: string; remote?: string; force?: 'with-lease' | 'force'; setUpstream?: boolean } }
+  | { type: 'pullBranch'; payload: { branch: string; remote: string; remoteBranch: string; rebase?: boolean; stash?: boolean } }
   | { type: 'fetch'; payload: { remote?: string; prune?: boolean } }
   | { type: 'stashSave'; payload: { message?: string; includeUntracked?: boolean; keepIndex?: boolean } }
   | { type: 'stashApply'; payload: { index: number; drop?: boolean } }

@@ -16,7 +16,6 @@ import { registerEditorBlame } from './features/editor-blame';
 import { registerEditorAnnotations } from './features/editor-annotations';
 import { registerRevisionNavigator } from './features/revision-navigator';
 import { registerGitCommandPalette } from './features/git-command-palette';
-import { runPushBranch, runPullBranchFastForward } from './features/branch-sync-actions';
 import { FileHistoryViewProvider, type FileHistoryViewState } from './views/file-history-view';
 import { SearchCompareViewProvider, type SearchCompareState } from './views/search-compare-view';
 import { FileVisualHistoryPanel } from './panels/FileVisualHistoryPanel';
@@ -791,9 +790,7 @@ export function activate(context: vscode.ExtensionContext) {
       } else if (selected.id === 'checkout') {
         MainPanel.showModalWithPanel(context.extensionUri, { modal: 'checkoutRemote', remoteName: branch.name, localName: branchName });
       } else if (selected.id === 'fetchInto') {
-        runPullBranchFastForward(activeGitService, branchName, { remote, remoteBranch: branchName })
-          .then(changed => { if (changed) { refreshAll(); MainPanel.currentPanel?.postRefresh(); } })
-          .catch((err: Error) => vscode.window.showErrorMessage(err.message));
+        MainPanel.showModalWithPanel(context.extensionUri, { modal: 'pullBranch', branch: branchName, remote, remoteBranch: branchName });
       }
     }),
     vscode.commands.registerCommand('gitGraphPlus.showBranchMenu', async (branchItem) => {
@@ -818,17 +815,13 @@ export function activate(context: vscode.ExtensionContext) {
       switch (selected.id) {
         case 'checkout': vscode.commands.executeCommand('gitGraphPlus.checkoutBranch', branchItem); break;
         case 'push':
-          runPushBranch(activeGitService, branch.name)
-            .then(changed => { if (changed) { refreshAll(); MainPanel.currentPanel?.postRefresh(); } })
-            .catch((err: Error) => vscode.window.showErrorMessage(err.message));
+          MainPanel.showModalWithPanel(context.extensionUri, { modal: 'push', branch: branch.name });
           break;
         case 'pull':
           if (branch.current) {
             MainPanel.showModalWithPanel(context.extensionUri, { modal: 'pull' });
           } else {
-            runPullBranchFastForward(activeGitService, branch.name)
-              .then(changed => { if (changed) { refreshAll(); MainPanel.currentPanel?.postRefresh(); } })
-              .catch((err: Error) => vscode.window.showErrorMessage(err.message));
+            MainPanel.showModalWithPanel(context.extensionUri, { modal: 'pullBranch', branch: branch.name });
           }
           break;
         case 'merge': vscode.commands.executeCommand('gitGraphPlus.mergeBranch', branchItem); break;

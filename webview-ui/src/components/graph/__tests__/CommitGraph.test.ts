@@ -1045,11 +1045,10 @@ describe('CommitGraph branch sync context menu', () => {
       .filter(m => m.type === type);
   }
 
-  it('offers Push on a non-current branch and posts pushBranch', async () => {
+  it('offers Push on a non-current branch and opens the push modal for it', async () => {
     setupNonCurrentBranch();
     const { container } = render(CommitGraph, {});
     await tick();
-    globalThis.__postedMessages = [];
     await fireEvent.contextMenu(container.querySelectorAll<HTMLElement>('.commit-row')[0], { clientX: 10, clientY: 10 });
     await tick();
     await openRefSubmenu(container, 'develop');
@@ -1057,17 +1056,19 @@ describe('CommitGraph branch sync context menu', () => {
     expect(item).toBeTruthy();
     await fireEvent.click(item!);
     await tick();
-    expect(postedOfType('pushBranch')[0]?.payload?.branch).toBe('develop');
+    expect(modalStore.push.show).toBe(true);
+    expect(modalStore.push.branch).toBe('develop');
+    expect(modalStore.push.remote).toBe('origin');
+    modalStore.closePush();
   });
 
-  it('offers Push on a worktree-linked branch', async () => {
+  it('offers Push on a worktree-linked branch and opens the push modal for it', async () => {
     setupNonCurrentBranch();
     branchStore.worktrees = [
       { path: 'C:/wt', hash: 'h2', branch: 'develop', detached: false, locked: false, prunable: false, isMain: false },
     ];
     const { container } = render(CommitGraph, {});
     await tick();
-    globalThis.__postedMessages = [];
     await fireEvent.contextMenu(container.querySelectorAll<HTMLElement>('.commit-row')[0], { clientX: 10, clientY: 10 });
     await tick();
     await openRefSubmenu(container, 'develop');
@@ -1075,10 +1076,12 @@ describe('CommitGraph branch sync context menu', () => {
     expect(item).toBeTruthy();
     await fireEvent.click(item!);
     await tick();
-    expect(postedOfType('pushBranch')[0]?.payload?.branch).toBe('develop');
+    expect(modalStore.push.show).toBe(true);
+    expect(modalStore.push.branch).toBe('develop');
+    modalStore.closePush();
   });
 
-  it('offers Pull on a non-current branch with a same-named remote branch and posts pullBranch', async () => {
+  it('offers Pull on a non-current branch with a same-named remote branch and opens the pull modal', async () => {
     setupNonCurrentBranch();
     branchStore.branches = [
       ...branchStore.branches,
@@ -1094,7 +1097,13 @@ describe('CommitGraph branch sync context menu', () => {
     expect(item).toBeTruthy();
     await fireEvent.click(item!);
     await tick();
-    expect(postedOfType('pullBranch')[0]?.payload?.branch).toBe('develop');
+    expect(modalStore.pullBranch.show).toBe(true);
+    expect(modalStore.pullBranch.branch).toBe('develop');
+    expect(modalStore.pullBranch.source).toBe('origin/develop');
+    expect(modalStore.pullBranch.remote).toBe('origin');
+    expect(modalStore.pullBranch.remoteBranch).toBe('develop');
+    expect(postedOfType('pullBranch')).toEqual([]);
+    modalStore.closePullBranch();
   });
 
   it('hides Pull when the branch has no upstream and no same-named remote branch', async () => {
@@ -1124,7 +1133,7 @@ describe('CommitGraph branch sync context menu', () => {
     modalStore.closePull();
   });
 
-  it("offers Pull into local on a remote branch with a same-named local branch and posts fetchIntoLocal", async () => {
+  it("offers Pull into local on a remote branch with a same-named local branch and opens the pull modal", async () => {
     const head = makeCommit('h1', 'first');
     head.refs = [{ type: 'head', name: 'main' }];
     const feat = makeCommit('h2', 'feat work', ['h1']);
@@ -1145,7 +1154,12 @@ describe('CommitGraph branch sync context menu', () => {
     expect(item).toBeTruthy();
     await fireEvent.click(item!);
     await tick();
-    expect(postedOfType('fetchIntoLocal')[0]?.payload).toEqual({ remote: 'origin', remoteBranch: 'develop', localBranch: 'develop' });
+    expect(modalStore.pullBranch.show).toBe(true);
+    expect(modalStore.pullBranch.branch).toBe('develop');
+    expect(modalStore.pullBranch.source).toBe('origin/develop');
+    expect(modalStore.pullBranch.remote).toBe('origin');
+    expect(modalStore.pullBranch.remoteBranch).toBe('develop');
+    modalStore.closePullBranch();
   });
 
   it('hides Pull into local when the same-named local branch is the current branch', async () => {

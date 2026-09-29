@@ -23,6 +23,7 @@
   import SquashModal from '../modals/SquashModal.svelte';
   import MultiCherryPickModal from '../modals/MultiCherryPickModal.svelte';
   import { modalStore } from '../../lib/stores/modals.svelte';
+  import { resolvePushRemote, resolvePullSource } from '../../lib/utils/branch-target';
   import type { Commit, CommitGraphData } from '../../lib/types';
   import { buildGraphPathD } from '../../lib/utils/graph-path';
   import { tooltip } from '../../lib/actions/tooltip';
@@ -972,12 +973,7 @@
       return nameA.localeCompare(nameB);
     });
 
-    const hasSameNameRemote = (name: string) => branchStore.remoteBranches.some(b => !!b.remote && b.name === `${b.remote}/${name}`);
-    const canPullLocalBranch = (name: string) => {
-      if (name === currentBranch) return true;
-      const info = localBranchMap.get(name);
-      return (!!info?.upstream && !info.upstreamGone) || hasSameNameRemote(name);
-    };
+    const canPullLocalBranch = (name: string) => name === currentBranch || resolvePullSource(name, branchStore) !== null;
 
     for (const ref of refs) {
       if (ref.type === 'head' || ref.type === 'branch') {
@@ -997,7 +993,7 @@
               },
               ...(branchStore.remotes.length > 0 ? [{
                 label: t('graph.pushBranch', { branch: branchName }),
-                action: () => vscode.postMessage({ type: 'pushBranch', payload: { branch: branchName } }),
+                action: () => modalStore.openPush(resolvePushRemote(branchName, branchStore), branchName),
               }] : []),
               ...(branchName !== currentBranch ? [{
                 label: t('graph.mergeInto', { branch: currentBranch }),
@@ -1038,16 +1034,17 @@
               },
               ...(branchStore.remotes.length > 0 ? [{
                 label: t('graph.pushBranch', { branch: branchName }),
-                action: () => vscode.postMessage({ type: 'pushBranch', payload: { branch: branchName } }),
+                action: () => modalStore.openPush(resolvePushRemote(branchName, branchStore), branchName),
               }] : []),
               ...(canPullLocalBranch(branchName) ? [{
                 label: t('graph.pullBranch', { branch: branchName }),
                 action: () => {
                   if (branchName === currentBranch) {
                     modalStore.openPull();
-                  } else {
-                    vscode.postMessage({ type: 'pullBranch', payload: { branch: branchName } });
+                    return;
                   }
+                  const source = resolvePullSource(branchName, branchStore);
+                  if (source) modalStore.openPullBranch(branchName, source);
                 },
               }] : []),
               {
@@ -1096,9 +1093,10 @@
             },
             ...(localBranchMap.has(ref.name) && ref.name !== currentBranch ? [{
               label: t('graph.pullIntoLocal', { local: ref.name }),
-              action: () => vscode.postMessage({
-                type: 'fetchIntoLocal',
-                payload: { remote: ref.remote!, remoteBranch: ref.name, localBranch: ref.name },
+              action: () => modalStore.openPullBranch(ref.name, {
+                source: `${ref.remote}/${ref.name}`,
+                remote: ref.remote!,
+                remoteBranch: ref.name,
               }),
             }] : []),
             {

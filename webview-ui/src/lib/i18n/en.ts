@@ -373,6 +373,7 @@ export const en: Record<string, string> = {
   'reflog.noMatches': 'No matching entries',
   'reflog.filter': 'Filter',
   'reflog.filterRef': 'Ref',
+  'reflog.filterRefPlaceholder': 'Filter branches…',
   'reflog.filterAction': 'Action',
   'reflog.filterAll': 'All',
   'reflog.filterDanglingOnly': 'Dangling commits only',
@@ -443,6 +444,7 @@ export const en: Record<string, string> = {
   'pull.desc': 'Pull changes from the remote repository.',
   'pull.rebase': 'Rebase instead of Merge',
   'pull.stash': 'Stash and reapply local changes',
+  'pull.notCheckedOut': 'This branch is not checked out. Pulling checks it out first — you can switch back afterwards.',
   'pull.pull': 'Pull',
 
   // Cherry-Pick modal

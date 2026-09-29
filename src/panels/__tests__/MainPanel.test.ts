@@ -446,9 +446,9 @@ describe('MainPanel message routing', () => {
     expect(H.git.push).toHaveBeenCalledWith('origin', 'feature', { force: undefined, setUpstream: true });
   });
 
-  it('pushBranch pushes the right-clicked branch and refreshes', async () => {
-    await dispatch({ type: 'pushBranch', payload: { branch: 'feature' } });
-    expect(H.git.pushBranch).toHaveBeenCalledWith('feature');
+  it('pushBranch pushes the branch-targeted dialog choices and refreshes', async () => {
+    await dispatch({ type: 'pushBranch', payload: { branch: 'feature', remote: 'origin', force: 'with-lease', setUpstream: true } });
+    expect(H.git.pushBranch).toHaveBeenCalledWith('feature', { remote: 'origin', force: 'with-lease', setUpstream: true });
     expect(postedOfType('operationComplete').some(m => m.payload?.operation === 'pushBranch')).toBe(true);
     expect(postedOfType('fullRefresh').length).toBeGreaterThan(0);
   });
@@ -457,36 +457,30 @@ describe('MainPanel message routing', () => {
     H.git.pushBranch.mockResolvedValue({ pushed: false, reason: 'no-remote' });
     await dispatch({ type: 'pushBranch', payload: { branch: 'feature' } });
     expect(postedOfType('fullRefresh').length).toBe(0);
+    expect(postedOfType('operationComplete').some(m => m.payload?.operation === 'pushBranch' && m.payload?.success === false)).toBe(true);
   });
 
   it('pullBranch fast-forwards a non-current branch without a checkout', async () => {
-    await dispatch({ type: 'pullBranch', payload: { branch: 'feature' } });
-    expect(H.git.pullBranchFastForward).toHaveBeenCalledWith('feature', undefined);
+    await dispatch({ type: 'pullBranch', payload: { branch: 'feature', remote: 'origin', remoteBranch: 'feature', rebase: false, stash: false } });
+    expect(H.git.pullBranchFastForward).toHaveBeenCalledWith('feature', { remote: 'origin', remoteBranch: 'feature' });
     expect(H.git.checkout).not.toHaveBeenCalled();
     expect(postedOfType('fullRefresh').length).toBeGreaterThan(0);
   });
 
-  it('pullBranch offers Checkout & Pull when the branch diverged', async () => {
-    const vscode = await import('vscode');
+  it('pullBranch checks out and pulls when the branch diverged (dialog already confirmed)', async () => {
     H.git.pullBranchFastForward.mockResolvedValue({ status: 'non-fast-forward', remote: 'origin', remoteBranch: 'feature' });
     H.git.branches.mockResolvedValue([{ name: 'main', current: true }]);
-    (vscode.window.showWarningMessage as unknown as ReturnType<typeof vi.fn>).mockResolvedValue('checkoutAndPull');
-    await dispatch({ type: 'pullBranch', payload: { branch: 'feature' } });
+    await dispatch({ type: 'pullBranch', payload: { branch: 'feature', remote: 'origin', remoteBranch: 'feature', rebase: true, stash: false } });
     expect(H.git.checkout).toHaveBeenCalledWith('feature');
-    expect(H.git.pull).toHaveBeenCalledWith('origin', 'feature');
+    expect(H.git.pull).toHaveBeenCalledWith('origin', 'feature', { rebase: true });
     expect(postedOfType('fullRefresh').length).toBeGreaterThan(0);
   });
 
   it('pullBranch reports a no-upstream branch without refreshing', async () => {
     H.git.pullBranchFastForward.mockResolvedValue({ status: 'no-upstream' });
-    await dispatch({ type: 'pullBranch', payload: { branch: 'feature' } });
+    await dispatch({ type: 'pullBranch', payload: { branch: 'feature', remote: 'origin', remoteBranch: 'feature' } });
     expect(postedOfType('fullRefresh').length).toBe(0);
-  });
-
-  it('fetchIntoLocal fetches the remote branch into the same-named local branch', async () => {
-    await dispatch({ type: 'fetchIntoLocal', payload: { remote: 'origin', remoteBranch: 'feature', localBranch: 'feature' } });
-    expect(H.git.pullBranchFastForward).toHaveBeenCalledWith('feature', { remote: 'origin', remoteBranch: 'feature' });
-    expect(postedOfType('fullRefresh').length).toBeGreaterThan(0);
+    expect(postedOfType('operationComplete').some(m => m.payload?.operation === 'pullBranch')).toBe(true);
   });
 
   it('checkout with stash stashes before checking out', async () => {
