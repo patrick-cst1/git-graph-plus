@@ -468,8 +468,12 @@ export function activate(context: vscode.ExtensionContext) {
       const editor = vscode.window.activeTextEditor;
       if (!editor || editor.document.uri.scheme !== 'file') return;
       const selection = editor.selection;
-      const start = (selection.isEmpty ? selection.active.line : selection.start.line) + 1;
-      const end = (selection.isEmpty ? selection.active.line : selection.end.line) + 1;
+      const start = selection.start.line + 1;
+      // A selection ending at column 0 does not include that line, so the last
+      // selected line is the one before it.
+      const end = !selection.isEmpty && selection.end.character === 0 && selection.end.line > selection.start.line
+        ? selection.end.line
+        : selection.end.line + 1;
       fileHistoryProvider.showLineRange(editor, start, end);
       await vscode.commands.executeCommand('gitGraphPlus.fileHistory.focus');
     }),
@@ -846,6 +850,16 @@ export function activate(context: vscode.ExtensionContext) {
     }),
     vscode.commands.registerCommand('gitGraphPlus.deleteRemoteBranchExplicit', (branch) => {
       if (branch) {
+        const remote = branch.name.split('/')[0];
+        const branchName = branch.name.split('/').slice(1).join('/');
+        MainPanel.showModalWithPanel(context.extensionUri, { modal: 'deleteRemoteBranch', remote, name: branchName });
+      }
+    }),
+    vscode.commands.registerCommand('gitGraphPlus.deleteRemoteBranch', (branchItem) => {
+      // Context-menu variant of deleteRemoteBranchExplicit: the tree item wraps
+      // the branch as `{ branch }`, while the explicit command takes it bare.
+      const branch = branchItem?.branch;
+      if (branch?.name) {
         const remote = branch.name.split('/')[0];
         const branchName = branch.name.split('/').slice(1).join('/');
         MainPanel.showModalWithPanel(context.extensionUri, { modal: 'deleteRemoteBranch', remote, name: branchName });

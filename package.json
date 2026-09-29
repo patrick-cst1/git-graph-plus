@@ -404,7 +404,7 @@
         },
         {
           "command": "gitGraphPlus.refresh",
-          "when": "view =~ /^gitGraphPlus/",
+          "when": "view =~ /^gitGraphPlus/ && view != gitGraphPlus.fileHistory && view != gitGraphPlus.searchCompare",
           "group": "navigation@2"
         },
         {

@@ -226,7 +226,11 @@ export function registerGitCommandPalette(
         matchOnDescription: true,
       });
       if (!picked) return;
-      await runPaletteEntry(picked.id);
+      try {
+        await runPaletteEntry(picked.id);
+      } catch (err) {
+        fail(err);
+      }
     }),
   );
 }
