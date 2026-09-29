@@ -169,9 +169,9 @@ export interface WorktreeInfo {
 export interface LogOptions {
   branch?: string;
   branches?: string[]; // 다중 브랜치 필터 (지정 시 glob 인자 대신 브랜치 이름을 직접 전달)
-  /** With a single entry in `branches`: log only that branch's own commits —
-   *  fork point (included) to tip — instead of its full ancestry. Used by
-   *  branch focus so the base branch's history is not shown. */
+  /** With `branches`: log only each branch's own commits — fork point
+   *  (included) to tip — instead of its full ancestry. Branches whose fork
+   *  point cannot be resolved keep their full history. Used by branch focus. */
   focusUnique?: boolean;
   limit?: number;
   all?: boolean;

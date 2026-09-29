@@ -340,6 +340,17 @@ describe('GitService', () => {
       expect(logCall).toContain('base1..feature');
     });
 
+    it('log with focusUnique scopes every selected branch', async () => {
+      vi.spyOn(service as any, 'uniqueRangeFor')
+        .mockImplementation(async (...args: unknown[]) => `${String(args[0])}base..${String(args[0])}`);
+      await service.log({ branches: ['one', 'two'], focusUnique: true, includeStashes: false });
+
+      const logCall = calls.find(c => c[0] === 'log')!;
+      expect(logCall).toContain('onebase..one');
+      expect(logCall).toContain('twobase..two');
+      expect(logCall.filter(a => a === '--boundary')).toHaveLength(2);
+    });
+
     it('log with focusUnique falls back to the plain branch without a range', async () => {
       vi.spyOn(service as any, 'uniqueRangeFor').mockResolvedValue(null);
       await service.log({ branches: ['main'], focusUnique: true, includeStashes: false });
@@ -349,13 +360,15 @@ describe('GitService', () => {
       expect(logCall).not.toContain('--boundary');
     });
 
-    it('log with several branches ignores focusUnique', async () => {
-      await service.log({ branches: ['a', 'b'], focusUnique: true, includeStashes: false });
+    it('log without focusUnique keeps the full ancestry of every branch', async () => {
+      const scoped = vi.spyOn(service as any, 'uniqueRangeFor').mockResolvedValue('x..y');
+      await service.log({ branches: ['a', 'b'], includeStashes: false });
 
       const logCall = calls.find(c => c[0] === 'log')!;
       expect(logCall).toContain('a');
       expect(logCall).toContain('b');
       expect(logCall).not.toContain('--boundary');
+      expect(scoped).not.toHaveBeenCalled();
     });
   });
 

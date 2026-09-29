@@ -1,22 +1,23 @@
 import type { Commit } from '../types';
 
+export interface FocusTip {
+  /** Tip hash of a focused branch/ref. */
+  hash: string;
+  /** The commit the branch was created from, or null when unknown. */
+  baseHash: string | null;
+}
+
 /**
- * Hashes covered by a branch focus. Mirrors `git log <base>..<tip>` for the
- * focused refs — their tips' ancestry minus the ancestry of `baseHash` (the
- * commit the branch was created from) — plus the fork point itself, which is
- * kept as the boundary anchor (git's `--boundary`).
+ * Hashes covered by a branch focus. For each focused tip this mirrors
+ * `git log <base>..<tip>` — the tip's ancestry minus the ancestry of the fork
+ * point — plus the fork point itself, which is kept as the boundary anchor
+ * (git's `--boundary`). Tips without a known base contribute their full
+ * ancestry, which is also what the callers fall back to.
  *
- * Without a base the whole ancestry is covered, which is what a multi-branch
- * focus or an unresolved base falls back to.
- *
- * `matchesTip` decides whether a loaded commit carries one of the focused refs.
- * Returns null when no loaded commit matches (nothing to focus).
+ * Returns null when no tips are given (nothing to focus).
  */
-export function collectFocusHashes(
-  commits: Commit[],
-  matchesTip: (commit: Commit) => boolean,
-  baseHash: string | null,
-): Set<string> | null {
+export function collectFocusHashes(commits: Commit[], tips: FocusTip[]): Set<string> | null {
+  if (tips.length === 0) return null;
   const byHash = new Map(commits.map((c) => [c.hash, c]));
 
   const ancestorsOf = (start: string[]): Set<string> => {
@@ -36,19 +37,16 @@ export function collectFocusHashes(
     return seen;
   };
 
-  const tips: string[] = [];
-  for (const c of commits) {
-    if (matchesTip(c)) tips.push(c.hash);
-  }
-  if (tips.length === 0) return null;
-
-  const reachable = ancestorsOf(tips);
-  // The base's ancestry is not this branch's work; only the fork point stays.
-  if (baseHash && byHash.has(baseHash)) {
-    const baseAncestors = ancestorsOf([baseHash]);
-    for (const hash of baseAncestors) {
-      if (hash !== baseHash) reachable.delete(hash);
+  const focused = new Set<string>();
+  for (const tip of tips) {
+    const reachable = ancestorsOf([tip.hash]);
+    // The base's ancestry is not this branch's work; only the fork point stays.
+    if (tip.baseHash && byHash.has(tip.baseHash)) {
+      for (const hash of ancestorsOf([tip.baseHash])) {
+        if (hash !== tip.baseHash) reachable.delete(hash);
+      }
     }
+    for (const hash of reachable) focused.add(hash);
   }
-  return reachable;
+  return focused;
 }

@@ -373,11 +373,14 @@ describe('MainPanel message routing', () => {
     expect((data.payload!.behind as Array<{ hash: string }>).map((c) => c.hash)).toEqual(['behindhash']);
   });
 
-  it('branchFocusBase resolves the fork point and echoes the request id', async () => {
-    await dispatch({ type: 'branchFocusBase', payload: { branch: 'feature', requestId: 'fb-1' } });
+  it('branchFocusBase resolves the fork points and echoes the request id', async () => {
+    H.git.focusBase.mockImplementation(async (branch: string) => (branch === 'feature' ? 'basesha' : null));
+    await dispatch({ type: 'branchFocusBase', payload: { branches: ['feature', 'main'], requestId: 'fb-1' } });
     expect(H.git.focusBase).toHaveBeenCalledWith('feature');
+    expect(H.git.focusBase).toHaveBeenCalledWith('main');
     const data = postedOfType('branchFocusBaseData').at(-1)!;
-    expect(data.payload!.base).toBe('basesha');
+    expect(data.payload!.bases).toEqual({ feature: 'basesha', main: null });
+    expect(data.payload!.branches).toEqual(['feature', 'main']);
     expect(data.payload!.requestId).toBe('fb-1');
   });
 

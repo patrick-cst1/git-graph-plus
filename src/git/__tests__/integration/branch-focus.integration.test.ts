@@ -80,6 +80,25 @@ describe('GitService integration — branch focus', () => {
     expect(scoped.map((c) => c.subject)).toEqual(['main2', 'main1']);
   });
 
+  it('unions several focused branches, each scoped to its own commits', async () => {
+    const repo = makeRepo();
+    commitFile(repo, 'a.txt', 'm0\n', 'main0');
+    commitFile(repo, 'a.txt', 'm1\n', 'main1');
+    git(repo, ['checkout', '-b', 'one']);
+    commitFile(repo, 'one.txt', 'o1\n', 'one1');
+    git(repo, ['checkout', 'main']);
+    git(repo, ['checkout', '-b', 'two']);
+    commitFile(repo, 'two.txt', 't1\n', 'two1');
+    const service = new GitService(repo);
+
+    const scoped = await service.log({ branches: ['one', 'two'], focusUnique: true, includeStashes: false });
+    // Each branch's own commit plus the shared fork point (main1), once.
+    expect(scoped.map((c) => c.subject).sort()).toEqual(['main1', 'one1', 'two1']);
+
+    const full = await service.log({ branches: ['one', 'two'], includeStashes: false });
+    expect(full.map((c) => c.subject).sort()).toEqual(['main0', 'main1', 'one1', 'two1']);
+  });
+
   it('still scopes a merged branch via its reflog creation point', async () => {
     const repo = makeRepo();
     commitFile(repo, 'a.txt', 'm0\n', 'main0');

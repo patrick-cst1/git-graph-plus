@@ -1652,9 +1652,58 @@ describe('App — filter change handlers', () => {
     expect(lastGetLog()!.focusUnique).toBe(true);
     // …and the extension is asked for its fork point.
     const baseRequest = globalThis.__postedMessages
-      .map((m) => m.data as { type?: string; payload?: { branch?: string } })
+      .map((m) => m.data as { type?: string; payload?: { branches?: string[] } })
       .find((m) => m.type === 'branchFocusBase');
-    expect(baseRequest?.payload?.branch).toBe('feature');
+    expect(baseRequest?.payload?.branches).toEqual(['feature']);
+  });
+
+  it('switching the focus scope to Full history drops the scoping', async () => {
+    const { container } = render(App);
+    postMsg('branchData', {
+      branches: [
+        { name: 'main', current: true, ahead: 0, behind: 0, hash: 'h1' },
+        { name: 'feature', current: false, ahead: 0, behind: 0, hash: 'h2' },
+      ],
+      tags: [], remotes: [], stashes: [], worktrees: [],
+    });
+    await waitFor(() => container.querySelectorAll('.filter-btn').length >= 2);
+    await fireEvent.click(container.querySelectorAll<HTMLButtonElement>('.filter-btn')[1]);
+    await fireEvent.click(Array.from(container.querySelectorAll<HTMLButtonElement>('.dd-item'))
+      .find(el => el.textContent?.includes('feature'))!);
+    await waitFor(() => lastGetLog()?.focusUnique === true);
+
+    // Scope buttons live in the same popover, next to Filter / Dim.
+    const full = Array.from(container.querySelectorAll<HTMLButtonElement>('.dd-mode-btn'))
+      .find(el => el.textContent?.includes('Full history'))!;
+    await fireEvent.click(full);
+    await waitFor(() => lastGetLog()?.focusUnique === undefined);
+    expect((lastGetLog()!.branches as string[])).toContain('feature');
+  });
+
+  it('warns in the focus chip when a focused branch has no fork point', async () => {
+    const { container } = render(App);
+    postMsg('branchData', {
+      branches: [
+        { name: 'main', current: true, ahead: 0, behind: 0, hash: 'h1' },
+        { name: 'feature', current: false, ahead: 0, behind: 0, hash: 'h2' },
+      ],
+      tags: [], remotes: [], stashes: [], worktrees: [],
+    });
+    await waitFor(() => container.querySelectorAll('.filter-btn').length >= 2);
+    await fireEvent.click(container.querySelectorAll<HTMLButtonElement>('.filter-btn')[1]);
+    await fireEvent.click(Array.from(container.querySelectorAll<HTMLButtonElement>('.dd-item'))
+      .find(el => el.textContent?.includes('feature'))!);
+    const req = await waitFor(() => {
+      const found = globalThis.__postedMessages
+        .map((m) => m.data as { type?: string; payload?: { requestId?: string } })
+        .find((m) => m.type === 'branchFocusBase');
+      expect(found).toBeTruthy();
+      return found!;
+    });
+    postMsg('branchFocusBaseData', { branches: ['feature'], bases: { feature: null }, requestId: req.payload?.requestId });
+    await waitFor(() => {
+      expect(container.querySelector('.scope-warning')).not.toBeNull();
+    });
   });
 
   it('selecting a remote in the source filter posts getLog with that remoteFilter', async () => {

@@ -546,17 +546,19 @@ export class GitService {
     ];
 
     if (options?.branches && options.branches.length > 0) {
-      if (options.focusUnique && options.branches.length === 1) {
-        // Branch focus: scope the log to the branch's own commits — from its
-        // fork point (included as the boundary commit) to its tip — instead of
-        // its full ancestry, which would also show the base branch's history.
-        const branch = options.branches[0];
-        this.assertSafeRef(branch, 'log');
-        const range = await this.uniqueRangeFor(branch);
-        if (range) {
-          args.push('--boundary', range);
-        } else {
-          args.push(branch);
+      if (options.focusUnique) {
+        // Branch focus: scope each branch to its own commits — from its fork
+        // point (included as the boundary commit) to its tip — instead of its
+        // full ancestry, which would also show the base branch's history.
+        // Branches whose fork point cannot be resolved keep their full history.
+        for (const branch of options.branches) {
+          this.assertSafeRef(branch, 'log');
+          const range = await this.uniqueRangeFor(branch);
+          if (range) {
+            args.push('--boundary', range);
+          } else {
+            args.push(branch);
+          }
         }
       } else {
         for (const branch of options.branches) {

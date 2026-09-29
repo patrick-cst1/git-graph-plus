@@ -45,7 +45,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
   import FlowStartModal from './components/modals/FlowStartModal.svelte';
   import FlowFinishModal from './components/modals/FlowFinishModal.svelte';
   import BisectBanner from './components/common/BisectBanner.svelte';
-  import type { FlowConfig } from './lib/types';
+  import type { FlowConfig, Commit } from './lib/types';
   import { tooltip } from './lib/actions/tooltip';
   import DirtyActionModal from './components/modals/DirtyActionModal.svelte';
   import { dragRebaseMessage, dragMergeMessage } from './lib/utils/dragDrop';
@@ -68,11 +68,13 @@ import AmendModal from './components/modals/AmendModal.svelte';
   // Branch focus: 'filter' removes unselected branches from the query, while
   // 'dim' keeps the full graph and fades everything outside the selection.
   let focusMode = $state<'filter' | 'dim'>('filter');
-  // Fork point of the single focused branch (merge base with the default
-  // branch), resolved by the extension. When set, both focus modes cover only
-  // the branch's own commits — from that commit to its tip — instead of the
-  // branch's full ancestry (which would include the base branch's history).
-  let focusBaseHash = $state<string | null>(null);
+  // What the focus covers: 'own' = each branch's own commits (fork point to
+  // tip, resolved by the extension from the branch reflog / merge base),
+  // 'full' = the branch's whole ancestry (the classic git log view).
+  let focusScope = $state<'own' | 'full'>('own');
+  // Fork point of every focused branch, keyed by branch name. A null entry
+  // means "no fork point" — that branch keeps its full history.
+  let focusBases = $state<Record<string, string | null>>({});
   let focusBaseRequestId = '';
   // Branches hidden from the graph for this webview session (excluded from the
   // log query; session-only, not persisted).
@@ -235,7 +237,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
         case 'branchFocusBaseData':
           // Stale responses (the user switched focus while it was resolving).
           if (msg.payload.requestId !== focusBaseRequestId) break;
-          focusBaseHash = msg.payload.base;
+          focusBases = msg.payload.bases ?? {};
           break;
         case 'tagDetailsData':
           tagDetails = msg.payload;
@@ -481,8 +483,14 @@ import AmendModal from './components/modals/AmendModal.svelte';
     return {
       branches: effectiveLogBranches(),
       remoteFilter: remoteFilter.length > 0 ? [...remoteFilter] : undefined,
-      focusUnique: focusMode === 'filter' && branchFilter.length === 1 ? true : undefined,
+      focusUnique: focusMode === 'filter' && focusScope === 'own' && branchFilter.length > 0 ? true : undefined,
     };
+  }
+
+  function handleFocusScopeChange(scope: 'own' | 'full') {
+    if (focusScope === scope) return;
+    focusScope = scope;
+    requeryLog();
   }
 
   function handleBranchFilterChange(branches: string[]) {
@@ -520,33 +528,57 @@ import AmendModal from './components/modals/AmendModal.svelte';
     vscode.postMessage({ type: 'setSimplify', payload: { enabled } });
   }
 
-  // Branch focus (single branch): ask the extension for the commit the branch
-  // was created from, so both focus modes cover only the branch's own commits.
+  // Branch focus (Own commits): ask the extension for the fork point of every
+  // focused branch, so filter/dim can scope each to its own commits. Runs only
+  // in 'own' scope; Full history drops the bases and always uses the ancestry.
   $effect(() => {
-    const single = branchFilter.length === 1 ? branchFilter[0] : null;
-    if (!single) {
-      focusBaseHash = null;
+    if (focusScope !== 'own' || branchFilter.length === 0) {
+      focusBases = {};
       return;
     }
+    const branches = [...branchFilter];
     const requestId = `fb-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     focusBaseRequestId = requestId;
-    focusBaseHash = null;
-    vscode.postMessage({ type: 'branchFocusBase', payload: { branch: single, requestId } });
+    focusBases = {};
+    vscode.postMessage({ type: 'branchFocusBase', payload: { branches, requestId } });
   });
 
+  // Branches whose fork point could not be resolved (merged with an expired /
+  // absent reflog, the default branch itself, …): they keep their full history
+  // and the focus popover explains why.
+  const focusFallbackNames = $derived.by<string[]>(() => {
+    if (focusScope !== 'own') return [];
+    return branchFilter.filter((name) => name in focusBases && focusBases[name] === null);
+  });
+
+  // The focused ref name carried by a commit, and the branch's fork point —
+  // takes the ref name so per-branch bases can be looked up.
+  function focusedRefName(refs: Commit['refs'], focus: Set<string>): string | null {
+    for (const r of refs) {
+      if (r.type !== 'branch' && r.type !== 'head' && r.type !== 'remote-branch') continue;
+      if (focus.has(r.name)) return r.name;
+      if (r.type === 'remote-branch' && r.remote && focus.has(`${r.remote}/${r.name}`)) return `${r.remote}/${r.name}`;
+    }
+    return null;
+  }
+
   // Commits covered by the focused branches ('dim' mode): everything else is
-  // faded. Stops at the fork point when the base is known, so the base branch's
-  // earlier history is not highlighted as part of the focused branch.
+  // faded. In 'own' scope each branch stops at its fork point, so the base
+  // branch's earlier history is not highlighted as part of the focused branch.
   // Null = no dimming (not in dim mode, or nothing selected).
   const dimFocusHashes = $derived.by<Set<string> | null>(() => {
     if (focusMode !== 'dim' || branchFilter.length === 0) return null;
     const focus = new Set(branchFilter);
-    return collectFocusHashes(
-      commitStore.commits,
-      (c) => c.refs.some(r => (r.type === 'branch' || r.type === 'head' || r.type === 'remote-branch')
-        && (focus.has(r.name) || (r.type === 'remote-branch' && r.remote && focus.has(`${r.remote}/${r.name}`)))),
-      focusBaseHash,
-    );
+    const tips: Array<{ hash: string; baseHash: string | null }> = [];
+    for (const c of commitStore.commits) {
+      const name = focusedRefName(c.refs, focus);
+      if (!name) continue;
+      tips.push({
+        hash: c.hash,
+        baseHash: focusScope === 'own' ? focusBases[name] ?? null : null,
+      });
+    }
+    return collectFocusHashes(commitStore.commits, tips);
   });
 
   // Draggable resize handle - track active listeners for cleanup
@@ -698,6 +730,9 @@ import AmendModal from './components/modals/AmendModal.svelte';
           onBranchFilterChange={handleBranchFilterChange}
           {focusMode}
           onFocusModeChange={handleFocusModeChange}
+          {focusScope}
+          onFocusScopeChange={handleFocusScopeChange}
+          {focusFallbackNames}
           {hiddenBranches}
           onHideBranch={handleHideBranch}
           onUnhideBranch={handleUnhideBranch}

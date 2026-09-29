@@ -16,6 +16,10 @@
     onBranchFilterChange?: (filter: string[]) => void;
     focusMode?: 'filter' | 'dim';
     onFocusModeChange?: (mode: 'filter' | 'dim') => void;
+    focusScope?: 'own' | 'full';
+    onFocusScopeChange?: (scope: 'own' | 'full') => void;
+    /** Focused branches whose fork point could not be resolved (own scope). */
+    focusFallbackNames?: string[];
     hiddenBranches?: string[];
     onHideBranch?: (name: string) => void;
     onUnhideBranch?: (name: string) => void;
@@ -37,6 +41,9 @@
     onBranchFilterChange = () => {},
     focusMode = 'filter',
     onFocusModeChange = () => {},
+    focusScope = 'own',
+    onFocusScopeChange = () => {},
+    focusFallbackNames = [],
     hiddenBranches = [],
     onHideBranch = () => {},
     onUnhideBranch = () => {},
@@ -338,6 +345,12 @@
           {#if branchFilterActive}<span class="filter-count">{branchFilter.length}</span>{/if}
         {/if}
       </span>
+      {#if focusFallbackNames.length > 0}
+        <i
+          class="codicon codicon-warning scope-warning"
+          use:tooltip={t('search.scopeFallbackNote', { names: focusFallbackNames.join(', ') })}
+        ></i>
+      {/if}
       <i class="codicon {branchFilterOpen ? 'codicon-chevron-up' : 'codicon-chevron-down'} chevron"></i>
     </button>
     {#if branchFilter.length === 1}
@@ -381,6 +394,30 @@
             use:tooltip={t('search.modeDimTooltip')}
           >{t('search.modeDim')}</button>
         </div>
+        <div class="dd-mode" role="radiogroup" aria-label={t('search.focusScopeLabel')}>
+          <button
+            class="dd-mode-btn"
+            class:active={focusScope === 'own'}
+            role="radio"
+            aria-checked={focusScope === 'own'}
+            onclick={() => onFocusScopeChange('own')}
+            use:tooltip={t('search.scopeOwnTooltip')}
+          >{t('search.scopeOwn')}</button>
+          <button
+            class="dd-mode-btn"
+            class:active={focusScope === 'full'}
+            role="radio"
+            aria-checked={focusScope === 'full'}
+            onclick={() => onFocusScopeChange('full')}
+            use:tooltip={t('search.scopeFullTooltip')}
+          >{t('search.scopeFull')}</button>
+        </div>
+        {#if focusScope === 'own' && focusFallbackNames.length > 0}
+          <div class="dd-note">
+            <i class="codicon codicon-warning"></i>
+            <span>{t('search.scopeFallbackNote', { names: focusFallbackNames.join(', ') })}</span>
+          </div>
+        {/if}
         <button class="dd-item" class:active={!branchFilterActive} onclick={clearBranchFilter}>
           <input type="checkbox" checked={!branchFilterActive} readonly />
           {t('search.allBranches')}
@@ -804,6 +841,28 @@
     border-color: var(--vscode-focusBorder, #007fd4);
     color: var(--vscode-focusBorder, #007fd4);
     background: color-mix(in srgb, var(--vscode-focusBorder, #007fd4) 15%, transparent);
+  }
+
+  /* Explains why a focused branch keeps its full history (no fork point). */
+  .dd-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 4px 10px 6px;
+    font-size: 11px;
+    color: var(--vscode-editorWarning-foreground, #cca700);
+    line-height: 1.35;
+  }
+
+  .dd-note .codicon {
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .scope-warning {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--vscode-editorWarning-foreground, #cca700);
   }
 
   .dd-row {

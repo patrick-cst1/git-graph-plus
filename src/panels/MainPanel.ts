@@ -1455,13 +1455,19 @@ export class MainPanel {
         }
         // --- Branch focus ---
         case 'branchFocusBase': {
-          // The commit a branch was created from (merge base with the default
-          // branch) so the webview can scope the dim/filter focus to the
-          // branch's own commits. Null when it cannot be determined.
-          const base = await this.gitService.focusBase(message.payload.branch);
+          // The commits the focused branches were created from (merge base with
+          // the default branch, or the branch's own reflog) so the webview can
+          // scope the dim/filter focus to each branch's own commits. A null
+          // entry means "no fork point" — that branch keeps its full history.
+          // Capped: focus scoping beyond a handful of branches has no value.
+          const branches = message.payload.branches.slice(0, 25);
+          const bases: Record<string, string | null> = {};
+          for (const branch of branches) {
+            bases[branch] = await this.gitService.focusBase(branch);
+          }
           this.post({
             type: 'branchFocusBaseData',
-            payload: { branch: message.payload.branch, base, requestId: message.payload.requestId },
+            payload: { branches, bases, requestId: message.payload.requestId },
           });
           break;
         }
