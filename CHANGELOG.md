@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.43
+
+- **Context-menu submenus no longer flicker near the window edge**: a submenu
+  that flips to the left (because there is no room on the right) stays open
+  while the pointer crosses from the parent item into it, and is clamped into
+  the viewport instead of being pushed off-screen. Previously the pointer
+  leaving the parent item for even an instant closed the submenu, so a
+  left-flipped submenu could not be clicked.
+- **The context menu now closes when you click elsewhere**: clicking anywhere
+  in the webview already dismissed it, but clicking outside the webview (the
+  editor, the sidebar, another panel) left it open until Esc — the webview now
+  also closes it when it loses focus.
+
 ## 0.7.42
 
 - **Branch menus now open the push/pull dialogs**: right-clicking a branch in
