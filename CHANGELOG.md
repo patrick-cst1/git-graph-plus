@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.26
+
+- Editor blame: the current line shows the commit that last changed it, the
+  status bar shows the same commit (click to open it in Commit Timeline), and
+  hovering a line shows full commit details with a link into the panel. All
+  three share one cached blame engine and can be toggled in Settings
+  (`gitGraphPlus.currentLineBlame.*`, `gitGraphPlus.statusBarBlame.enabled`,
+  `gitGraphPlus.hovers.enabled`).
+
 ## 0.7.25
 
 - Reflog entries can now be recovered directly from the context menu:
