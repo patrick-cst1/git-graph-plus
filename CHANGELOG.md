@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.42
+
+- **Branch menus now open the push/pull dialogs**: right-clicking a branch in
+  the graph (or the Branches / Remotes sidebar) opens the same Push / Pull
+  dialog as the toolbar — force / tags options for push, rebase / stash options
+  for pull — targeting the branch you clicked instead of running straight away.
+  A non-current branch that is strictly behind is still fast-forwarded without a
+  checkout (the options are moot for a fast-forward); a diverged branch is
+  checked out for the pull (the dialog says so) and you are offered a switch
+  back afterwards.
+- **Reflog ref filter is searchable**: the Ref dropdown in the Reflog tab now
+  has a filter box (auto-focused on open) and a scrollable list, so repos with
+  many branches are easy to navigate.
+
 ## 0.7.41
 
 - Naming fix: the remote branch right-click action is now **Pull into '<local>'**
