@@ -1470,7 +1470,17 @@
   {#if commitStore.loading && !isSearchActive}
     <div class="loading"><span class="spinner"></span> {t('graph.loading')}</div>
   {:else if commitStore.notGitRepo}
-    <div class="empty">{t('graph.notGitRepo')}</div>
+    <div class="empty empty-initial">
+      <p class="empty-initial-text">{t('graph.notGitRepo')}</p>
+      <button
+        class="empty-initial-btn"
+        use:tooltip={t('graph.initRepoHint')}
+        onclick={() => vscode.postMessage({ type: 'initRepo' })}
+      >
+        <i class="codicon codicon-repo-create"></i>
+        {t('graph.initRepo')}
+      </button>
+    </div>
   {:else if displayCommits.length === 0}
     {#if isSearchActive}
       <div class="empty">{t('graph.noResults')}</div>

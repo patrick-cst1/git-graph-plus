@@ -118,6 +118,8 @@ export const ko: Record<string, string> = {
   'graph.noCommits': 'Commit을 찾을 수 없습니다',
   'graph.emptyRepo': '이 레포지토리에는 아직 commit이 없습니다.',
   'graph.createInitialCommit': '초기 commit 만들기',
+  'graph.initRepo': '레포지토리 초기화',
+  'graph.initRepoHint': '여기에 Git 레포지토리를 만들고 빈 초기 커밋을 생성합니다',
   'graph.notGitRepo': 'Git 레포지토리가 아닙니다.',
   'graph.noResults': '일치하는 commit이 없습니다',
   'graph.loadMore': 'Commit 더 불러오기',

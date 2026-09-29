@@ -1805,6 +1805,23 @@ export class MainPanel {
           await this.refreshAll();
           break;
         }
+        case 'initRepo': {
+          // "This folder is not a git repository" empty state → create the
+          // repository and an empty initial commit in one step.
+          const initResult = await this.gitService.initRepo();
+          this.post({
+            type: 'operationComplete',
+            payload: { operation: 'initRepo', success: true, committed: initResult.committed },
+          });
+          if (initResult.error) {
+            // The repo was created but the commit failed (e.g. user.name /
+            // user.email are not configured). Surface git's message; the graph
+            // then shows the empty-repo state with its retry button.
+            this.post({ type: 'error', payload: { message: initResult.error, source: 'initRepo' } });
+          }
+          await this.refreshAll();
+          break;
+        }
         case 'abortOperation': {
           await this.gitService.abortOperation();
           this.post({ type: 'operationComplete', payload: { operation: 'abort', success: true } });

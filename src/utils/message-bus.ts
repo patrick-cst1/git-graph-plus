@@ -125,6 +125,7 @@ export type WebviewMessage =
   | { type: 'stageFile'; payload: { file: string } }
   | { type: 'abortOperation' }
   | { type: 'createInitialCommit' }
+  | { type: 'initRepo' }
   | { type: 'openConflictFile'; payload: { file: string } }
   | { type: 'setUpstream'; payload: { branch: string; remote: string; remoteBranch: string; createRemote?: boolean } }
   | { type: 'openWorktreeInNewWindow'; payload: { path: string } }

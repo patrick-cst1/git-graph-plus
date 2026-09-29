@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.32
+
+- Opening a folder that is not a git repository now offers an **Initialise
+  Repository** button in the graph: it runs `git init` and creates an empty
+  initial commit in one step. (An initialised but empty repository already had
+  its own **Create initial commit** button.)
+
 ## 0.7.31
 
 - Compare mode now has **Ahead / Behind / All** tabs next to the file view:

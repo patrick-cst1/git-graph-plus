@@ -118,6 +118,8 @@ export const zh: Record<string, string> = {
   'graph.noCommits': '未找到提交',
   'graph.emptyRepo': '此仓库还没有提交。',
   'graph.createInitialCommit': '创建初始提交',
+  'graph.initRepo': '初始化仓库',
+  'graph.initRepoHint': '在此处创建 Git 仓库，并生成一个空的初始提交',
   'graph.notGitRepo': '此文件夹不是 Git 仓库。',
   'graph.noResults': '无匹配提交',
   'graph.loadMore': '加载更多提交',

@@ -1219,6 +1219,31 @@ describe('GitService', () => {
       expect(calls).toEqual([['commit', '--allow-empty', '-m', 'Initial commit']]);
     });
 
+    it('initRepo initialises the repo and creates the empty initial commit', async () => {
+      const calls: string[][] = [];
+      mockExec(service, async (args) => { calls.push(args); return ''; });
+
+      const result = await service.initRepo();
+
+      expect(calls).toEqual([
+        ['init', '--quiet'],
+        ['commit', '--allow-empty', '-m', 'Initial commit'],
+      ]);
+      expect(result).toEqual({ committed: true });
+    });
+
+    it('initRepo reports a failed initial commit without throwing', async () => {
+      mockExec(service, async (args) => {
+        if (args[0] === 'commit') throw new Error('Please tell me who you are');
+        return '';
+      });
+
+      const result = await service.initRepo();
+
+      expect(result.committed).toBe(false);
+      expect(result.error).toContain('Please tell me who you are');
+    });
+
     it('isUnbornHead is true when rev-parse HEAD fails', async () => {
       mockExec(service, async () => { throw new Error('fatal: Needed a single revision'); });
       expect(await service.isUnbornHead()).toBe(true);

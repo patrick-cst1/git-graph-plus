@@ -318,6 +318,19 @@ describe('CommitGraph empty repository', () => {
     expect(container.querySelector('.empty-initial-btn')).toBeFalsy();
     expect(container.querySelector('.empty')?.textContent).toContain('No commits found');
   });
+
+  it('offers to initialise the repository when the folder is not a git repo', async () => {
+    commitStore.notGitRepo = true;
+    const { container } = render(CommitGraph, {});
+    await tick();
+    const btn = container.querySelector<HTMLButtonElement>('.empty-initial-btn');
+    expect(btn).not.toBeNull();
+    expect(btn!.textContent).toContain('Initialise Repository');
+    await fireEvent.click(btn!);
+    expect(
+      globalThis.__postedMessages.some(m => (m.data as { type?: string }).type === 'initRepo')
+    ).toBe(true);
+  });
 });
 
 describe('CommitGraph graph line style', () => {

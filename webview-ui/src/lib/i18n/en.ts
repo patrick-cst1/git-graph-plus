@@ -118,6 +118,8 @@ export const en: Record<string, string> = {
   'graph.noCommits': 'No commits found',
   'graph.emptyRepo': 'This repository has no commits yet.',
   'graph.createInitialCommit': 'Create initial commit',
+  'graph.initRepo': 'Initialise Repository',
+  'graph.initRepoHint': 'Create a git repository here with an empty initial commit',
   'graph.notGitRepo': 'This folder is not a Git repository.',
   'graph.noResults': 'No matching commits',
   'graph.loadMore': 'Load more commits',

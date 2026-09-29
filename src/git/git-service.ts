@@ -2053,6 +2053,24 @@ export class GitService {
   }
 
   /**
+   * Initialise a git repository in the service's root — used when the folder
+   * is not a repository yet. Unless `initialCommit` is false, an empty initial
+   * commit is created straight away so the graph has something to show. A
+   * failed commit (typically a missing user.name/user.email) is returned as an
+   * error rather than thrown, because the repository itself was created.
+   */
+  async initRepo(options?: { initialCommit?: boolean }): Promise<{ committed: boolean; error?: string }> {
+    await this.exec(['init', '--quiet']);
+    if (options?.initialCommit === false) return { committed: false };
+    try {
+      await this.createInitialCommit();
+      return { committed: true };
+    } catch (err) {
+      return { committed: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
+  /**
    * True when HEAD is unborn — a freshly initialised repository with no commits
    * yet. Callers only use this after a successful `log`, so a false positive
    * from a non-git directory cannot reach the UI.

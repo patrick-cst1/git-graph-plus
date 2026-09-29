@@ -51,6 +51,7 @@ const H = vi.hoisted(() => {
     isUnbornHead: vi.fn(async () => false),
     skipOperation: vi.fn(async () => {}),
     createInitialCommit: vi.fn(async () => {}),
+    initRepo: vi.fn(async () => ({ committed: true })),
   };
   return {
     git,
@@ -510,6 +511,19 @@ describe('MainPanel operation skip and initial commit', () => {
     await dispatch({ type: 'createInitialCommit' });
     expect(H.git.createInitialCommit).toHaveBeenCalled();
     expect(postedOfType('operationComplete').some(m => m.payload?.operation === 'createInitialCommit')).toBe(true);
+  });
+
+  it('routes initRepo, reports completion and surfaces a failed initial commit', async () => {
+    await dispatch({ type: 'initRepo' });
+    expect(H.git.initRepo).toHaveBeenCalled();
+    expect(postedOfType('operationComplete').some(m => m.payload?.operation === 'initRepo')).toBe(true);
+    expect(postedOfType('error').length).toBe(0);
+
+    H.git.initRepo.mockResolvedValueOnce({ committed: false, error: 'Please tell me who you are' });
+    await dispatch({ type: 'initRepo' });
+    const error = postedOfType('error').at(-1)!;
+    expect(error.payload!.message).toBe('Please tell me who you are');
+    expect(error.payload!.source).toBe('initRepo');
   });
 });
 
