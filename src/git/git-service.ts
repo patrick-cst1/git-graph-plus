@@ -1091,11 +1091,16 @@ export class GitService {
    * The commit a branch was created from — used by branch focus to scope the
    * graph to the branch's own commits. Resolved in this order:
    *
-   * 1. The branch's own reflog: its oldest entry is where the branch was
-   *    created ("branch: Created from …"). This also works once the branch has
-   *    been merged and the merge base has collapsed to the branch tip.
-   * 2. The merge base with the repository's default branch — the true fork
+   * 1. The merge base with the repository's default branch — the true fork
    *    point for a branch that has commits of its own.
+   * 2. The branch's own reflog: its oldest entry is where the branch was
+   *    created ("branch: Created from …"). This keeps a fully merged branch
+   *    scoped, where the merge base has collapsed to the branch tip.
+   *
+   * The merge base wins because a reflog creation point outlives the history
+   * it describes: after a rebase it is still an ancestor of the tip, but the
+   * commits the default branch landed since then would be counted as the
+   * branch's own.
    *
    * Null when neither yields a usable point (no default branch, unrelated
    * histories, no reflog, the branch IS the default branch, or the branch has
@@ -1110,14 +1115,14 @@ export class GitService {
       const tip = (await this.exec(['rev-parse', '--verify', '--quiet', `${branch}^{commit}`], { silent: true })).trim();
       if (!tip) return null;
 
-      const createdFrom = await this.reflogCreationPoint(branch);
-      if (createdFrom && createdFrom !== tip && (await this.isAncestorOf(createdFrom, tip))) {
-        return createdFrom;
-      }
-
       if (defaultBranch) {
         const base = await this.getMergeBase(defaultBranch, branch);
         if (base && base !== tip) return base;
+      }
+
+      const createdFrom = await this.reflogCreationPoint(branch);
+      if (createdFrom && createdFrom !== tip && (await this.isAncestorOf(createdFrom, tip))) {
+        return createdFrom;
       }
       return null;
     } catch {
