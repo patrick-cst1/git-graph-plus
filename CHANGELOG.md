@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.44
+
+- **Branch focus no longer counts the default branch's commits as your own**:
+  the fork point is resolved from the merge base with the default branch, and
+  the branch's reflog is only consulted when that merge base is the branch tip
+  (a fully merged branch). A branch that was rebased keeps its expired reflog
+  creation point as an ancestor, so its old fork point won everything the
+  default branch landed afterwards — visible in Filter mode as extra commits
+  and in Dim mode as commits that stayed lit.
+
 ## 0.7.43
 
 - **Context-menu submenus no longer flicker near the window edge**: a submenu
