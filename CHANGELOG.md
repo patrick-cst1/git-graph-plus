@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.45
+
+- **Branch focus stops drawing the dangling lane tail**: with the Focus scope
+  set to **Own commits**, the graph ended with a short lane stub under the
+  boundary commit — the half row that normally means "history continues below".
+  A focused range has no commits below its boundary, so the lanes now end on
+  their last commit. Dim mode and the unfiltered graph keep the tail, which
+  there still marks a page that has more commits to load.
+
 ## 0.7.44
 
 - **Branch focus no longer counts the default branch's commits as your own**:
