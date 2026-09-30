@@ -428,3 +428,44 @@ describe('buildFullGraph branch color override', () => {
     expect(full.paths.some(p => p.colorOverride === '#00FF00')).toBe(true);
   });
 });
+
+describe('buildFullGraph bottom tail', () => {
+  // A scoped range: the bottom commit's parent is deliberately outside the log.
+  const scoped = [
+    makeCommit('c2', ['c1']),
+    makeCommit('c1', ['c0']),
+  ];
+  const lastRowY = (scoped.length - 0.5);
+
+  it('keeps the trailing half row by default (more commits below)', () => {
+    const full = buildFullGraph(scoped);
+    expect(full.paths.some(p => p.points.some(pt => pt.y > lastRowY))).toBe(true);
+  });
+
+  it('trims the trailing half row when the log is a scoped range', () => {
+    const full = buildFullGraph(scoped, [], undefined, { trimBottomTail: true });
+    for (const path of full.paths) {
+      for (const pt of path.points) {
+        expect(pt.y).toBeLessThanOrEqual(lastRowY);
+      }
+    }
+    // The rail still connects its dots: the trim only drops the tail.
+    const rail = full.paths[0];
+    expect(rail.points[rail.points.length - 1].y).toBe(lastRowY);
+  });
+
+  it('trims the stub a merge on the last row would spawn', () => {
+    // The bottom commit is a merge whose parents are outside the range: one
+    // parent leaves the rail open, the other spawns a lane on the last row.
+    const mergeAtBottom = [
+      makeCommit('c', ['m']),
+      makeCommit('m', ['p', 'q']),
+    ];
+    const full = buildFullGraph(mergeAtBottom, [], undefined, { trimBottomTail: true });
+    for (const path of full.paths) {
+      for (const pt of path.points) {
+        expect(pt.y).toBeLessThanOrEqual(mergeAtBottom.length - 0.5);
+      }
+    }
+  });
+});

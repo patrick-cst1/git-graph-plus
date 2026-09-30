@@ -42,6 +42,16 @@ export interface FullGraphData {
   commitLeftMargin: number[];
 }
 
+export interface FullGraphOptions {
+  /**
+   * Stop lanes on the last loaded commit instead of letting them trail the
+   * half row that normally signals "the history continues below". Set for a
+   * deliberately scoped log (branch focus): there a lane leaving the loaded set
+   * is the range's boundary commit, not a commit that can be loaded below.
+   */
+  trimBottomTail?: boolean;
+}
+
 
 // ── PathHelper (exact SourceGit port) ──
 class PathHelper {
@@ -269,6 +279,7 @@ export function buildFullGraph(
   commits: Commit[],
   branches: BranchInfo[] = [],
   resolveBranchColor?: (refName: string) => string | undefined,
+  options: FullGraphOptions = {},
 ): FullGraphData {
   const UNIT_W = 12;
   const HALF_W = 6;
@@ -443,6 +454,33 @@ export function buildFullGraph(
     const endY = (commits.length - 0.5) * UNIT_H;
     if (path.path.points.length === 1 && Math.abs(path.path.points[0].y - endY) < 0.0001) continue;
     path.end(path.lastX, endY + HALF_H, HALF_H);
+  }
+
+  // Scoped range (branch focus): the trailing half row and the half-row stubs a
+  // merge on the last row spawns both sit below the last loaded commit, but
+  // there is nothing to load there — the lane simply left the range.
+  if (options.trimBottomTail) {
+    const lastY = (commits.length - 0.5) * UNIT_H;
+    for (const path of result.paths) {
+      const points = path.points;
+      // The webview dedupes before drawing; do the same first so a duplicated
+      // end point cannot be stranded below the clamp.
+      for (let i = points.length - 1; i > 0; i--) {
+        if (points[i].x === points[i - 1].x && points[i].y === points[i - 1].y) points.splice(i, 1);
+      }
+      while (points.length > 1 && points[points.length - 1].y > lastY) {
+        const last = points[points.length - 1];
+        if (points[points.length - 2].x === last.x) {
+          // A vertical tail is also the run that reaches the last commit's dot,
+          // so clamp it onto the last row instead of dropping it.
+          points[points.length - 1] = { x: last.x, y: lastY };
+          break;
+        }
+        // A stub pointing off to a lane spawned on the last row: nothing above
+        // the row belongs to it, so drop it.
+        points.pop();
+      }
+    }
   }
 
   return result;

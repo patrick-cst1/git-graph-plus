@@ -62,6 +62,10 @@ export class MainPanel {
   private lastLogBranches: BranchInfo[] = [];
   private lastLogHasMore = false;
   private lastLogIsEmptyRepo = false;
+  // Whether the cached log came from a branch-focus query, so the Simplify
+  // rebuild keeps trimming the trailing lane tails that range boundaries would
+  // otherwise draw.
+  private lastLogFocusUnique = false;
   private searchSequence = 0;
   // Two independent guards: selecting a commit (loads its file list) and
   // selecting a file (loads that file's diff) are different axes, so a file
@@ -522,9 +526,12 @@ export class MainPanel {
           this.lastLogBranches = logBranches;
           this.lastLogHasMore = hasMore;
           this.lastLogIsEmptyRepo = isEmptyRepo;
+          this.lastLogFocusUnique = message.payload.focusUnique === true;
           const displayCommits = this.simplifyEnabled ? simplifyCommits(commits) : commits;
           const branchColorResolver = this.makeBranchColorResolver();
-          const fullGraph = displayCommits.length > 0 ? buildFullGraph(displayCommits, logBranches, branchColorResolver) : { paths: [], links: [], dots: [], commitLeftMargin: [] };
+          const fullGraph = displayCommits.length > 0
+            ? buildFullGraph(displayCommits, logBranches, branchColorResolver, { trimBottomTail: this.lastLogFocusUnique })
+            : { paths: [], links: [], dots: [], commitLeftMargin: [] };
           this.post({
             type: 'logData',
             payload: {
@@ -555,7 +562,9 @@ export class MainPanel {
           if (!rawCommits) break; // nothing loaded yet; the next getLog applies it
           const displayCommits = this.simplifyEnabled ? simplifyCommits(rawCommits) : rawCommits;
           const simplifyColorResolver = this.makeBranchColorResolver();
-          const simplifyGraph = displayCommits.length > 0 ? buildFullGraph(displayCommits, this.lastLogBranches, simplifyColorResolver) : { paths: [], links: [], dots: [], commitLeftMargin: [] };
+          const simplifyGraph = displayCommits.length > 0
+            ? buildFullGraph(displayCommits, this.lastLogBranches, simplifyColorResolver, { trimBottomTail: this.lastLogFocusUnique })
+            : { paths: [], links: [], dots: [], commitLeftMargin: [] };
           this.post({
             type: 'logData',
             payload: {
@@ -2133,6 +2142,9 @@ export class MainPanel {
         this.lastLogBranches = branches;
         this.lastLogHasMore = hasMore;
         this.lastLogIsEmptyRepo = isEmptyRepo;
+        // A refresh logs the unscoped view (no focusUnique), so the bottom tail
+        // goes back to meaning "more commits below".
+        this.lastLogFocusUnique = false;
         const displayCommits = this.simplifyEnabled ? simplifyCommits(allCommits) : allCommits;
         // Handle empty repository (0 commits) gracefully. The webview renders from
         // paths/links/dots; the legacy GraphNode[] is unused so we don't build it.
