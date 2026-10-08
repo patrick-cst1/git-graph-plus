@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.46
+
+- **Compare previews every conflicting file at once**: the conflicting-files
+  popover in Compare mode now has a **Show all** button. Instead of clicking
+  each file to open its merge preview one at a time, one click opens every
+  conflicting file's merge preview in a single document, each under its own
+  `=== Merge preview: <file> ===` heading. Per-file previews still work as
+  before.
+
 ## 0.7.45
 
 - **Branch focus stops drawing the dangling lane tail**: with the Focus scope
