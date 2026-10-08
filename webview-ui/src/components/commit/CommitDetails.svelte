@@ -877,6 +877,14 @@
                 });
               }
             }}
+            onShowAll={() => {
+              if (uiStore.compareRef1 && uiStore.compareRef2) {
+                vscode.postMessage({
+                  type: 'previewAllConflicts',
+                  payload: { files: [...conflictResult!.files], ours: uiStore.compareRef1, theirs: uiStore.compareRef2, oursLabel: compareLabel1, theirsLabel: compareLabel2 },
+                });
+              }
+            }}
           >
             <span class="compare-conflict-state has-conflict">
               <i class="codicon codicon-warning"></i> {t('compare.conflictFiles', { count: String(conflictResult.files.length) })}

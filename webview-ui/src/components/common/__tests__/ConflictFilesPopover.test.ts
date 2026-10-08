@@ -11,7 +11,7 @@ const trigger = createRawSnippet(() => ({
   render: () => `<span class="trigger-label">Merge conflict in 2 file(s)</span>`,
 }));
 
-function renderPopover(props: { files: string[]; truncated?: boolean }) {
+function renderPopover(props: { files: string[]; truncated?: boolean; onShowAll?: () => void }) {
   return render(ConflictFilesPopover, { props: { ...props, children: trigger } });
 }
 
@@ -112,5 +112,26 @@ describe('ConflictFilesPopover', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('shows a Show all button when onShowAll is provided', async () => {
+    const onShowAll = vi.fn();
+    const { container } = renderPopover({ files: ['src/a.ts', 'src/b.ts'], onShowAll });
+    await fireEvent.mouseEnter(container.querySelector('.conflict-files-trigger')!);
+
+    const button = container.querySelector<HTMLButtonElement>('.conflict-files-popover__show-all');
+    expect(button).not.toBeNull();
+    expect(button!.textContent).toContain('Show all');
+
+    await fireEvent.click(button!);
+    expect(onShowAll).toHaveBeenCalledTimes(1);
+    // Triggering the bulk action closes the popover, like a per-file click.
+    expect(container.querySelector('.conflict-files-popover')).toBeNull();
+  });
+
+  it('omits the Show all button when onShowAll is not provided', async () => {
+    const { container } = renderPopover({ files: ['src/a.ts'] });
+    await fireEvent.mouseEnter(container.querySelector('.conflict-files-trigger')!);
+    expect(container.querySelector('.conflict-files-popover__show-all')).toBeNull();
   });
 });

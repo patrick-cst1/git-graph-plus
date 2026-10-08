@@ -36,6 +36,7 @@ export type WebviewMessage =
   | { type: 'checkDirty'; payload?: { requestId?: string } }
   | { type: 'predictConflicts'; payload: { ours: string; theirs: string; mode?: 'rebase'; mergeBase?: string; requestId?: string } }
   | { type: 'previewConflict'; payload: { file: string; ours: string; theirs: string; oursLabel?: string; theirsLabel?: string } }
+  | { type: 'previewAllConflicts'; payload: { files: string[]; ours: string; theirs: string; oursLabel?: string; theirsLabel?: string } }
   | { type: 'checkout'; payload: { ref: string; pullAfter?: boolean; force?: boolean; merge?: boolean; stash?: boolean; stashUntracked?: boolean; clean?: boolean } }
   | { type: 'getCommitDiff'; payload: { hash: string } }
   | { type: 'getFileDiff'; payload: { hash: string; file: string } }

@@ -426,6 +426,18 @@ describe('MainPanel message routing', () => {
     expect(arg.content).toContain('merged text');
   });
 
+  it('previewAllConflicts opens every conflicting file in one document', async () => {
+    const vscode = await import('vscode');
+    H.git.getConflictPreview.mockImplementation(async (_ours: string, _theirs: string, file: string) => `merged ${file}`);
+    await dispatch({ type: 'previewAllConflicts', payload: { files: ['a.sql', 'b.sql'], ours: 'r1', theirs: 'r2', oursLabel: 'feature/x', theirsLabel: 'origin/Environment/SIT' } });
+    expect(H.git.getConflictPreview).toHaveBeenCalledTimes(2);
+    const arg = (vscode.workspace.openTextDocument as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0] as { content: string };
+    expect(arg.content).toContain('a.sql');
+    expect(arg.content).toContain('b.sql');
+    expect(arg.content).toContain('merged a.sql');
+    expect(arg.content).toContain('merged b.sql');
+  });
+
   it('merge calls GitService.merge then refreshes the whole view', async () => {
     await dispatch({ type: 'merge', payload: { branch: 'feature' } });
     expect(H.git.merge).toHaveBeenCalledWith('feature', expect.anything());

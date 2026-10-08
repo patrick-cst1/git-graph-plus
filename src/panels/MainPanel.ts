@@ -731,6 +731,31 @@ export class MainPanel {
           await vscode.window.showTextDocument(doc, { preview: true });
           break;
         }
+        case 'previewAllConflicts': {
+          const oursLabel = message.payload.oursLabel ?? message.payload.ours.substring(0, 7);
+          const theirsLabel = message.payload.theirsLabel ?? message.payload.theirs.substring(0, 7);
+          const files = message.payload.files;
+          const previews = await Promise.all(files.map(file =>
+            this.gitService.getConflictPreview(
+              message.payload.ours,
+              message.payload.theirs,
+              file,
+              { ours: oursLabel, base: 'merge-base', theirs: theirsLabel },
+            ).then(content => ({ file, content })),
+          ));
+          const available = previews.filter((p): p is { file: string; content: string } => p.content !== null);
+          if (available.length === 0) {
+            vscode.window.showWarningMessage(vscode.l10n.t('mergePreviewUnavailable', files.join(', ')));
+            break;
+          }
+          const header = `=== Merge previews: ${available.length} file(s) ===\nours: ${oursLabel}   theirs: ${theirsLabel}   base: merge-base`;
+          const body = available
+            .map(p => `=== Merge preview: ${p.file} ===\n\n${p.content}`)
+            .join('\n\n\n');
+          const doc = await vscode.workspace.openTextDocument({ content: `${header}\n\n${body}` });
+          await vscode.window.showTextDocument(doc, { preview: true });
+          break;
+        }
         case 'checkout': {
           // "Stash and checkout" sets the local changes aside and leaves them
           // in the stash — it must not pop them back, which would carry them

@@ -8,10 +8,12 @@
     truncated?: boolean;
     // When set, each file becomes clickable (e.g. open a merge preview of it).
     onFileClick?: (file: string) => void;
+    // When set, a "Show all" action opens every file's preview at once.
+    onShowAll?: () => void;
     children: Snippet;
   }
 
-  let { files, truncated = false, onFileClick, children }: Props = $props();
+  let { files, truncated = false, onFileClick, onShowAll, children }: Props = $props();
 
   let open = $state(false);
   let triggerEl: HTMLSpanElement | undefined = $state();
@@ -87,7 +89,13 @@
     onmouseleave={scheduleClose}
   >
     <div class="conflict-files-popover__header">
-      {t('conflict.predictedFilesTitle')}
+      <span>{t('conflict.predictedFilesTitle')}</span>
+      {#if onShowAll}
+        <button
+          class="conflict-files-popover__show-all"
+          onclick={() => { onShowAll(); open = false; }}
+        >{t('conflict.showAll')}</button>
+      {/if}
     </div>
     <ul class="conflict-files-popover__list">
       {#each files as file (file)}
@@ -133,6 +141,10 @@
   }
 
   .conflict-files-popover__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
     font-size: 0.85em;
     font-weight: 600;
     letter-spacing: 0.02em;
@@ -141,6 +153,26 @@
     margin-bottom: 6px;
     padding-bottom: 5px;
     border-bottom: 1px solid var(--border-color);
+  }
+
+  .conflict-files-popover__show-all {
+    flex: none;
+    padding: 1px 6px;
+    background: none;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--vscode-textLink-foreground, var(--text-primary));
+    font: inherit;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    cursor: pointer;
+  }
+
+  .conflict-files-popover__show-all:hover,
+  .conflict-files-popover__show-all:focus {
+    border-color: var(--vscode-textLink-foreground, var(--border-color));
+    text-decoration: underline;
   }
 
   .conflict-files-popover__list {

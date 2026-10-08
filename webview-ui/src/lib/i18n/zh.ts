@@ -605,6 +605,7 @@ export const zh: Record<string, string> = {
   'conflict.markResolved': '标记为已解决 (git add)',
   'conflict.openFile': '打开文件',
   'conflict.predictedFilesTitle': '预计冲突文件',
+  'conflict.showAll': '显示全部',
   'rebase.pause.message': 'Rebase 已暂停 - 请进行更改，然后继续',
   'rebase.pause.continue': '继续',
   'rebase.pause.abort': '中止',

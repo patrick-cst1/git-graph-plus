@@ -605,6 +605,7 @@ export const en: Record<string, string> = {
   'conflict.markResolved': 'Mark as resolved (git add)',
   'conflict.openFile': 'Open file',
   'conflict.predictedFilesTitle': 'Conflicting files',
+  'conflict.showAll': 'Show all',
   'rebase.pause.message': 'Rebase paused - make your changes, then continue',
   'rebase.pause.continue': 'Continue',
   'rebase.pause.abort': 'Abort',

@@ -605,6 +605,7 @@ export const ko: Record<string, string> = {
   'conflict.markResolved': '해결됨으로 표시 (git add)',
   'conflict.openFile': '파일 열기',
   'conflict.predictedFilesTitle': '충돌 예상 파일',
+  'conflict.showAll': '모두 보기',
   'rebase.pause.message': 'Rebase 일시 정지 - 변경 사항을 적용하고 계속하세요',
   'rebase.pause.continue': '계속',
   'rebase.pause.abort': '중단',

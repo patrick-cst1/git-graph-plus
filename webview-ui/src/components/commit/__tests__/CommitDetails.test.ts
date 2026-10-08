@@ -443,6 +443,36 @@ describe('CommitDetails — compare scope (2-dot/3-dot) & conflict check', () =>
     expect(preview?.payload?.theirsLabel).toBe('bbbbbbb');
   });
 
+  it('posts previewAllConflicts when Show all is clicked', async () => {
+    const { container } = renderCompare();
+    await waitFor(() => {
+      expect(postedOfType('predictConflicts').length).toBe(1);
+    });
+    const req = postedOfType('predictConflicts')[0];
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      type: 'conflictPrediction',
+      payload: { hasConflict: true, files: ['a.sql', 'b.sql'], requestId: req.payload?.requestId },
+    }}));
+    await waitFor(() => {
+      expect(container.querySelector('.compare-conflict-state.has-conflict')).not.toBeNull();
+    });
+
+    await fireEvent.mouseEnter(container.querySelector('.conflict-files-trigger')!);
+    await waitFor(() => {
+      expect(document.body.querySelector('.conflict-files-popover__show-all')).not.toBeNull();
+    });
+    await fireEvent.click(document.body.querySelector('.conflict-files-popover__show-all')!);
+
+    const bulk = postedOfType('previewAllConflicts').pop();
+    expect(bulk?.payload?.files).toEqual(['a.sql', 'b.sql']);
+    expect(bulk?.payload?.ours).toBe(REF1);
+    expect(bulk?.payload?.theirs).toBe(REF2);
+    expect(bulk?.payload?.oursLabel).toBe('aaaaaaa');
+    expect(bulk?.payload?.theirsLabel).toBe('bbbbbbb');
+    // The per-file preview must not be triggered by the bulk action.
+    expect(postedOfType('previewConflict').length).toBe(0);
+  });
+
   it('opens per-file diffs against the merge base in 3-dot scope', async () => {
     const { container, findByText } = renderCompare();
     window.dispatchEvent(new MessageEvent('message', { data: {
